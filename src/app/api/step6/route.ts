@@ -18,7 +18,11 @@ export async function POST(request: Request) {
     const prompt = step6Prompt(explicaciones, problemas);
     const result = await callTool<{ relaciones: Relacion[] }>(prompt);
 
-    return NextResponse.json({ relaciones: result.relaciones });
+    const relaciones = (result.relaciones ?? []).filter(
+      (r) => r.explicacionAId?.trim() && r.explicacionBId?.trim() && r.explicacionAId !== r.explicacionBId
+    );
+
+    return NextResponse.json({ relaciones });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

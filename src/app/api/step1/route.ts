@@ -18,13 +18,17 @@ export async function POST(request: Request) {
       descartadas: Descartada[];
     }>(prompt);
 
-    const explicaciones: Explicacion[] = result.candidatas.map((c, i) => ({
-      id: `E${i + 1}`,
-      cita: c.cita,
-      resumen: c.resumen,
-    }));
+    const explicaciones: Explicacion[] = result.candidatas
+      .filter((c) => c.cita?.trim() && c.resumen?.trim())
+      .map((c, i) => ({
+        id: `E${i + 1}`,
+        cita: c.cita.trim(),
+        resumen: c.resumen.trim(),
+      }));
 
-    return NextResponse.json({ explicaciones, descartadas: result.descartadas });
+    const descartadas = (result.descartadas ?? []).filter((d) => d.cita?.trim() && d.motivo?.trim());
+
+    return NextResponse.json({ explicaciones, descartadas });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

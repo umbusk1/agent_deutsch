@@ -154,16 +154,19 @@ razones), con su motivo de descarte.
     properties: {
       variantesAceptadas: {
         type: "array",
+        minItems: 1,
+        maxItems: 3,
         items: {
           type: "object",
           properties: {
-            descripcion: { type: "string", description: "Descripción de la variante (sustituto genuino)" },
+            descripcion: { type: "string", description: "Descripción de la variante (sustituto genuino), no vacía" },
           },
           required: ["descripcion"],
         },
       },
       variantesDescartadas: {
         type: "array",
+        maxItems: 5,
         items: {
           type: "object",
           properties: {
@@ -291,6 +294,7 @@ Para las explicaciones con veredicto "FacilDeVariar" no generes problemas nuevos
             explicacionId: { type: "string" },
             problemasNuevos: {
               type: "array",
+              maxItems: 2,
               items: {
                 type: "object",
                 properties: {

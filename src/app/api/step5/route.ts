@@ -29,11 +29,12 @@ export async function POST(request: Request) {
     const problemasNuevos: ProblemaNuevo[] = [];
     for (const r of result.resultados) {
       for (const p of r.problemasNuevos) {
+        if (!p.enunciado?.trim()) continue;
         contador += 1;
         problemasNuevos.push({
           id: `N${contador}`,
           explicacionId: r.explicacionId,
-          enunciado: p.enunciado,
+          enunciado: p.enunciado.trim(),
           reconocidoPorAutor: p.reconocidoPorAutor,
           justificacion: p.justificacion,
         });
