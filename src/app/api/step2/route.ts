@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step2Prompt } from "@/lib/prompts";
+import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       problemas: { explicacionId: string; enunciado: string }[];
     }>(prompt);
 
-    const problemas: Problema[] = (result.problemas ?? [])
+    const problemas: Problema[] = asArray(result.problemas)
       .filter((p) => p.explicacionId?.trim() && p.enunciado?.trim())
       .map((p, i) => ({
         id: `P${i + 1}`,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step3Prompt } from "@/lib/prompts";
+import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
 
     for (const item of porExplicacion) {
       if (!item) continue;
-      for (const v of item.result.variantesAceptadas ?? []) {
+      for (const v of asArray(item.result.variantesAceptadas)) {
         if (!v.descripcion?.trim()) continue;
         contador += 1;
         variantesAceptadas.push({
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
           descripcion: v.descripcion.trim(),
         });
       }
-      for (const v of item.result.variantesDescartadas ?? []) {
+      for (const v of asArray(item.result.variantesDescartadas)) {
         if (!v.descripcion?.trim()) continue;
         variantesDescartadas.push({
           explicacionId: item.explicacion.id,

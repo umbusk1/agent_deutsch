@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step1Prompt } from "@/lib/prompts";
+import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Descartada } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
       descartadas: Descartada[];
     }>(prompt);
 
-    const explicaciones: Explicacion[] = (result.candidatas ?? [])
+    const explicaciones: Explicacion[] = asArray(result.candidatas)
       .filter((c) => c.cita?.trim() && c.resumen?.trim())
       .map((c, i) => ({
         id: `E${i + 1}`,
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
         resumen: c.resumen.trim(),
       }));
 
-    const descartadas = (result.descartadas ?? []).filter((d) => d.cita?.trim() && d.motivo?.trim());
+    const descartadas = asArray(result.descartadas).filter((d) => d.cita?.trim() && d.motivo?.trim());
 
     return NextResponse.json({ explicaciones, descartadas });
   } catch (error) {

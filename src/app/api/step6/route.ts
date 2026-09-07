@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step6Prompt } from "@/lib/prompts";
+import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema, Relacion } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     const prompt = step6Prompt(explicaciones, problemas);
     const result = await callTool<{ relaciones: Relacion[] }>(prompt);
 
-    const relaciones = (result.relaciones ?? []).filter(
+    const relaciones = asArray(result.relaciones).filter(
       (r) => r.explicacionAId?.trim() && r.explicacionBId?.trim() && r.explicacionAId !== r.explicacionBId
     );
 

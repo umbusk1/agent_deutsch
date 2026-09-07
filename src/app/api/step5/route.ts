@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step5Prompt } from "@/lib/prompts";
+import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -36,8 +37,8 @@ export async function POST(request: Request) {
 
     let contador = 0;
     const problemasNuevos: ProblemaNuevo[] = [];
-    for (const r of result.resultados ?? []) {
-      for (const p of r.problemasNuevos ?? []) {
+    for (const r of asArray(result.resultados)) {
+      for (const p of asArray(r.problemasNuevos)) {
         if (!p.enunciado?.trim()) continue;
         contador += 1;
         problemasNuevos.push({

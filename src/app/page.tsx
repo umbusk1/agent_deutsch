@@ -573,23 +573,11 @@ export default function Home() {
                 }
               />
               <div className="item-label" style={{ marginTop: "0.4rem" }}>
-                <span>¿El autor la reconoce?</span>
+                <span>
+                  ¿El autor la reconoce? <span className="badge">{n.reconocidoPorAutor === "Si" ? "Sí" : "No"}</span>
+                </span>
               </div>
-              <select
-                value={n.reconocidoPorAutor}
-                onChange={(ev) =>
-                  setProblemasNuevos((prev) =>
-                    prev.map((x) =>
-                      x.id === n.id
-                        ? { ...x, reconocidoPorAutor: ev.target.value as "Si" | "No" }
-                        : x
-                    )
-                  )
-                }
-              >
-                <option value="Si">Sí</option>
-                <option value="No">No</option>
-              </select>
+              <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{n.justificacion}</div>
             </div>
           ))}
           <div className="actions">

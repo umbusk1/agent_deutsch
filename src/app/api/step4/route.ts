@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step4Prompt } from "@/lib/prompts";
+import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema, VarianteAceptada, Veredicto } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
         const problema = problemas.find((p) => p.explicacionId === explicacion.id);
         if (!problema) return null;
 
-        const variantes = (variantesAceptadas ?? []).filter((v) => v.explicacionId === explicacion.id);
+        const variantes = asArray(variantesAceptadas).filter((v) => v.explicacionId === explicacion.id);
         if (variantes.length === 0) {
           return {
             explicacionId: explicacion.id,
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
 
         return {
           explicacionId: explicacion.id,
-          resultadosVariantes: result.resultadosVariantes ?? [],
+          resultadosVariantes: asArray(result.resultadosVariantes),
           veredicto: result.veredicto,
           justificacion: result.justificacion,
         };
