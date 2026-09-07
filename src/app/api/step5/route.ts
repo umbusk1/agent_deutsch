@@ -13,8 +13,17 @@ export async function POST(request: Request) {
       problemas: Problema[];
       veredictos: Veredicto[];
     };
-    if (!texto || !explicaciones?.length || !veredictos?.length) {
-      return NextResponse.json({ error: "Faltan datos para este paso." }, { status: 400 });
+    if (!texto) {
+      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+    }
+    if (!explicaciones?.length) {
+      return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
+    }
+    if (!veredictos?.length) {
+      return NextResponse.json(
+        { error: "No hay veredictos (ninguna explicación llegó con variantes evaluadas)." },
+        { status: 400 }
+      );
     }
 
     const prompt = step5Prompt(texto, explicaciones, problemas, veredictos);

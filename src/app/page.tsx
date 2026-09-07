@@ -105,8 +105,11 @@ export default function Home() {
         texto,
         explicaciones: activas,
       });
-      setExplicaciones(activas);
-      setProblemas(data.problemas);
+      const conProblema = activas.filter((e) =>
+        data.problemas.some((p) => p.explicacionId === e.id)
+      );
+      setExplicaciones(conProblema);
+      setProblemas(data.problemas.filter((p) => conProblema.some((e) => e.id === p.explicacionId)));
       setProblemasExcluidos(new Set());
       setStep(2);
     } catch (e) {

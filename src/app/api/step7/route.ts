@@ -17,8 +17,11 @@ export async function POST(request: Request) {
         relaciones: Relacion[];
       };
 
-    if (!texto || !explicaciones?.length) {
-      return NextResponse.json({ error: "Faltan datos para este paso." }, { status: 400 });
+    if (!texto) {
+      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+    }
+    if (!explicaciones?.length) {
+      return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
     }
 
     const problemasNuevosPorExplicacion = new Map<

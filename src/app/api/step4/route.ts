@@ -13,8 +13,20 @@ export async function POST(request: Request) {
       problemas: Problema[];
       variantesAceptadas: VarianteAceptada[];
     };
-    if (!texto || !explicaciones?.length || !problemas?.length) {
-      return NextResponse.json({ error: "Faltan datos para este paso." }, { status: 400 });
+    if (!texto) {
+      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+    }
+    if (!explicaciones?.length) {
+      return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
+    }
+    if (!problemas?.length) {
+      return NextResponse.json({ error: "No hay problemas activos." }, { status: 400 });
+    }
+    if (!variantesAceptadas?.length) {
+      return NextResponse.json(
+        { error: "No quedaron variantes para evaluar (todas fueron descartadas o excluidas)." },
+        { status: 400 }
+      );
     }
 
     const porExplicacion = await Promise.all(

@@ -11,8 +11,14 @@ export async function POST(request: Request) {
       texto: string;
       explicaciones: Explicacion[];
     };
-    if (!texto || !explicaciones?.length) {
-      return NextResponse.json({ error: "Faltan datos para este paso." }, { status: 400 });
+    if (!texto) {
+      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+    }
+    if (!explicaciones?.length) {
+      return NextResponse.json(
+        { error: "No hay explicaciones activas (¿se excluyeron todas en el paso anterior?)." },
+        { status: 400 }
+      );
     }
 
     const prompt = step2Prompt(texto, explicaciones);
