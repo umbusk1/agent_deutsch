@@ -1,0 +1,51 @@
+import { NextResponse } from "next/server";
+import { callTool } from "@/lib/anthropic";
+import { step5Prompt } from "@/lib/prompts";
+import type { Explicacion, Problema, Veredicto, ProblemaNuevo } from "@/lib/types";
+
+export const maxDuration = 60;
+
+export async function POST(request: Request) {
+  try {
+    const { texto, explicaciones, problemas, veredictos } = (await request.json()) as {
+      texto: string;
+      explicaciones: Explicacion[];
+      problemas: Problema[];
+      veredictos: Veredicto[];
+    };
+    if (!texto || !explicaciones?.length || !veredictos?.length) {
+      return NextResponse.json({ error: "Faltan datos para este paso." }, { status: 400 });
+    }
+
+    const prompt = step5Prompt(texto, explicaciones, problemas, veredictos);
+    const result = await callTool<{
+      resultados: {
+        explicacionId: string;
+        problemasNuevos: { enunciado: string; reconocidoPorAutor: "Si" | "No"; justificacion: string }[];
+      }[];
+    }>(prompt);
+
+    let contador = 0;
+    const problemasNuevos: ProblemaNuevo[] = [];
+    for (const r of result.resultados) {
+      for (const p of r.problemasNuevos) {
+        contador += 1;
+        problemasNuevos.push({
+          id: `N${contador}`,
+          explicacionId: r.explicacionId,
+          enunciado: p.enunciado,
+          reconocidoPorAutor: p.reconocidoPorAutor,
+          justificacion: p.justificacion,
+        });
+      }
+    }
+
+    return NextResponse.json({ problemasNuevos });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Error desconocido." },
+      { status: 500 }
+    );
+  }
+}
