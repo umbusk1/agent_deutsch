@@ -35,6 +35,7 @@ function download(filename: string, content: string) {
 
 export default function Home() {
   const [step, setStep] = useState(0);
+  const [furthestStep, setFurthestStep] = useState(0);
   const [texto, setTexto] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +89,16 @@ export default function Home() {
       setExplicaciones(data.explicaciones);
       setDescartadas(data.descartadas);
       setExcluidas(new Set());
+      // Invalida todo lo que dependía de una corrida anterior.
+      setProblemas([]);
+      setVariantesAceptadas([]);
+      setVariantesDescartadas([]);
+      setVeredictos([]);
+      setProblemasNuevos([]);
+      setRelaciones([]);
+      setReporte("");
       setStep(1);
+      setFurthestStep(1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -111,7 +121,14 @@ export default function Home() {
       setExplicaciones(conProblema);
       setProblemas(data.problemas.filter((p) => conProblema.some((e) => e.id === p.explicacionId)));
       setProblemasExcluidos(new Set());
+      setVariantesAceptadas([]);
+      setVariantesDescartadas([]);
+      setVeredictos([]);
+      setProblemasNuevos([]);
+      setRelaciones([]);
+      setReporte("");
       setStep(2);
+      setFurthestStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -134,7 +151,12 @@ export default function Home() {
       setVariantesAceptadas(data.variantesAceptadas);
       setVariantesDescartadas(data.variantesDescartadas);
       setVariantesExcluidas(new Set());
+      setVeredictos([]);
+      setProblemasNuevos([]);
+      setRelaciones([]);
+      setReporte("");
       setStep(3);
+      setFurthestStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -155,7 +177,11 @@ export default function Home() {
       });
       setVariantesAceptadas(activas);
       setVeredictos(data.veredictos);
+      setProblemasNuevos([]);
+      setRelaciones([]);
+      setReporte("");
       setStep(4);
+      setFurthestStep(4);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -175,7 +201,10 @@ export default function Home() {
       });
       setProblemasNuevos(data.problemasNuevos);
       setProblemasNuevosExcluidos(new Set());
+      setRelaciones([]);
+      setReporte("");
       setStep(5);
+      setFurthestStep(5);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -194,7 +223,9 @@ export default function Home() {
       });
       setProblemasNuevos(activos);
       setRelaciones(data.relaciones);
+      setReporte("");
       setStep(6);
+      setFurthestStep(6);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -216,6 +247,7 @@ export default function Home() {
       });
       setReporte(data.reporte);
       setStep(7);
+      setFurthestStep(7);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -266,12 +298,13 @@ export default function Home() {
 
       <div className="steps-indicator">
         {STEP_LABELS.map((label, i) => {
-          const clickable = i < step && !loading;
+          const reached = i <= furthestStep;
+          const clickable = reached && i !== step && !loading;
           return (
             <button
               key={label}
               type="button"
-              className={`step-dot ${i === step ? "active" : i < step ? "done" : ""}`}
+              className={`step-dot ${i === step ? "active" : reached ? "done" : ""}`}
               disabled={!clickable}
               onClick={() => {
                 setError(null);

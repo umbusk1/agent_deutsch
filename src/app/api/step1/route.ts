@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       descartadas: Descartada[];
     }>(prompt);
 
-    const explicaciones: Explicacion[] = result.candidatas
+    const explicaciones: Explicacion[] = (result.candidatas ?? [])
       .filter((c) => c.cita?.trim() && c.resumen?.trim())
       .map((c, i) => ({
         id: `E${i + 1}`,

@@ -36,8 +36,8 @@ export async function POST(request: Request) {
 
     let contador = 0;
     const problemasNuevos: ProblemaNuevo[] = [];
-    for (const r of result.resultados) {
-      for (const p of r.problemasNuevos) {
+    for (const r of result.resultados ?? []) {
+      for (const p of r.problemasNuevos ?? []) {
         if (!p.enunciado?.trim()) continue;
         contador += 1;
         problemasNuevos.push({

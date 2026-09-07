@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
         return {
           explicacionId: explicacion.id,
-          resultadosVariantes: result.resultadosVariantes,
+          resultadosVariantes: result.resultadosVariantes ?? [],
           veredicto: result.veredicto,
           justificacion: result.justificacion,
         };

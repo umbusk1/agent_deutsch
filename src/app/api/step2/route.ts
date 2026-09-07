@@ -26,11 +26,13 @@ export async function POST(request: Request) {
       problemas: { explicacionId: string; enunciado: string }[];
     }>(prompt);
 
-    const problemas: Problema[] = result.problemas.map((p, i) => ({
-      id: `P${i + 1}`,
-      explicacionId: p.explicacionId,
-      enunciado: p.enunciado,
-    }));
+    const problemas: Problema[] = (result.problemas ?? [])
+      .filter((p) => p.explicacionId?.trim() && p.enunciado?.trim())
+      .map((p, i) => ({
+        id: `P${i + 1}`,
+        explicacionId: p.explicacionId,
+        enunciado: p.enunciado,
+      }));
 
     return NextResponse.json({ problemas });
   } catch (error) {
