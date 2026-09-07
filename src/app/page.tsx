@@ -44,6 +44,7 @@ export default function Home() {
   const [excluidas, setExcluidas] = useState<Set<string>>(new Set());
 
   const [problemas, setProblemas] = useState<Problema[]>([]);
+  const [problemasExcluidos, setProblemasExcluidos] = useState<Set<string>>(new Set());
 
   const [variantesAceptadas, setVariantesAceptadas] = useState<VarianteAceptada[]>([]);
   const [variantesDescartadas, setVariantesDescartadas] = useState<VarianteDescartada[]>([]);
@@ -106,6 +107,7 @@ export default function Home() {
       });
       setExplicaciones(activas);
       setProblemas(data.problemas);
+      setProblemasExcluidos(new Set());
       setStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
@@ -115,13 +117,17 @@ export default function Home() {
   }
 
   async function runStep3() {
+    const explicacionesActivas = explicaciones.filter((e) => !problemasExcluidos.has(e.id));
+    const problemasActivos = problemas.filter((p) => !problemasExcluidos.has(p.explicacionId));
     setLoading(true);
     setError(null);
     try {
       const data = await callApi<{
         variantesAceptadas: VarianteAceptada[];
         variantesDescartadas: VarianteDescartada[];
-      }>("/api/step3", { texto, explicaciones, problemas });
+      }>("/api/step3", { texto, explicaciones: explicacionesActivas, problemas: problemasActivos });
+      setExplicaciones(explicacionesActivas);
+      setProblemas(problemasActivos);
       setVariantesAceptadas(data.variantesAceptadas);
       setVariantesDescartadas(data.variantesDescartadas);
       setVariantesExcluidas(new Set());
@@ -335,23 +341,40 @@ export default function Home() {
       {step === 2 && (
         <div className="card">
           <h2>Problema que resuelve cada explicación</h2>
-          {problemas.map((p) => (
-            <div className="item" key={p.id}>
-              <div className="item-label">
-                <span className="badge">
-                  {p.id} · {p.explicacionId}
-                </span>
+          <p className="loading" style={{ marginBottom: "1rem" }}>
+            Poda la lista si quieres quedarte solo con el problema principal, o con unos pocos relevantes:
+            eliminar un problema también descarta su explicación del resto del análisis.
+          </p>
+          {problemas.map((p) => {
+            const e = explicaciones.find((x) => x.id === p.explicacionId);
+            return (
+              <div className="item" key={p.id} style={{ opacity: problemasExcluidos.has(p.explicacionId) ? 0.5 : 1 }}>
+                <div className="item-label">
+                  <span className="badge">
+                    {p.id} · {p.explicacionId}
+                  </span>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={problemasExcluidos.has(p.explicacionId)}
+                      onChange={() => toggleSet(problemasExcluidos, p.explicacionId, setProblemasExcluidos)}
+                    />
+                    Eliminar (descarta también la explicación)
+                  </label>
+                </div>
+                {e && <div className="quote">&ldquo;{e.resumen}&rdquo;</div>}
+                <textarea
+                  value={p.enunciado}
+                  disabled={problemasExcluidos.has(p.explicacionId)}
+                  onChange={(ev) =>
+                    setProblemas((prev) =>
+                      prev.map((x) => (x.id === p.id ? { ...x, enunciado: ev.target.value } : x))
+                    )
+                  }
+                />
               </div>
-              <textarea
-                value={p.enunciado}
-                onChange={(ev) =>
-                  setProblemas((prev) =>
-                    prev.map((x) => (x.id === p.id ? { ...x, enunciado: ev.target.value } : x))
-                  )
-                }
-              />
-            </div>
-          ))}
+            );
+          })}
           <div className="actions">
             <button className="primary" disabled={loading} onClick={runStep3}>
               {loading ? "Generando variantes..." : "Continuar"}
