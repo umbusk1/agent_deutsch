@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   Explicacion,
   Descartada,
@@ -49,6 +49,24 @@ export default function Home() {
   const [metaAutor, setMetaAutor] = useState("");
   const [metaMedio, setMetaMedio] = useState("");
   const [metaTitulo, setMetaTitulo] = useState("");
+
+  const [quota, setQuota] = useState<{
+    unlimited: boolean;
+    limit?: number;
+    remaining?: number;
+  } | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/usage")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.error) setQuota(data);
+      })
+      .catch(() => {
+        // Sin cuota visible, el límite real igual se aplica del lado del servidor.
+      });
+  }, []);
 
   const [explicaciones, setExplicaciones] = useState<Explicacion[]>([]);
   const [descartadas, setDescartadas] = useState<Descartada[]>([]);
@@ -109,6 +127,11 @@ export default function Home() {
       setReporte("");
       setStep(1);
       setFurthestStep(1);
+      setQuota((prev) =>
+        prev && !prev.unlimited && typeof prev.remaining === "number"
+          ? { ...prev, remaining: Math.max(0, prev.remaining - 1) }
+          : prev
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -325,6 +348,8 @@ export default function Home() {
     return lines.join("\n");
   }
 
+  const wordCount = texto.trim() ? texto.trim().split(/\s+/).length : 0;
+
   return (
     <div className="container">
       <div className="header">
@@ -417,11 +442,51 @@ export default function Home() {
               />
             </div>
           </div>
+          {quota && !quota.unlimited && (
+            <p className="loading" style={{ marginTop: "0.75rem" }}>
+              {quota.remaining === 0
+                ? `Ya usaste tus ${quota.limit} análisis de esta semana. El cupo se reinicia el próximo lunes.`
+                : `Te quedan ${quota.remaining} de ${quota.limit} análisis esta semana.`}
+            </p>
+          )}
           <div className="actions">
-            <button className="primary" disabled={loading || !texto.trim()} onClick={runStep1}>
-              {loading ? "Extrayendo..." : "Comenzar análisis"}
+            <button
+              className="primary"
+              disabled={loading || !texto.trim() || quota?.remaining === 0}
+              onClick={() => setShowConfirm(true)}
+            >
+              Comenzar análisis
             </button>
           </div>
+
+          {showConfirm && (
+            <div className="card" style={{ marginTop: "1rem", borderColor: "var(--accent)" }}>
+              <h3>Confirma antes de empezar</h3>
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "0.5rem" }}>
+                Tu texto tiene aproximadamente <strong>{wordCount}</strong> palabras. El análisis
+                funciona mejor con artículos de hasta ~3,000–4,000 palabras; con textos mucho más
+                largos puede tardar más y consumir más cuota de la API.
+              </p>
+              <p style={{ marginBottom: "1rem" }}>
+                {quota && !quota.unlimited
+                  ? `Te quedan ${quota.remaining} de ${quota.limit} análisis esta semana. Vas a usar uno con este texto — ¿es el que quieres analizar?`
+                  : "Vas a iniciar un análisis con este texto — ¿es el que quieres analizar?"}
+              </p>
+              <div className="actions">
+                <button onClick={() => setShowConfirm(false)}>Cancelar</button>
+                <button
+                  className="primary"
+                  disabled={loading}
+                  onClick={() => {
+                    setShowConfirm(false);
+                    runStep1();
+                  }}
+                >
+                  {loading ? "Extrayendo..." : "Confirmar y analizar"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

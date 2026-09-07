@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { timingSafeEqual } from "crypto";
+import { findUser } from "@/lib/users";
 
 function safeCompare(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -15,20 +16,28 @@ const UNAUTHORIZED = new NextResponse("Autenticación requerida.", {
 });
 
 export function proxy(request: NextRequest) {
-  const appPassword = process.env.APP_PASSWORD;
-  if (!appPassword) {
-    return new NextResponse("APP_PASSWORD no está configurada en el servidor.", { status: 500 });
-  }
-
   const authHeader = request.headers.get("authorization") ?? "";
   const [scheme, encoded] = authHeader.split(" ");
 
   if (scheme === "Basic" && encoded) {
     const decoded = Buffer.from(encoded, "base64").toString("utf-8");
     const separatorIndex = decoded.indexOf(":");
+    const username = separatorIndex >= 0 ? decoded.slice(0, separatorIndex) : decoded;
     const suppliedPassword = separatorIndex >= 0 ? decoded.slice(separatorIndex + 1) : "";
-    if (safeCompare(suppliedPassword, appPassword)) {
-      return NextResponse.next();
+
+    let user;
+    try {
+      user = findUser(username);
+    } catch {
+      return new NextResponse("APP_USERS no está configurada o es inválida en el servidor.", {
+        status: 500,
+      });
+    }
+
+    if (user && safeCompare(suppliedPassword, user.password)) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-au-user", user.username);
+      return NextResponse.next({ request: { headers: requestHeaders } });
     }
   }
 

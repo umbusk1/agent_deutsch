@@ -22,31 +22,63 @@ type ToolCallParams = {
   toolDescription: string;
   inputSchema: Anthropic.Tool["input_schema"];
   maxTokens?: number;
+  timeoutMs?: number;
 };
 
 export async function callTool<T>(params: ToolCallParams): Promise<T> {
-  const response = await getClient().messages.create({
-    model: MODEL,
-    max_tokens: params.maxTokens ?? 4096,
-    system: params.system,
-    messages: [{ role: "user", content: params.user }],
-    tools: [
+  let response;
+  try {
+    response = await getClient().messages.create(
       {
-        name: params.toolName,
-        description: params.toolDescription,
-        input_schema: params.inputSchema,
+        model: MODEL,
+        max_tokens: params.maxTokens ?? 4096,
+        system: params.system,
+        messages: [{ role: "user", content: params.user }],
+        tools: [
+          {
+            name: params.toolName,
+            description: params.toolDescription,
+            input_schema: params.inputSchema,
+          },
+        ],
+        tool_choice: { type: "tool", name: params.toolName },
       },
-    ],
-    tool_choice: { type: "tool", name: params.toolName },
-  });
+      { timeout: params.timeoutMs ?? 50_000 }
+    );
+  } catch (error) {
+    throw new Error(friendlyClaudeErrorMessage(error));
+  }
 
   const toolUse = response.content.find(
     (block) => block.type === "tool_use" && block.name === params.toolName
   );
 
   if (!toolUse || toolUse.type !== "tool_use") {
-    throw new Error("El modelo no devolvió una respuesta estructurada válida.");
+    throw new Error("Claude no devolvió una respuesta estructurada válida para este paso.");
   }
 
   return toolUse.input as T;
+}
+
+export function friendlyClaudeErrorMessage(error: unknown): string {
+  if (error instanceof Anthropic.APIConnectionTimeoutError) {
+    return "Se agotó el tiempo de espera al conectar con Claude. Intenta de nuevo.";
+  }
+  if (error instanceof Anthropic.APIConnectionError) {
+    return "Falla de conexión con Claude. Revisa tu conexión e intenta de nuevo en unos segundos.";
+  }
+  if (error instanceof Anthropic.RateLimitError) {
+    return "Se alcanzó el límite de solicitudes de la API de Claude. Espera un momento y reintenta.";
+  }
+  if (error instanceof Anthropic.AuthenticationError) {
+    return "La API key de Anthropic no es válida o no está configurada. Contacta al administrador de la app.";
+  }
+  if (error instanceof Anthropic.InternalServerError) {
+    return "El servicio de Claude está teniendo problemas internos. Intenta de nuevo en unos minutos.";
+  }
+  if (error instanceof Anthropic.APIError) {
+    return `Error de la API de Claude (${error.status ?? "desconocido"}): ${error.message}`;
+  }
+  if (error instanceof Error) return error.message;
+  return "Error desconocido al comunicarse con Claude.";
 }
