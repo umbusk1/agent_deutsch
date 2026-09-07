@@ -16,31 +16,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Faltan datos para este paso." }, { status: 400 });
     }
 
+    const porExplicacion = await Promise.all(
+      explicaciones.map(async (explicacion) => {
+        const problema = problemas.find((p) => p.explicacionId === explicacion.id);
+        if (!problema) return null;
+
+        const prompt = step3Prompt(texto, explicacion, problema);
+        const result = await callTool<{
+          variantesAceptadas: { descripcion: string }[];
+          variantesDescartadas: { descripcion: string; motivo: string }[];
+        }>(prompt);
+
+        return { explicacion, result };
+      })
+    );
+
     const variantesAceptadas: VarianteAceptada[] = [];
     const variantesDescartadas: VarianteDescartada[] = [];
     let contador = 0;
 
-    for (const explicacion of explicaciones) {
-      const problema = problemas.find((p) => p.explicacionId === explicacion.id);
-      if (!problema) continue;
-
-      const prompt = step3Prompt(texto, explicacion, problema);
-      const result = await callTool<{
-        variantesAceptadas: { descripcion: string }[];
-        variantesDescartadas: { descripcion: string; motivo: string }[];
-      }>(prompt);
-
-      for (const v of result.variantesAceptadas) {
+    for (const item of porExplicacion) {
+      if (!item) continue;
+      for (const v of item.result.variantesAceptadas) {
         contador += 1;
         variantesAceptadas.push({
           id: `V${contador}`,
-          explicacionId: explicacion.id,
+          explicacionId: item.explicacion.id,
           descripcion: v.descripcion,
         });
       }
-      for (const v of result.variantesDescartadas) {
+      for (const v of item.result.variantesDescartadas) {
         variantesDescartadas.push({
-          explicacionId: explicacion.id,
+          explicacionId: item.explicacion.id,
           descripcion: v.descripcion,
           motivo: v.motivo,
         });
