@@ -265,11 +265,23 @@ export default function Home() {
       </div>
 
       <div className="steps-indicator">
-        {STEP_LABELS.map((label, i) => (
-          <span key={label} className={`step-dot ${i === step ? "active" : i < step ? "done" : ""}`}>
-            {i}. {label}
-          </span>
-        ))}
+        {STEP_LABELS.map((label, i) => {
+          const clickable = i < step && !loading;
+          return (
+            <button
+              key={label}
+              type="button"
+              className={`step-dot ${i === step ? "active" : i < step ? "done" : ""}`}
+              disabled={!clickable}
+              onClick={() => {
+                setError(null);
+                setStep(i);
+              }}
+            >
+              {i}. {label}
+            </button>
+          );
+        })}
       </div>
 
       {error && <div className="error-banner">{error}</div>}

@@ -99,6 +99,12 @@ a {
 
 .step-dot.done {
   background: var(--card);
+  cursor: pointer;
+}
+
+.step-dot.done:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .card {
