@@ -23,6 +23,11 @@ const STEP_LABELS = [
   "Reporte",
 ];
 
+const ACCENT_MAP: Record<string, string> = {
+  á: "a", é: "e", í: "i", ó: "o", ú: "u", ü: "u", ñ: "n",
+  Á: "a", É: "e", Í: "i", Ó: "o", Ú: "u", Ü: "u", Ñ: "n",
+};
+
 function download(filename: string, content: string) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -39,6 +44,11 @@ export default function Home() {
   const [texto, setTexto] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [metaFecha, setMetaFecha] = useState("");
+  const [metaAutor, setMetaAutor] = useState("");
+  const [metaMedio, setMetaMedio] = useState("");
+  const [metaTitulo, setMetaTitulo] = useState("");
 
   const [explicaciones, setExplicaciones] = useState<Explicacion[]>([]);
   const [descartadas, setDescartadas] = useState<Descartada[]>([]);
@@ -255,6 +265,32 @@ export default function Home() {
     }
   }
 
+  function slugify(value: string): string {
+    return value
+      .split("")
+      .map((ch) => ACCENT_MAP[ch] ?? ch)
+      .join("")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+  }
+
+  function buildFilenameBase(): string {
+    const parts = [metaFecha, metaAutor, metaMedio, metaTitulo].map(slugify).filter(Boolean);
+    return parts.length > 0 ? parts.join("-") : "analisis";
+  }
+
+  function buildMetaHeader(): string {
+    const lines: string[] = [];
+    if (metaFecha.trim()) lines.push(`Fecha: ${metaFecha.trim()}`);
+    if (metaAutor.trim()) lines.push(`Autor: ${metaAutor.trim()}`);
+    if (metaMedio.trim()) lines.push(`Medio: ${metaMedio.trim()}`);
+    if (metaTitulo.trim()) lines.push(`Título: ${metaTitulo.trim()}`);
+    return lines.length > 0 ? lines.join("\n") + "\n\n---\n\n" : "";
+  }
+
   function buildTripletas(): string {
     const lines: string[] = ["# Glosario", ""];
     for (const e of explicaciones) lines.push(`${e.id}: ${e.resumen}`);
@@ -328,6 +364,59 @@ export default function Home() {
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Pega aquí el artículo o ensayo..."
           />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "0.6rem",
+              marginTop: "1rem",
+            }}
+          >
+            <div>
+              <div className="item-label">
+                <span>Fecha del artículo (opcional)</span>
+              </div>
+              <input
+                type="text"
+                value={metaFecha}
+                onChange={(e) => setMetaFecha(e.target.value)}
+                placeholder="ej. 2026-09-06"
+              />
+            </div>
+            <div>
+              <div className="item-label">
+                <span>Apellido del autor (opcional)</span>
+              </div>
+              <input
+                type="text"
+                value={metaAutor}
+                onChange={(e) => setMetaAutor(e.target.value)}
+                placeholder="ej. García"
+              />
+            </div>
+            <div>
+              <div className="item-label">
+                <span>Medio (opcional)</span>
+              </div>
+              <input
+                type="text"
+                value={metaMedio}
+                onChange={(e) => setMetaMedio(e.target.value)}
+                placeholder="ej. El País"
+              />
+            </div>
+            <div>
+              <div className="item-label">
+                <span>Título corto (opcional)</span>
+              </div>
+              <input
+                type="text"
+                value={metaTitulo}
+                onChange={(e) => setMetaTitulo(e.target.value)}
+                placeholder="ej. crisis-migratoria"
+              />
+            </div>
+          </div>
           <div className="actions">
             <button className="primary" disabled={loading || !texto.trim()} onClick={runStep1}>
               {loading ? "Extrayendo..." : "Comenzar análisis"}
@@ -638,10 +727,15 @@ export default function Home() {
           <div className="report-preview">{reporte}</div>
           <div className="actions">
             <button onClick={() => window.location.reload()}>Analizar otro texto</button>
-            <button onClick={() => download("tripletas.txt", buildTripletas())}>
+            <button
+              onClick={() => download(`tripletas-${buildFilenameBase()}.txt`, buildMetaHeader() + buildTripletas())}
+            >
               Descargar tripletas.txt
             </button>
-            <button className="primary" onClick={() => download("reporte.md", reporte)}>
+            <button
+              className="primary"
+              onClick={() => download(`reporte-${buildFilenameBase()}.md`, buildMetaHeader() + reporte)}
+            >
               Descargar reporte.md
             </button>
           </div>
