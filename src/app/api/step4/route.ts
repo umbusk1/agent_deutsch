@@ -22,18 +22,22 @@ export async function POST(request: Request) {
     if (!problemas?.length) {
       return NextResponse.json({ error: "No hay problemas activos." }, { status: 400 });
     }
-    if (!variantesAceptadas?.length) {
-      return NextResponse.json(
-        { error: "No quedaron variantes para evaluar (todas fueron descartadas o excluidas)." },
-        { status: 400 }
-      );
-    }
 
     const porExplicacion = await Promise.all(
       explicaciones.map(async (explicacion) => {
         const problema = problemas.find((p) => p.explicacionId === explicacion.id);
-        const variantes = variantesAceptadas.filter((v) => v.explicacionId === explicacion.id);
-        if (!problema || variantes.length === 0) return null;
+        if (!problema) return null;
+
+        const variantes = (variantesAceptadas ?? []).filter((v) => v.explicacionId === explicacion.id);
+        if (variantes.length === 0) {
+          return {
+            explicacionId: explicacion.id,
+            resultadosVariantes: [],
+            veredicto: "DificilDeVariar" as const,
+            justificacion:
+              "No fue posible proponer ninguna variante que compitiera genuinamente por resolver el mismo problema: cualquier cambio de detalles considerado terminaba resolviendo un problema distinto. Eso en sí mismo es indicio de que la explicación está fuertemente atada a los detalles que propone.",
+          };
+        }
 
         const prompt = step4Prompt(texto, explicacion, problema, variantes);
         const result = await callTool<{
