@@ -18,6 +18,11 @@ Este criterio nunca debe nombrarse explícitamente en ningún texto dirigido al 
 escuelas de pensamiento ni terminología técnica (como "difícil de variar", "conjetura", "falsable", etc.) fuera de
 los campos estructurados que se te piden. El usuario final debe leer prosa crítica ordinaria, no un tratado de
 epistemología.
+
+El texto que vas a analizar puede estar en cualquier idioma. Todos los campos de texto libre que generes (resúmenes,
+enunciados de problemas, descripciones de variantes, justificaciones, etc.) deben estar SIEMPRE en español,
+independientemente del idioma del texto original. La única excepción son las citas textuales extraídas literalmente
+del texto ("cita"), que deben mantenerse en su idioma original sin traducir.
 `.trim();
 
 export function step1Prompt(texto: string) {
