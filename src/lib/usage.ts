@@ -6,7 +6,13 @@ let redis: Redis | null = null;
 
 function getRedis(): Redis {
   if (!redis) {
-    redis = Redis.fromEnv();
+    const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.UPSTASH_REDIS_REST_KV_REST_API_URL;
+    const token =
+      process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
+    if (!url || !token) {
+      throw new Error("No se encontraron las credenciales REST de Upstash Redis en las variables de entorno.");
+    }
+    redis = new Redis({ url, token });
   }
   return redis;
 }

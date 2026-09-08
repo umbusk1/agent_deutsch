@@ -16,9 +16,11 @@ Copia `.env.local.example` a `.env.local` y complétalo:
 ```
 ANTHROPIC_API_KEY=       # tu API key de Anthropic (configura un límite de gasto en la consola)
 APP_USERS=               # JSON con la lista de usuarios, ver formato abajo
-UPSTASH_REDIS_REST_URL=  # provistas automáticamente al conectar Upstash Redis desde el Marketplace de Vercel
+UPSTASH_REDIS_REST_URL=  # URL y token REST de Upstash (ver nota abajo sobre el nombre exacto)
 UPSTASH_REDIS_REST_TOKEN=
 ```
+
+**Nota sobre los nombres de Upstash:** la integración de Redis desde el Marketplace de Vercel no siempre crea variables llamadas exactamente `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` — a veces las prefija con el nombre que le diste al store (ej. `UPSTASH_REDIS_REST_KV_REST_API_URL` / `UPSTASH_REDIS_REST_KV_REST_API_TOKEN`). Revisa cuáles aparecen realmente en Settings → Environment Variables de tu proyecto. El código (`src/lib/usage.ts`) acepta ambas variantes automáticamente — usa siempre el par `*_REST_API_URL` / `*_REST_API_TOKEN` (lectura y escritura), **no** el que dice `READ_ONLY_TOKEN`, y **no** las que terminan en `_URL` a secas o `_REDIS_URL` (esas son para conexión directa por TCP, no para la API REST que usa este proyecto).
 
 `APP_USERS` es un array JSON en una sola línea:
 
@@ -45,7 +47,7 @@ Abre http://localhost:3000 — el navegador pedirá usuario/contraseña (usa cua
 ## Desplegar en Vercel
 
 1. Importa el repositorio `agent_deutsch` en Vercel.
-2. En la pestaña **Storage** del proyecto, agrega una integración de Redis (Upstash) desde el Marketplace — esto define automáticamente `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN`.
+2. En la pestaña **Storage** del proyecto, agrega una integración de Redis (Upstash) desde el Marketplace — esto define automáticamente las variables REST (ver nota arriba sobre el nombre exacto que puede tomar).
 3. Define `ANTHROPIC_API_KEY` y `APP_USERS` como variables de entorno del proyecto.
 4. Despliega. Cada una de las 7 rutas de `/api/step*` ya declara `maxDuration` para evitar cortes por tiempo límite; si tu plan de Vercel permite un máximo distinto, ajústalo en cada `route.ts`.
 
