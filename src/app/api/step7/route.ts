@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step7Prompt } from "@/lib/prompts";
-import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Relacion } from "@/lib/types";
+import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Relacion, PasajePersuasivo } from "@/lib/types";
 
 export const maxDuration = 90;
 
 export async function POST(request: Request) {
   try {
-    const { texto, explicaciones, problemas, veredictos, problemasNuevos, relaciones } =
+    const { texto, explicaciones, problemas, veredictos, problemasNuevos, relaciones, pasajesPersuasivos } =
       (await request.json()) as {
         texto: string;
         explicaciones: Explicacion[];
@@ -15,6 +15,7 @@ export async function POST(request: Request) {
         veredictos: Veredicto[];
         problemasNuevos: ProblemaNuevo[];
         relaciones: Relacion[];
+        pasajesPersuasivos: PasajePersuasivo[];
       };
 
     if (!texto) {
@@ -34,13 +35,16 @@ export async function POST(request: Request) {
       problemasNuevosPorExplicacion.set(pn.explicacionId, lista);
     }
 
+    const pasajesAntiRacionales = (pasajesPersuasivos ?? []).filter((p) => p.mecanismo === "AntiRacional");
+
     const prompt = step7Prompt(
       texto,
       explicaciones,
       problemas,
       veredictos,
       problemasNuevosPorExplicacion,
-      relaciones ?? []
+      relaciones ?? [],
+      pasajesAntiRacionales
     );
     const result = await callTool<{ reporte: string }>(prompt);
 

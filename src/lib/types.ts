@@ -55,3 +55,11 @@ export type Relacion = {
   tipo: "compite_con" | "complementa";
   justificacion: string;
 };
+
+export type PasajePersuasivo = {
+  id: string;
+  cita: string;
+  mecanismo: "Racional" | "AntiRacional";
+  tecnicas: string[];
+  justificacion: string;
+};

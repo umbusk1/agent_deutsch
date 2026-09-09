@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { Explicacion, Problema, VarianteAceptada, Veredicto, Relacion } from "./types";
+import type { Explicacion, Problema, VarianteAceptada, Veredicto, Relacion, PasajePersuasivo } from "./types";
 
 type Schema = Anthropic.Tool["input_schema"];
 
@@ -78,6 +78,98 @@ Sé exhaustivo pero no inventes explicaciones que el texto no contiene.
     user,
     toolName: "reportar_extraccion",
     toolDescription: "Reporta las explicaciones candidatas y las afirmaciones descartadas.",
+    inputSchema,
+  };
+}
+
+export function step1BPrompt(texto: string) {
+  const system = `
+Vas a hacer una segunda lectura completa del mismo texto de opinión, con un criterio distinto al de la
+extracción de explicaciones. No te bases en ninguna lista de explicaciones ni en ningún veredicto de otro
+paso — parte del texto crudo, de cero.
+
+TU TAREA
+
+Identifica pasajes que le piden al lector dejar de cuestionar una afirmación, por cualquier vía: apelación a
+lealtad/traición, urgencia que no da tiempo a pensar, autoridad que no admite pregunta, tabú, o vergüenza
+anticipada por dudar. Estas cinco son ejemplos representativos, no una lista cerrada: cualquier mecanismo que
+cumpla la misma función —desactivar el escrutinio crítico en vez de invitarlo— cuenta.
+
+Evalúa TODO el texto sin excepción, incluyendo pasajes que en otro análisis se descartarían por ser narración,
+descripción o juicio normativo. En este punto del proceso no existe todavía ningún veredicto de "difícil de
+variar" sobre ninguna explicación — no lo asumas, no lo esperes, y no uses su ausencia o presencia como atajo
+para decidir nada aquí.
+
+EL TEST OPERATIVO (tres pasos, aplícalo a cada pasaje candidato)
+
+1. Aísla el pasaje.
+2. Despójalo de la carga de lealtad/urgencia/tabú/autoridad, y quédate solo con la afirmación desnuda que hace.
+3. Evalúa: ¿un lector crítico seguiría considerando esa afirmación desnuda por sus propios méritos? Si sí, el
+   envoltorio era decoración — mecanismo racional, aunque el tono sea apasionado. Si no —si sin el envoltorio
+   la afirmación se cae— el envoltorio era el argumento real: mecanismo anti-racional.
+
+SALVAGUARDA DE NEUTRALIDAD (aplícala siempre, sin excepción)
+
+Lenguaje vívido, indignación moral, metáfora, o apelación al miedo proporcionada al riesgo real, NO son
+automáticamente anti-racionales. Solo cuenta cuando, al quitar el envoltorio, el argumento se cae — es decir,
+cuando el envoltorio reemplaza al argumento en vez de acompañarlo. Sin esta distinción, el criterio se vuelve
+un detector de "cosas dichas con pasión", lo cual sería un sesgo, no un hallazgo.
+
+GRANULARIDAD
+
+Cada pasaje es la unidad de análisis, no el texto completo. Un artículo puede tener nueve movimientos honestos
+y uno solo que falle este test — repórtalos por separado. No estás atado a citas cortas: usa la unidad natural
+(frase o párrafo) que haga falta para poder despojar el envoltorio con sentido.
+
+QUÉ REGISTRAR POR CADA PASAJE
+
+Registra solo los pasajes que despliegan alguna de estas vías de presión (no registres pasajes neutros que no
+apelan a ninguna). Para cada uno:
+- cita: el fragmento exacto del texto, en su idioma original, sin traducir.
+- mecanismo: "Racional" o "AntiRacional" (binario, sin tercer estado — si el caso es ambiguo, resuélvelo con
+  matiz en el texto libre de las técnicas, no inventando una categoría intermedia).
+- tecnicas: una entrada por cada técnica de presión detectada en ese pasaje, en español (ej. "apelación a
+  lealtad/traición", "urgencia que no da margen para pensar"). Si un mismo pasaje combina más de una vía,
+  regístralas todas — no elijas una sola como dominante.
+- justificacion: en español, por qué la afirmación desnuda se sostiene o se cae al quitarle el envoltorio.
+
+Si tras leer todo el texto ningún pasaje resulta en mecanismo AntiRacional, igual puedes reportar los pasajes
+con mecanismo Racional que hayas identificado (retórica apasionada que resistió el test); simplemente no forces
+ningún AntiRacional que no encuentres.
+`.trim();
+
+  const user = `Texto a analizar:\n\n${texto}`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      pasajes: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            cita: { type: "string", description: "Fragmento textual citado del artículo, en su idioma original" },
+            mecanismo: { type: "string", enum: ["Racional", "AntiRacional"] },
+            tecnicas: {
+              type: "array",
+              minItems: 1,
+              items: { type: "string" },
+              description: "Una o más técnicas de presión detectadas en el pasaje, en español",
+            },
+            justificacion: { type: "string" },
+          },
+          required: ["cita", "mecanismo", "tecnicas", "justificacion"],
+        },
+      },
+    },
+    required: ["pasajes"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_persuasion",
+    toolDescription: "Reporta los pasajes que apelan a lealtad, urgencia, autoridad, tabú o vergüenza, y si ese envoltorio reemplaza o acompaña al argumento.",
     inputSchema,
   };
 }
@@ -379,7 +471,8 @@ export function step7Prompt(
   problemas: Problema[],
   veredictos: Veredicto[],
   problemasNuevosPorExplicacion: Map<string, { enunciado: string; reconocidoPorAutor: string }[]>,
-  relaciones: Relacion[]
+  relaciones: Relacion[],
+  pasajesAntiRacionales: PasajePersuasivo[]
 ) {
   const system = `
 ${CRITERIO_CENTRAL}
@@ -399,6 +492,16 @@ la calidad argumentativa del texto. El reporte debe:
 - Cerrar con una valoración general breve de la calidad explicativa del texto.
 
 No incluyas los datos crudos (IDs, listas estructuradas) en el reporte: tradúcelos a prosa legible.
+
+Además de las explicaciones y sus veredictos, vas a recibir una lista separada de pasajes marcados como
+AntiRacional: pasajes que le piden al lector dejar de cuestionar una afirmación (por lealtad, urgencia,
+autoridad, tabú o vergüenza anticipada) y donde, al quitarles ese envoltorio, el argumento se cae. Descríbelos
+en prosa crítica común, en el mismo tono que el resto del reporte. Nunca uses las palabras "meme", "racional"
+ni "anti-racional", y nunca menciones a Deutsch. En vez de eso, describe lo que el pasaje le hace al lector: qué
+le pide, por qué vía, y por qué ese envoltorio reemplaza al argumento en vez de acompañarlo — por ejemplo: "este
+pasaje le pide al lector aceptar la conclusión sin dejarle margen para dudar, apelando a la lealtad hacia X y
+presentando cualquier duda como una forma de traición — un envoltorio que, quitado, deja la afirmación central
+sin apoyo propio." Si la lista viene vacía, no fuerces una sección sobre esto: sáltala en silencio.
 `.trim();
 
   const user = `Texto original:\n\n${texto}\n\nDatos del análisis (uso interno, tradúcelos a prosa):\n${JSON.stringify(
@@ -412,6 +515,11 @@ No incluyas los datos crudos (IDs, listas estructuradas) en el reporte: tradúce
         problemasNuevos: problemasNuevosPorExplicacion.get(e.id) ?? [],
       })),
       relaciones,
+      pasajesAntiRacionales: pasajesAntiRacionales.map((p) => ({
+        cita: p.cita,
+        tecnicas: p.tecnicas,
+        justificacion: p.justificacion,
+      })),
     },
     null,
     2

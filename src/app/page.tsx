@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import type {
@@ -10,11 +10,13 @@ import type {
   Veredicto,
   ProblemaNuevo,
   Relacion,
+  PasajePersuasivo,
 } from "@/lib/types";
 
 const STEP_LABELS = [
   "Texto",
   "Extracción",
+  "Persuasión",
   "Problemas",
   "Variantes",
   "Veredictos",
@@ -72,6 +74,9 @@ export default function Home() {
   const [descartadas, setDescartadas] = useState<Descartada[]>([]);
   const [excluidas, setExcluidas] = useState<Set<string>>(new Set());
 
+  const [pasajesPersuasivos, setPasajesPersuasivos] = useState<PasajePersuasivo[]>([]);
+  const [pasajesExcluidos, setPasajesExcluidos] = useState<Set<string>>(new Set());
+
   const [problemas, setProblemas] = useState<Problema[]>([]);
   const [problemasExcluidos, setProblemasExcluidos] = useState<Set<string>>(new Set());
 
@@ -118,6 +123,8 @@ export default function Home() {
       setDescartadas(data.descartadas);
       setExcluidas(new Set());
       // Invalida todo lo que dependía de una corrida anterior.
+      setPasajesPersuasivos([]);
+      setPasajesExcluidos(new Set());
       setProblemas([]);
       setVariantesAceptadas([]);
       setVariantesDescartadas([]);
@@ -132,6 +139,23 @@ export default function Home() {
           ? { ...prev, remaining: Math.max(0, prev.remaining - 1) }
           : prev
       );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runStep1B() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await callApi<{ pasajesPersuasivos: PasajePersuasivo[] }>("/api/step1b", { texto });
+      setPasajesPersuasivos(data.pasajesPersuasivos);
+      setPasajesExcluidos(new Set());
+      setReporte("");
+      setStep(2);
+      setFurthestStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -160,8 +184,8 @@ export default function Home() {
       setProblemasNuevos([]);
       setRelaciones([]);
       setReporte("");
-      setStep(2);
-      setFurthestStep(2);
+      setStep(3);
+      setFurthestStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -188,8 +212,8 @@ export default function Home() {
       setProblemasNuevos([]);
       setRelaciones([]);
       setReporte("");
-      setStep(3);
-      setFurthestStep(3);
+      setStep(4);
+      setFurthestStep(4);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -213,8 +237,8 @@ export default function Home() {
       setProblemasNuevos([]);
       setRelaciones([]);
       setReporte("");
-      setStep(4);
-      setFurthestStep(4);
+      setStep(5);
+      setFurthestStep(5);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -236,8 +260,8 @@ export default function Home() {
       setProblemasNuevosExcluidos(new Set());
       setRelaciones([]);
       setReporte("");
-      setStep(5);
-      setFurthestStep(5);
+      setStep(6);
+      setFurthestStep(6);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -257,8 +281,8 @@ export default function Home() {
       setProblemasNuevos(activos);
       setRelaciones(data.relaciones);
       setReporte("");
-      setStep(6);
-      setFurthestStep(6);
+      setStep(7);
+      setFurthestStep(7);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -267,6 +291,7 @@ export default function Home() {
   }
 
   async function runStep7() {
+    const pasajesActivos = pasajesPersuasivos.filter((p) => !pasajesExcluidos.has(p.id));
     setLoading(true);
     setError(null);
     try {
@@ -277,10 +302,12 @@ export default function Home() {
         veredictos,
         problemasNuevos,
         relaciones,
+        pasajesPersuasivos: pasajesActivos,
       });
+      setPasajesPersuasivos(pasajesActivos);
       setReporte(data.reporte);
-      setStep(7);
-      setFurthestStep(7);
+      setStep(8);
+      setFurthestStep(8);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -320,8 +347,13 @@ export default function Home() {
     for (const p of problemas) lines.push(`${p.id}: ${p.enunciado}`);
     for (const v of variantesAceptadas) lines.push(`${v.id}: ${v.descripcion}`);
     for (const n of problemasNuevos) lines.push(`${n.id}: ${n.enunciado}`);
+    for (const m of pasajesPersuasivos) lines.push(`${m.id}: ${m.cita}`);
 
     lines.push("", "# Tripletas", "");
+    for (const m of pasajesPersuasivos) {
+      lines.push(`${m.id} --usa_mecanismo--> ${m.mecanismo}`);
+      for (const t of m.tecnicas) lines.push(`${m.id} --tecnica--> ${t}`);
+    }
     for (const e of explicaciones) {
       const p = problemas.find((p) => p.explicacionId === e.id);
       if (p) lines.push(`${e.id} --resuelve--> ${p.id}`);
@@ -533,6 +565,82 @@ export default function Home() {
           )}
 
           <div className="actions">
+            <button className="primary" disabled={loading} onClick={runStep1B}>
+              {loading ? "Analizando persuasión..." : "Continuar"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="card">
+          <h2>Pasajes con mecanismo de persuasión</h2>
+          <p className="loading" style={{ marginBottom: "1rem" }}>
+            Lectura independiente del Paso 1: identifica pasajes que le piden al lector dejar de cuestionar
+            una afirmación (por lealtad, urgencia, autoridad, tabú o vergüenza anticipada), y si esa carga
+            reemplaza al argumento o solo lo acompaña.
+          </p>
+          {pasajesPersuasivos.length === 0 && (
+            <p className="loading">No se encontraron pasajes con mecanismo de persuasión de este tipo.</p>
+          )}
+          {pasajesPersuasivos.map((m) => (
+            <div className="item" key={m.id} style={{ opacity: pasajesExcluidos.has(m.id) ? 0.5 : 1 }}>
+              <div className="item-label">
+                <span className="badge">{m.id}</span>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={pasajesExcluidos.has(m.id)}
+                    onChange={() => toggleSet(pasajesExcluidos, m.id, setPasajesExcluidos)}
+                  />
+                  Excluir del análisis
+                </label>
+              </div>
+              <div className="quote">&ldquo;{m.cita}&rdquo;</div>
+              <select
+                value={m.mecanismo}
+                disabled={pasajesExcluidos.has(m.id)}
+                onChange={(ev) =>
+                  setPasajesPersuasivos((prev) =>
+                    prev.map((x) =>
+                      x.id === m.id
+                        ? { ...x, mecanismo: ev.target.value as PasajePersuasivo["mecanismo"] }
+                        : x
+                    )
+                  )
+                }
+              >
+                <option value="Racional">Racional</option>
+                <option value="AntiRacional">AntiRacional</option>
+              </select>
+              <div className="item-label" style={{ marginTop: "0.5rem" }}>
+                <span>Técnicas (una por línea)</span>
+              </div>
+              <textarea
+                value={m.tecnicas.join("\n")}
+                disabled={pasajesExcluidos.has(m.id)}
+                onChange={(ev) =>
+                  setPasajesPersuasivos((prev) =>
+                    prev.map((x) =>
+                      x.id === m.id
+                        ? { ...x, tecnicas: ev.target.value.split("\n") }
+                        : x
+                    )
+                  )
+                }
+              />
+              <textarea
+                value={m.justificacion}
+                disabled={pasajesExcluidos.has(m.id)}
+                onChange={(ev) =>
+                  setPasajesPersuasivos((prev) =>
+                    prev.map((x) => (x.id === m.id ? { ...x, justificacion: ev.target.value } : x))
+                  )
+                }
+              />
+            </div>
+          ))}
+          <div className="actions">
             <button className="primary" disabled={loading} onClick={runStep2}>
               {loading ? "Formulando problemas..." : "Continuar"}
             </button>
@@ -540,7 +648,7 @@ export default function Home() {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div className="card">
           <h2>Problema que resuelve cada explicación</h2>
           <p className="loading" style={{ marginBottom: "1rem" }}>
@@ -585,7 +693,7 @@ export default function Home() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="card">
           <h2>Variantes por explicación</h2>
           {explicaciones.map((e) => {
@@ -640,7 +748,7 @@ export default function Home() {
         </div>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <div className="card">
           <h2>Veredictos</h2>
           {veredictos.map((ve) => {
@@ -699,7 +807,7 @@ export default function Home() {
         </div>
       )}
 
-      {step === 5 && (
+      {step === 6 && (
         <div className="card">
           <h2>Preguntas nuevas que abren las explicaciones fuertes</h2>
           {problemasNuevos.length === 0 && <p className="loading">No se generaron preguntas nuevas.</p>}
@@ -742,7 +850,7 @@ export default function Home() {
         </div>
       )}
 
-      {step === 6 && (
+      {step === 7 && (
         <div className="card">
           <h2>Relaciones entre explicaciones</h2>
           {relaciones.length === 0 && (
@@ -786,7 +894,7 @@ export default function Home() {
         </div>
       )}
 
-      {step === 7 && (
+      {step === 8 && (
         <div className="card">
           <h2>Reporte final</h2>
           <div className="report-preview">{reporte}</div>
