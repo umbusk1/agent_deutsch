@@ -501,7 +501,9 @@ ni "anti-racional", y nunca menciones a Deutsch. En vez de eso, describe lo que 
 le pide, por qué vía, y por qué ese envoltorio reemplaza al argumento en vez de acompañarlo — por ejemplo: "este
 pasaje le pide al lector aceptar la conclusión sin dejarle margen para dudar, apelando a la lealtad hacia X y
 presentando cualquier duda como una forma de traición — un envoltorio que, quitado, deja la afirmación central
-sin apoyo propio." Si la lista viene vacía, no fuerces una sección sobre esto: sáltala en silencio.
+sin apoyo propio." Si la lista viene vacía, no la omitas en silencio: inclúyela igual, con una frase breve en
+prosa llana que lo reconozca explícitamente (ej. "el análisis no encontró pasajes que le pidan al lector
+suspender el juicio en vez de sostenerlo con razones"), sin usar jerga ni inventar un hallazgo que no hubo.
 `.trim();
 
   const user = `Texto original:\n\n${texto}\n\nDatos del análisis (uso interno, tradúcelos a prosa):\n${JSON.stringify(
