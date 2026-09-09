@@ -11,6 +11,7 @@ import type {
   ProblemaNuevo,
   Relacion,
   PasajePersuasivo,
+  Alcance,
 } from "@/lib/types";
 
 const STEP_LABELS = [
@@ -88,6 +89,7 @@ export default function Home() {
 
   const [problemasNuevos, setProblemasNuevos] = useState<ProblemaNuevo[]>([]);
   const [problemasNuevosExcluidos, setProblemasNuevosExcluidos] = useState<Set<string>>(new Set());
+  const [alcances, setAlcances] = useState<Alcance[]>([]);
 
   const [relaciones, setRelaciones] = useState<Relacion[]>([]);
   const [reporte, setReporte] = useState("");
@@ -130,6 +132,7 @@ export default function Home() {
       setVariantesDescartadas([]);
       setVeredictos([]);
       setProblemasNuevos([]);
+      setAlcances([]);
       setRelaciones([]);
       setReporte("");
       setStep(1);
@@ -182,6 +185,7 @@ export default function Home() {
       setVariantesDescartadas([]);
       setVeredictos([]);
       setProblemasNuevos([]);
+      setAlcances([]);
       setRelaciones([]);
       setReporte("");
       setStep(3);
@@ -210,6 +214,7 @@ export default function Home() {
       setVariantesExcluidas(new Set());
       setVeredictos([]);
       setProblemasNuevos([]);
+      setAlcances([]);
       setRelaciones([]);
       setReporte("");
       setStep(4);
@@ -235,6 +240,7 @@ export default function Home() {
       setVariantesAceptadas(activas);
       setVeredictos(data.veredictos);
       setProblemasNuevos([]);
+      setAlcances([]);
       setRelaciones([]);
       setReporte("");
       setStep(5);
@@ -250,7 +256,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ problemasNuevos: ProblemaNuevo[] }>("/api/step5", {
+      const data = await callApi<{ problemasNuevos: ProblemaNuevo[]; alcances: Alcance[] }>("/api/step5", {
         texto,
         explicaciones,
         problemas,
@@ -258,6 +264,7 @@ export default function Home() {
       });
       setProblemasNuevos(data.problemasNuevos);
       setProblemasNuevosExcluidos(new Set());
+      setAlcances(data.alcances);
       setRelaciones([]);
       setReporte("");
       setStep(6);
@@ -303,6 +310,7 @@ export default function Home() {
         problemasNuevos,
         relaciones,
         pasajesPersuasivos: pasajesActivos,
+        alcances,
       });
       setPasajesPersuasivos(pasajesActivos);
       setReporte(data.reporte);
@@ -347,6 +355,7 @@ export default function Home() {
     for (const p of problemas) lines.push(`${p.id}: ${p.enunciado}`);
     for (const v of variantesAceptadas) lines.push(`${v.id}: ${v.descripcion}`);
     for (const n of problemasNuevos) lines.push(`${n.id}: ${n.enunciado}`);
+    for (const a of alcances) lines.push(`${a.explicacionId} (alcance): ${a.justificacion}`);
     for (const m of pasajesPersuasivos) lines.push(`${m.id}: ${m.cita}`);
 
     lines.push("", "# Tripletas", "");
@@ -369,6 +378,9 @@ export default function Home() {
     }
     for (const ve of veredictos) {
       lines.push(`${ve.explicacionId} --tiene_veredicto--> ${ve.veredicto}`);
+    }
+    for (const a of alcances) {
+      lines.push(`${a.explicacionId} --tiene_alcance--> ${a.tipo}`);
     }
     for (const n of problemasNuevos) {
       lines.push(`${n.explicacionId} --genera--> ${n.id}`);
@@ -842,6 +854,45 @@ export default function Home() {
               <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{n.justificacion}</div>
             </div>
           ))}
+
+          {alcances.length > 0 && (
+            <div className="discarded-list">
+              <h3>Alcance de las explicaciones fuertes</h3>
+              {alcances.map((a) => (
+                <div className="item" key={a.explicacionId}>
+                  <div className="item-label">
+                    <span className="badge">{a.explicacionId}</span>
+                  </div>
+                  <select
+                    value={a.tipo}
+                    onChange={(ev) =>
+                      setAlcances((prev) =>
+                        prev.map((x) =>
+                          x.explicacionId === a.explicacionId
+                            ? { ...x, tipo: ev.target.value as Alcance["tipo"] }
+                            : x
+                        )
+                      )
+                    }
+                  >
+                    <option value="Amplio">Amplio</option>
+                    <option value="Limitado">Limitado</option>
+                  </select>
+                  <textarea
+                    value={a.justificacion}
+                    onChange={(ev) =>
+                      setAlcances((prev) =>
+                        prev.map((x) =>
+                          x.explicacionId === a.explicacionId ? { ...x, justificacion: ev.target.value } : x
+                        )
+                      )
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="actions">
             <button className="primary" disabled={loading} onClick={runStep6}>
               {loading ? "Comparando explicaciones..." : "Continuar"}

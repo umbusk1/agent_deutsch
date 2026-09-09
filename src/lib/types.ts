@@ -56,6 +56,12 @@ export type Relacion = {
   justificacion: string;
 };
 
+export type Alcance = {
+  explicacionId: string;
+  tipo: "Amplio" | "Limitado";
+  justificacion: string;
+};
+
 export type PasajePersuasivo = {
   id: string;
   cita: string;

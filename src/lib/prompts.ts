@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { Explicacion, Problema, VarianteAceptada, Veredicto, Relacion, PasajePersuasivo } from "./types";
+import type { Explicacion, Problema, VarianteAceptada, Veredicto, Relacion, PasajePersuasivo, Alcance } from "./types";
 
 type Schema = Anthropic.Tool["input_schema"];
 
@@ -231,6 +231,14 @@ Antes de aceptar una variante como válida, verifica que sea un SUSTITUTO GENUIN
 EXACTAMENTE el mismo problema que la explicación original. Si una variante en realidad resuelve un problema
 distinto (es COMPLEMENTARIA, no rival), descártala explicando por qué.
 
+Si la explicación hace una afirmación sobre el futuro, o extrapola hacia adelante una tendencia actual, genera
+SIEMPRE una variante adicional (más allá de las 2 o 3 normales) de un tipo específico: un escenario donde surge
+conocimiento nuevo —una innovación, un cambio de política, un desarrollo imprevisto— que altera la trayectoria
+que la explicación asume. Descríbela con suficiente detalle concreto (qué tipo de desarrollo, cómo altera la
+trayectoria) para que sea evaluable como las demás. Esta variante siempre cuenta como sustituto genuino del
+mismo problema, no la descartes por "ser complementaria": existe específicamente para poner a prueba si la
+explicación deja espacio para que algo así ocurra.
+
 Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descartadas (complementarias u otras
 razones), con su motivo de descarte.
 `.trim();
@@ -247,7 +255,7 @@ razones), con su motivo de descarte.
       variantesAceptadas: {
         type: "array",
         minItems: 1,
-        maxItems: 3,
+        maxItems: 4,
         items: {
           type: "object",
           properties: {
@@ -362,6 +370,14 @@ Para cada problema nuevo, indica si el autor del texto lo reconoce o lo aborda e
 completamente silenciado/sin mencionar ("No"), con una breve justificación.
 
 Para las explicaciones con veredicto "FacilDeVariar" no generes problemas nuevos: devuélvelas con una lista vacía.
+
+Además, para esas mismas explicaciones fuertes ("DificilDeVariar" o "Mixta"), evalúa su ALCANCE: si esta
+explicación es cierta, ¿qué otros casos, no mencionados por el autor, debería explicar igual de bien esta misma
+lógica? Si logras identificar casos análogos genuinos que la misma lógica explicaría, repórtalo como alcance
+"Amplio", con una justificación breve que nombre esos casos. Si concluyes que la explicación es demasiado
+específica al caso puntual del texto y no generalizaría a nada parecido, repórtalo como alcance "Limitado", con
+una justificación breve de por qué no generaliza — esto es un hallazgo legítimo, no un fallo de este paso. Para
+las explicaciones con veredicto "FacilDeVariar" no evalúes el alcance: omite el campo.
 `.trim();
 
   const user = `Texto original (para contexto):\n\n${texto}\n\nExplicaciones con su problema y veredicto:\n${JSON.stringify(
@@ -397,6 +413,15 @@ Para las explicaciones con veredicto "FacilDeVariar" no generes problemas nuevos
                 required: ["enunciado", "reconocidoPorAutor", "justificacion"],
               },
             },
+            alcance: {
+              type: "object",
+              description: "Solo para explicaciones con veredicto DificilDeVariar o Mixta; omitir en las demás.",
+              properties: {
+                tipo: { type: "string", enum: ["Amplio", "Limitado"] },
+                justificacion: { type: "string" },
+              },
+              required: ["tipo", "justificacion"],
+            },
           },
           required: ["explicacionId", "problemasNuevos"],
         },
@@ -409,7 +434,7 @@ Para las explicaciones con veredicto "FacilDeVariar" no generes problemas nuevos
     system,
     user,
     toolName: "reportar_problemas_nuevos",
-    toolDescription: "Reporta los problemas nuevos generados por cada explicación fuerte.",
+    toolDescription: "Reporta los problemas nuevos y el alcance de cada explicación fuerte.",
     inputSchema,
   };
 }
@@ -472,7 +497,8 @@ export function step7Prompt(
   veredictos: Veredicto[],
   problemasNuevosPorExplicacion: Map<string, { enunciado: string; reconocidoPorAutor: string }[]>,
   relaciones: Relacion[],
-  pasajesAntiRacionales: PasajePersuasivo[]
+  pasajesAntiRacionales: PasajePersuasivo[],
+  alcances: Alcance[]
 ) {
   const system = `
 ${CRITERIO_CENTRAL}
@@ -488,6 +514,17 @@ la calidad argumentativa del texto. El reporte debe:
   explicación podría reemplazar sus causas propuestas por otras y seguiría sonando igual de convincente, lo cual
   sugiere que no está realmente conectada con lo que dice explicar...".
 - Señalar, para las explicaciones fuertes, qué preguntas nuevas abre y si el autor las reconoce o las deja de lado.
+- Para las explicaciones fuertes, señalar también su alcance: si la misma lógica explicaría igual de bien otros
+  casos no mencionados por el autor (alcance amplio, nombra esos casos usando la justificación entregada), o si
+  es específica al caso puntual del texto y no generalizaría a nada parecido (alcance limitado, explica por qué
+  con la justificación entregada). Trata ambos resultados como hallazgos legítimos sobre el texto, no como una
+  nota de calidad — un alcance limitado no es un defecto de la explicación.
+- Si alguna explicación resulta débil (veredicto "FacilDeVariar" o "Mixta") específicamente porque no sobrevivió
+  la variante que planteaba la aparición de conocimiento nuevo, una innovación, un cambio de política o un
+  desarrollo imprevisto que altera la trayectoria que la explicación asume, nombra esa debilidad con esa misma
+  especificidad (ej. "esta explicación no deja espacio para que conocimiento futuro cambie la trayectoria que
+  asume"), en vez de decir genéricamente que "no sobrevivió una variante". Nunca uses las palabras "predicción"
+  ni "profecía".
 - Si hay explicaciones rivales o complementarias, explicar esa relación en prosa.
 - Cerrar con una valoración general breve de la calidad explicativa del texto.
 
@@ -515,6 +552,7 @@ suspender el juicio en vez de sostenerlo con razones"), sin usar jerga ni invent
         problema: problemas.find((p) => p.explicacionId === e.id)?.enunciado,
         veredicto: veredictos.find((v) => v.explicacionId === e.id),
         problemasNuevos: problemasNuevosPorExplicacion.get(e.id) ?? [],
+        alcance: alcances.find((a) => a.explicacionId === e.id),
       })),
       relaciones,
       pasajesAntiRacionales: pasajesAntiRacionales.map((p) => ({

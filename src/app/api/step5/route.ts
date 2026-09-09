@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step5Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import type { Explicacion, Problema, Veredicto, ProblemaNuevo } from "@/lib/types";
+import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Alcance } from "@/lib/types";
 
 export const maxDuration = 60;
 
@@ -32,11 +32,13 @@ export async function POST(request: Request) {
       resultados: {
         explicacionId: string;
         problemasNuevos: { enunciado: string; reconocidoPorAutor: "Si" | "No"; justificacion: string }[];
+        alcance?: { tipo: "Amplio" | "Limitado"; justificacion: string };
       }[];
     }>(prompt);
 
     let contador = 0;
     const problemasNuevos: ProblemaNuevo[] = [];
+    const alcances: Alcance[] = [];
     for (const r of asArray(result.resultados)) {
       for (const p of asArray(r.problemasNuevos)) {
         if (!p.enunciado?.trim()) continue;
@@ -49,9 +51,16 @@ export async function POST(request: Request) {
           justificacion: p.justificacion,
         });
       }
+      if (r.alcance?.tipo && r.alcance.justificacion?.trim()) {
+        alcances.push({
+          explicacionId: r.explicacionId,
+          tipo: r.alcance.tipo,
+          justificacion: r.alcance.justificacion.trim(),
+        });
+      }
     }
 
-    return NextResponse.json({ problemasNuevos });
+    return NextResponse.json({ problemasNuevos, alcances });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
