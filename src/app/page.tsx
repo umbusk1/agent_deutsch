@@ -105,6 +105,49 @@ export default function Home() {
     return data as T;
   }
 
+  // El Paso 7 responde con Server-Sent Events (heartbeats + un evento final) en vez de JSON directo,
+  // para mantener la conexión viva durante las llamadas largas a Claude. Ver /api/step7/route.ts.
+  async function callApiStream<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error ?? "Error inesperado.");
+    }
+    if (!res.body) {
+      throw new Error("El servidor no devolvió una respuesta.");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let sepIndex: number;
+      while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
+        const rawEvent = buffer.slice(0, sepIndex);
+        buffer = buffer.slice(sepIndex + 2);
+
+        const dataLine = rawEvent.split("\n").find((line) => line.startsWith("data:"));
+        if (!dataLine) continue; // heartbeat ": ping" u otro comentario, ignorar
+
+        const payload = JSON.parse(dataLine.slice(5).trim());
+        if (payload.error) throw new Error(payload.error);
+        return payload as T;
+      }
+    }
+
+    throw new Error("La conexión se cerró antes de recibir el reporte completo.");
+  }
+
   function toggleSet(set: Set<string>, id: string, setter: (s: Set<string>) => void) {
     const next = new Set(set);
     if (next.has(id)) next.delete(id);
@@ -302,7 +345,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ reporte: string }>("/api/step7", {
+      const data = await callApiStream<{ reporte: string }>("/api/step7", {
         texto,
         explicaciones,
         problemas,
