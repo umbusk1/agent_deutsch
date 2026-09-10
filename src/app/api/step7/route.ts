@@ -3,7 +3,10 @@ import { callTool } from "@/lib/anthropic";
 import { step7PrincipalPrompt, step7PersuasionPrompt, step7EnsamblajePrompt } from "@/lib/prompts";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Relacion, PasajePersuasivo, Alcance } from "@/lib/types";
 
-export const maxDuration = 90;
+// 120s: el flujo hace 2 llamadas en paralelo (hasta 50s cada una) y luego, ya con ambas
+// resueltas, una tercera llamada de ensamblaje (hasta 50s más) — el peor caso ronda los 100s,
+// por lo que 90s no dejaba margen y la función podía cortarse a mitad del ensamblaje.
+export const maxDuration = 120;
 
 const encoder = new TextEncoder();
 
