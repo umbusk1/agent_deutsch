@@ -490,23 +490,26 @@ No fuerces una relación entre explicaciones que tratan asuntos completamente di
   };
 }
 
-export function step7Prompt(
+export function step7PrincipalPrompt(
   texto: string,
   explicaciones: Explicacion[],
   problemas: Problema[],
   veredictos: Veredicto[],
   problemasNuevosPorExplicacion: Map<string, { enunciado: string; reconocidoPorAutor: string }[]>,
   relaciones: Relacion[],
-  pasajesAntiRacionales: PasajePersuasivo[],
   alcances: Alcance[]
 ) {
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso: redactar el REPORTE FINAL en prosa crítica, dirigido al autor o a un lector interesado en
-la calidad argumentativa del texto. El reporte debe:
+Tu tarea en este paso: redactar la SECCIÓN PRINCIPAL de un reporte crítico más grande, dirigida al autor o a un
+lector interesado en la calidad argumentativa del texto. Esta sección cubre las explicaciones del texto. Otro
+paso, por separado, redacta la sección sobre persuasión (pasajes que apelan a lealtad, urgencia, autoridad,
+tabú o vergüenza en vez de invitar al escrutinio) — no la menciones ni la anticipes, es independiente de esta.
 
-- Estar completamente en español, en Markdown, organizado con encabezados por explicación relevante.
+Esta sección debe:
+
+- Estar completamente en español, en Markdown, organizada con encabezados por explicación relevante.
 - Mostrar el razonamiento de forma auditable: qué se probó (qué variantes se consideraron) y qué sobrevivió o se
   rompió, en prosa natural — sin tablas de veredictos crudos ni jerga técnica.
 - NUNCA mencionar a David Deutsch, Karl Popper, "difícil de variar", "falsable", "conjetura" ni ningún término
@@ -526,21 +529,13 @@ la calidad argumentativa del texto. El reporte debe:
   asume"), en vez de decir genéricamente que "no sobrevivió una variante". Nunca uses las palabras "predicción"
   ni "profecía".
 - Si hay explicaciones rivales o complementarias, explicar esa relación en prosa.
-- Cerrar con una valoración general breve de la calidad explicativa del texto.
 
 No incluyas los datos crudos (IDs, listas estructuradas) en el reporte: tradúcelos a prosa legible.
 
-Además de las explicaciones y sus veredictos, vas a recibir una lista separada de pasajes marcados como
-AntiRacional: pasajes que le piden al lector dejar de cuestionar una afirmación (por lealtad, urgencia,
-autoridad, tabú o vergüenza anticipada) y donde, al quitarles ese envoltorio, el argumento se cae. Descríbelos
-en prosa crítica común, en el mismo tono que el resto del reporte. Nunca uses las palabras "meme", "racional"
-ni "anti-racional", y nunca menciones a Deutsch. En vez de eso, describe lo que el pasaje le hace al lector: qué
-le pide, por qué vía, y por qué ese envoltorio reemplaza al argumento en vez de acompañarlo — por ejemplo: "este
-pasaje le pide al lector aceptar la conclusión sin dejarle margen para dudar, apelando a la lealtad hacia X y
-presentando cualquier duda como una forma de traición — un envoltorio que, quitado, deja la afirmación central
-sin apoyo propio." Si la lista viene vacía, no la omitas en silencio: inclúyela igual, con una frase breve en
-prosa llana que lo reconozca explícitamente (ej. "el análisis no encontró pasajes que le pidan al lector
-suspender el juicio en vez de sostenerlo con razones"), sin usar jerga ni inventar un hallazgo que no hubo.
+IMPORTANTE: NO escribas ninguna conclusión general, cierre ni valoración global de la calidad del texto completo
+— eso lo redacta otro paso por separado, que también incorpora los hallazgos de persuasión y necesita ser la
+única conclusión del reporte final. Termina tu redacción justo después de cubrir la última explicación o
+relación entre explicaciones, sin resumir ni cerrar.
 `.trim();
 
   const user = `Texto original:\n\n${texto}\n\nDatos del análisis (uso interno, tradúcelos a prosa):\n${JSON.stringify(
@@ -555,11 +550,6 @@ suspender el juicio en vez de sostenerlo con razones"), sin usar jerga ni invent
         alcance: alcances.find((a) => a.explicacionId === e.id),
       })),
       relaciones,
-      pasajesAntiRacionales: pasajesAntiRacionales.map((p) => ({
-        cita: p.cita,
-        tecnicas: p.tecnicas,
-        justificacion: p.justificacion,
-      })),
     },
     null,
     2
@@ -568,7 +558,105 @@ suspender el juicio en vez de sostenerlo con razones"), sin usar jerga ni invent
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      reporte: { type: "string", description: "Reporte completo en prosa crítica, formato Markdown" },
+      seccionPrincipal: {
+        type: "string",
+        description: "Sección del reporte sobre las explicaciones, en prosa crítica, formato Markdown, sin cierre ni conclusión general",
+      },
+    },
+    required: ["seccionPrincipal"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_seccion_principal",
+    toolDescription: "Reporta la sección principal (explicaciones) del reporte crítico, sin conclusión general.",
+    inputSchema,
+  };
+}
+
+export function step7PersuasionPrompt(pasajesAntiRacionales: PasajePersuasivo[]) {
+  const system = `
+Vas a redactar la SECCIÓN DE PERSUASIÓN de un reporte crítico más grande sobre un texto de opinión. Otro paso,
+por separado, redacta la sección sobre la calidad de las explicaciones del texto — no la menciones ni la
+anticipes, es independiente de esta.
+
+Vas a recibir una lista de pasajes marcados como AntiRacional: pasajes que le piden al lector dejar de
+cuestionar una afirmación (por lealtad, urgencia, autoridad, tabú o vergüenza anticipada) y donde, al quitarles
+ese envoltorio, el argumento se cae.
+
+Redáctalos en prosa crítica común, completamente en español, sin jerga técnica. Nunca uses las palabras "meme",
+"racional" ni "anti-racional", y nunca menciones a David Deutsch. En vez de eso, describe lo que el pasaje le
+hace al lector: qué le pide, por qué vía, y por qué ese envoltorio reemplaza al argumento en vez de acompañarlo
+— por ejemplo: "este pasaje le pide al lector aceptar la conclusión sin dejarle margen para dudar, apelando a la
+lealtad hacia X y presentando cualquier duda como una forma de traición — un envoltorio que, quitado, deja la
+afirmación central sin apoyo propio."
+
+Si la lista viene vacía, no la omitas en silencio: escribe igual una frase breve en prosa llana que lo reconozca
+explícitamente (ej. "el análisis no encontró pasajes que le pidan al lector suspender el juicio en vez de
+sostenerlo con razones"), sin usar jerga ni inventar un hallazgo que no hubo.
+
+IMPORTANTE: NO escribas ninguna conclusión general ni valoración global del texto completo — eso lo redacta otro
+paso por separado, que necesita ser la única conclusión del reporte final.
+`.trim();
+
+  const user = `Pasajes marcados como AntiRacional:\n${JSON.stringify(
+    pasajesAntiRacionales.map((p) => ({
+      cita: p.cita,
+      tecnicas: p.tecnicas,
+      justificacion: p.justificacion,
+    })),
+    null,
+    2
+  )}`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      seccionPersuasion: {
+        type: "string",
+        description: "Sección del reporte sobre persuasión, en prosa crítica, sin cierre ni conclusión general",
+      },
+    },
+    required: ["seccionPersuasion"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_seccion_persuasion",
+    toolDescription: "Reporta la sección de persuasión del reporte crítico, sin conclusión general.",
+    inputSchema,
+  };
+}
+
+export function step7EnsamblajePrompt(seccionPrincipal: string, seccionPersuasion: string) {
+  const system = `
+Vas a ensamblar el REPORTE FINAL de un análisis crítico de un texto de opinión, a partir de dos secciones ya
+redactadas por separado: una sobre la calidad de las explicaciones del texto, otra sobre pasajes que apelan a
+lealtad, urgencia, autoridad, tabú o vergüenza en vez de invitar al escrutinio. Tu trabajo es editorial, no
+analítico: no inventes hallazgos nuevos que no estén ya en los dos borradores.
+
+Haz lo siguiente:
+- Únelas en un solo documento Markdown, completamente en español, con una voz consistente — ajusta transiciones
+  y tono donde haga falta para que no se sientan como dos textos pegados con estilos distintos, pero conserva el
+  contenido y las citas de ambos borradores.
+- Agrega, si ayuda a la lectura, una introducción breve al inicio.
+- Cierra el reporte con UNA sola valoración general que sintetice tanto la calidad explicativa como los
+  hallazgos de persuasión (cuando los haya) — esta es la única conclusión de todo el reporte.
+- NUNCA menciones a David Deutsch, Karl Popper, "difícil de variar", "falsable", "conjetura", "meme", "racional"
+  ni "anti-racional" — si alguno de los borradores los contuviera por error, corrígelo al fusionar.
+
+No incluyas datos crudos (IDs, listas estructuradas): si aparecieran en los borradores, tradúcelos a prosa
+legible.
+`.trim();
+
+  const user = `Sección principal (explicaciones):\n\n${seccionPrincipal}\n\nSección de persuasión:\n\n${seccionPersuasion}`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      reporte: { type: "string", description: "Reporte final completo, ensamblado, en prosa crítica, formato Markdown" },
     },
     required: ["reporte"],
   };
@@ -577,7 +665,7 @@ suspender el juicio en vez de sostenerlo con razones"), sin usar jerga ni invent
     system,
     user,
     toolName: "reportar_analisis_final",
-    toolDescription: "Reporta el texto final del reporte crítico en prosa.",
+    toolDescription: "Reporta el texto final del reporte crítico ensamblado, en prosa.",
     inputSchema,
   };
 }

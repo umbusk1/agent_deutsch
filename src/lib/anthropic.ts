@@ -23,6 +23,7 @@ type ToolCallParams = {
   inputSchema: Anthropic.Tool["input_schema"];
   maxTokens?: number;
   timeoutMs?: number;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
 };
 
 export async function callTool<T>(params: ToolCallParams): Promise<T> {
@@ -42,6 +43,7 @@ export async function callTool<T>(params: ToolCallParams): Promise<T> {
           },
         ],
         tool_choice: { type: "tool", name: params.toolName },
+        ...(params.effort ? { output_config: { effort: params.effort } } : {}),
       },
       { timeout: params.timeoutMs ?? 50_000 }
     );

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
-import { step7Prompt } from "@/lib/prompts";
+import { step7PrincipalPrompt, step7PersuasionPrompt, step7EnsamblajePrompt } from "@/lib/prompts";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Relacion, PasajePersuasivo, Alcance } from "@/lib/types";
 
 export const maxDuration = 90;
@@ -38,19 +38,29 @@ export async function POST(request: Request) {
 
     const pasajesAntiRacionales = (pasajesPersuasivos ?? []).filter((p) => p.mecanismo === "AntiRacional");
 
-    const prompt = step7Prompt(
+    const principalPrompt = step7PrincipalPrompt(
       texto,
       explicaciones,
       problemas,
       veredictos,
       problemasNuevosPorExplicacion,
       relaciones ?? [],
-      pasajesAntiRacionales,
       alcances ?? []
     );
-    const result = await callTool<{ reporte: string }>(prompt);
+    const persuasionPrompt = step7PersuasionPrompt(pasajesAntiRacionales);
 
-    return NextResponse.json({ reporte: result.reporte });
+    const [principalResult, persuasionResult] = await Promise.all([
+      callTool<{ seccionPrincipal: string }>({ ...principalPrompt, effort: "medium" }),
+      callTool<{ seccionPersuasion: string }>({ ...persuasionPrompt, effort: "medium" }),
+    ]);
+
+    const ensamblajePrompt = step7EnsamblajePrompt(
+      principalResult.seccionPrincipal,
+      persuasionResult.seccionPersuasion
+    );
+    const ensamblajeResult = await callTool<{ reporte: string }>({ ...ensamblajePrompt, effort: "medium" });
+
+    return NextResponse.json({ reporte: ensamblajeResult.reporte });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

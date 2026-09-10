@@ -508,8 +508,8 @@ export default function Home() {
               <h3>Confirma antes de empezar</h3>
               <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "0.5rem" }}>
                 Tu texto tiene aproximadamente <strong>{wordCount}</strong> palabras. El análisis
-                funciona mejor con artículos de hasta ~3,000–4,000 palabras; con textos mucho más
-                largos puede tardar más y consumir más cuota de la API.
+                funciona mejor con artículos de hasta ~1,900 palabras; con textos más largos puede
+                tardar más y consumir más cuota de la API.
               </p>
               <p style={{ marginBottom: "1rem" }}>
                 {quota && !quota.unlimited
