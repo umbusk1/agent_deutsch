@@ -58,9 +58,22 @@ export async function POST(request: Request) {
       principalResult.seccionPrincipal,
       persuasionResult.seccionPersuasion
     );
-    const ensamblajeResult = await callTool<{ reporte: string }>({ ...ensamblajePrompt, effort: "medium" });
+    const ensamblajeResult = await callTool<{ introduccion: string; transicion: string; cierre: string }>({
+      ...ensamblajePrompt,
+      effort: "medium",
+    });
 
-    return NextResponse.json({ reporte: ensamblajeResult.reporte });
+    const reporte = [
+      ensamblajeResult.introduccion,
+      principalResult.seccionPrincipal,
+      ensamblajeResult.transicion?.trim() || null,
+      persuasionResult.seccionPersuasion,
+      ensamblajeResult.cierre,
+    ]
+      .filter((parte): parte is string => Boolean(parte?.trim()))
+      .join("\n\n");
+
+    return NextResponse.json({ reporte });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

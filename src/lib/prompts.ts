@@ -632,40 +632,44 @@ paso por separado, que necesita ser la única conclusión del reporte final.
 
 export function step7EnsamblajePrompt(seccionPrincipal: string, seccionPersuasion: string) {
   const system = `
-Vas a ensamblar el REPORTE FINAL de un análisis crítico de un texto de opinión, a partir de dos secciones ya
-redactadas por separado: una sobre la calidad de las explicaciones del texto, otra sobre pasajes que apelan a
-lealtad, urgencia, autoridad, tabú o vergüenza en vez de invitar al escrutinio. Tu trabajo es editorial, no
-analítico: no inventes hallazgos nuevos que no estén ya en los dos borradores.
+Vas a preparar solo las PIEZAS DE ENLACE de un reporte crítico ya redactado en dos secciones separadas (una
+sobre la calidad de las explicaciones del texto, otra sobre pasajes que apelan a lealtad, urgencia, autoridad,
+tabú o vergüenza en vez de invitar al escrutinio) — las vas a recibir completas más abajo, solo como referencia.
 
-Haz lo siguiente:
-- Únelas en un solo documento Markdown, completamente en español, con una voz consistente — ajusta transiciones
-  y tono donde haga falta para que no se sientan como dos textos pegados con estilos distintos, pero conserva el
-  contenido y las citas de ambos borradores.
-- Agrega, si ayuda a la lectura, una introducción breve al inicio.
-- Cierra el reporte con UNA sola valoración general que sintetice tanto la calidad explicativa como los
-  hallazgos de persuasión (cuando los haya) — esta es la única conclusión de todo el reporte.
-- NUNCA menciones a David Deutsch, Karl Popper, "difícil de variar", "falsable", "conjetura", "meme", "racional"
-  ni "anti-racional" — si alguno de los borradores los contuviera por error, corrígelo al fusionar.
+NO reescribas ni reproduzcas el contenido de esas dos secciones: van a insertarse tal cual, sin tocarlas. Tu
+única salida son tres piezas cortas y nuevas:
 
-No incluyas datos crudos (IDs, listas estructuradas): si aparecieran en los borradores, tradúcelos a prosa
-legible.
+- introduccion: 1-3 frases que abran el reporte completo, mencionando de forma natural que se va a hablar tanto
+  de la calidad de las explicaciones como de cómo el texto trata al lector.
+- transicion: 1-2 frases que conecten el final de la sección principal con el inicio de la sección de
+  persuasión, solo si genuinamente hace falta para que no se sienta como un corte abrupto (si las dos secciones
+  ya fluyen bien una detrás de otra, deja este campo como cadena vacía).
+- cierre: una sola valoración general breve que sintetice tanto la calidad explicativa como los hallazgos de
+  persuasión (cuando los haya) — esta es la única conclusión de todo el reporte, no repitas conclusiones que ya
+  estén dentro de las dos secciones.
+
+Todo en español, prosa llana, sin jerga. NUNCA menciones a David Deutsch, Karl Popper, "difícil de variar",
+"falsable", "conjetura", "meme", "racional" ni "anti-racional". No inventes hallazgos que no estén ya en las dos
+secciones — tu trabajo es puramente de enlace editorial, no de análisis nuevo.
 `.trim();
 
-  const user = `Sección principal (explicaciones):\n\n${seccionPrincipal}\n\nSección de persuasión:\n\n${seccionPersuasion}`;
+  const user = `Sección principal (explicaciones), para contexto — no la reescribas:\n\n${seccionPrincipal}\n\nSección de persuasión, para contexto — no la reescribas:\n\n${seccionPersuasion}`;
 
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      reporte: { type: "string", description: "Reporte final completo, ensamblado, en prosa crítica, formato Markdown" },
+      introduccion: { type: "string", description: "1-3 frases de apertura del reporte completo" },
+      transicion: { type: "string", description: "1-2 frases de enlace entre secciones, o cadena vacía si no hace falta" },
+      cierre: { type: "string", description: "Única valoración general de cierre del reporte completo" },
     },
-    required: ["reporte"],
+    required: ["introduccion", "transicion", "cierre"],
   };
 
   return {
     system,
     user,
-    toolName: "reportar_analisis_final",
-    toolDescription: "Reporta el texto final del reporte crítico ensamblado, en prosa.",
+    toolName: "reportar_piezas_de_enlace",
+    toolDescription: "Reporta solo la introducción, transición y cierre que enlazan las dos secciones ya redactadas.",
     inputSchema,
   };
 }
