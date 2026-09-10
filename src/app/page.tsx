@@ -813,6 +813,13 @@ export default function Home() {
                 <h3>
                   {e?.id}: {e?.resumen}
                 </h3>
+                {ve.veredicto === "SinSustitutoGenuino" && (
+                  <p className="warning-note">
+                    El paso anterior no logró generar ninguna variante que compitiera genuinamente por el mismo
+                    problema — esta explicación no fue puesta a prueba. No es lo mismo que &ldquo;difícil de
+                    variar&rdquo;.
+                  </p>
+                )}
                 {ve.resultadosVariantes.map((r) => {
                   const v = variantesAceptadas.find((x) => x.id === r.varianteId);
                   return (
@@ -840,6 +847,7 @@ export default function Home() {
                   <option value="DificilDeVariar">DificilDeVariar</option>
                   <option value="FacilDeVariar">FacilDeVariar</option>
                   <option value="Mixta">Mixta</option>
+                  <option value="SinSustitutoGenuino">SinSustitutoGenuino (no puesta a prueba)</option>
                 </select>
                 <textarea
                   value={ve.justificacion}

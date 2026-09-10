@@ -7,6 +7,7 @@
   --accent-foreground: #ffffff;
   --muted: #6b6b76;
   --danger: #b3261e;
+  --warning: #9a6700;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +20,7 @@
     --accent-foreground: #0a0a0a;
     --muted: #9a9aa5;
     --danger: #ff6b61;
+    --warning: #e3b341;
   }
 
   html {
@@ -232,6 +234,16 @@ button:disabled {
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
   font-size: 0.9rem;
+}
+
+.warning-note {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
 }
 
 .loading {

@@ -96,9 +96,11 @@ anticipada por dudar. Estas cinco son ejemplos representativos, no una lista cer
 cumpla la misma función —desactivar el escrutinio crítico en vez de invitarlo— cuenta.
 
 Evalúa TODO el texto sin excepción, incluyendo pasajes que en otro análisis se descartarían por ser narración,
-descripción o juicio normativo. En este punto del proceso no existe todavía ningún veredicto de "difícil de
-variar" sobre ninguna explicación — no lo asumas, no lo esperes, y no uses su ausencia o presencia como atajo
-para decidir nada aquí.
+descripción o juicio normativo. Esto incluye explícitamente el título y el cierre/remate del texto: aplícales el
+mismo test de despojo que al resto del cuerpo — un título o un remate pueden ser, en sí mismos, una construcción
+irónica que condensa (o reemplaza) el argumento central. En este punto del proceso no existe todavía ningún
+veredicto de "difícil de variar" sobre ninguna explicación — no lo asumas, no lo esperes, y no uses su ausencia o
+presencia como atajo para decidir nada aquí.
 
 EL TEST OPERATIVO (tres pasos, aplícalo a cada pasaje candidato)
 
@@ -114,6 +116,29 @@ Lenguaje vívido, indignación moral, metáfora, o apelación al miedo proporcio
 automáticamente anti-racionales. Solo cuenta cuando, al quitar el envoltorio, el argumento se cae — es decir,
 cuando el envoltorio reemplaza al argumento en vez de acompañarlo. Sin esta distinción, el criterio se vuelve
 un detector de "cosas dichas con pasión", lo cual sería un sesgo, no un hallazgo.
+
+INGENIO/IRONÍA vs. SARCASMO/DESCALIFICACIÓN (aplica esto cuando el envoltorio sea humor, ironía o burla)
+
+Estos dos fenómenos superan el test de despojo de maneras opuestas y hoy se confunden fácilmente porque ambos
+"suenan" como burla. Distínguelos explícitamente:
+
+- Ingenio o ironía que COMPRIME un argumento real: la formulación aguda, irónica o sarcástica es una forma
+  económica de decir algo que, despojado de su gracia, deja una afirmación sustantiva y verificable en pie por
+  sus propios méritos. El humor es el empaque, no el argumento. Esto es Racional — usa una técnica como "ironía o
+  ingenio que revela una tensión real" (no la confundas con las técnicas típicamente asociadas a lo
+  AntiRacional: si describes la técnica de un pasaje Racional como "apelación a lealtad/traición" o
+  "descalificación de la postura contraria" sin más, revisa si en realidad el pasaje sí sobrevive el despojo —
+  y si sobrevive, nombra la técnica en términos de lo que SÍ aporta —la tensión o contradicción real que expone—
+  no en términos del mecanismo de presión que usarías para un caso AntiRacional).
+- Sarcasmo o burla que SUSTITUYE el argumento: al despojar el pasaje de su tono burlón o desdeñoso, no queda
+  ninguna afirmación verificable — solo desprecio hacia la postura o persona contraria. El desdén ocupa el lugar
+  donde debería estar una razón. Esto es AntiRacional — usa una técnica como "sarcasmo o descalificación ad
+  hominem que sustituye el argumento".
+
+La pregunta que separa a los dos casos: después de quitar el tono, ¿queda una afirmación que un lector crítico
+podría investigar o refutar por sus propios méritos (ingenio), o queda solo una actitud hacia el otro lado
+(sarcasmo sustitutivo)? Nombra la técnica de forma consistente con esa respuesta, no con el vocabulario típico
+del fenómeno contrario.
 
 GRANULARIDAD
 
@@ -352,41 +377,35 @@ Justifica el veredicto con una frase que sintetice el patrón observado.
 
 export function step5Prompt(
   texto: string,
-  explicaciones: Explicacion[],
-  problemas: Problema[],
-  veredictos: Veredicto[]
+  explicacion: Explicacion,
+  problema: Problema,
+  veredicto: Veredicto
 ) {
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso: para las explicaciones con veredicto "DificilDeVariar" o "Mixta" (las explicaciones fuertes
-o parcialmente fuertes), generar 1 o 2 PROBLEMAS NUEVOS que solo se vuelven formulables si se acepta esa
-explicación como cierta. Es decir: preguntas que no tendrían sentido plantear sin aceptar primero la explicación,
-porque dependen de un mecanismo o entidad que la explicación introduce.
+Tu tarea en este paso: la explicación que recibes ya tiene veredicto "DificilDeVariar" o "Mixta" (es fuerte o
+parcialmente fuerte). Genera 1 o 2 PROBLEMAS NUEVOS que solo se vuelven formulables si se acepta esa explicación
+como cierta. Es decir: preguntas que no tendrían sentido plantear sin aceptar primero la explicación, porque
+dependen de un mecanismo o entidad que la explicación introduce.
 
-Filtra cualquier pregunta que ya fuera formulable antes de aceptar la explicación (esas no cuentan).
+Filtra cualquier pregunta que ya fuera formulable antes de aceptar la explicación (esas no cuentan). Si
+genuinamente no encuentras ninguna pregunta nueva que dependa de aceptar la explicación, devuelve la lista vacía
+— no fuerces una.
 
 Para cada problema nuevo, indica si el autor del texto lo reconoce o lo aborda explícitamente ("Si") o lo deja
 completamente silenciado/sin mencionar ("No"), con una breve justificación.
 
-Para las explicaciones con veredicto "FacilDeVariar" no generes problemas nuevos: devuélvelas con una lista vacía.
-
-Además, para esas mismas explicaciones fuertes ("DificilDeVariar" o "Mixta"), evalúa su ALCANCE: si esta
-explicación es cierta, ¿qué otros casos, no mencionados por el autor, debería explicar igual de bien esta misma
-lógica? Si logras identificar casos análogos genuinos que la misma lógica explicaría, repórtalo como alcance
-"Amplio", con una justificación breve que nombre esos casos. Si concluyes que la explicación es demasiado
-específica al caso puntual del texto y no generalizaría a nada parecido, repórtalo como alcance "Limitado", con
-una justificación breve de por qué no generaliza — esto es un hallazgo legítimo, no un fallo de este paso. Para
-las explicaciones con veredicto "FacilDeVariar" no evalúes el alcance: omite el campo.
+Además, evalúa el ALCANCE de esta explicación: si es cierta, ¿qué otros casos, no mencionados por el autor,
+debería explicar igual de bien esta misma lógica? Si logras identificar casos análogos genuinos que la misma
+lógica explicaría, repórtalo como alcance "Amplio", con una justificación breve que nombre esos casos. Si
+concluyes que la explicación es demasiado específica al caso puntual del texto y no generalizaría a nada
+parecido, repórtalo como alcance "Limitado", con una justificación breve de por qué no generaliza — esto es un
+hallazgo legítimo, no un fallo de este paso.
 `.trim();
 
-  const user = `Texto original (para contexto):\n\n${texto}\n\nExplicaciones con su problema y veredicto:\n${JSON.stringify(
-    explicaciones.map((e) => ({
-      id: e.id,
-      resumen: e.resumen,
-      problema: problemas.find((p) => p.explicacionId === e.id)?.enunciado,
-      veredicto: veredictos.find((v) => v.explicacionId === e.id)?.veredicto,
-    })),
+  const user = `Texto original (para contexto):\n\n${texto}\n\nExplicación (veredicto: ${veredicto.veredicto}):\n${JSON.stringify(
+    { id: explicacion.id, resumen: explicacion.resumen, problema: problema.enunciado },
     null,
     2
   )}`;
@@ -394,47 +413,36 @@ las explicaciones con veredicto "FacilDeVariar" no evalúes el alcance: omite el
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      resultados: {
+      problemasNuevos: {
         type: "array",
+        maxItems: 2,
         items: {
           type: "object",
           properties: {
-            explicacionId: { type: "string" },
-            problemasNuevos: {
-              type: "array",
-              maxItems: 2,
-              items: {
-                type: "object",
-                properties: {
-                  enunciado: { type: "string" },
-                  reconocidoPorAutor: { type: "string", enum: ["Si", "No"] },
-                  justificacion: { type: "string" },
-                },
-                required: ["enunciado", "reconocidoPorAutor", "justificacion"],
-              },
-            },
-            alcance: {
-              type: "object",
-              description: "Solo para explicaciones con veredicto DificilDeVariar o Mixta; omitir en las demás.",
-              properties: {
-                tipo: { type: "string", enum: ["Amplio", "Limitado"] },
-                justificacion: { type: "string" },
-              },
-              required: ["tipo", "justificacion"],
-            },
+            enunciado: { type: "string" },
+            reconocidoPorAutor: { type: "string", enum: ["Si", "No"] },
+            justificacion: { type: "string" },
           },
-          required: ["explicacionId", "problemasNuevos"],
+          required: ["enunciado", "reconocidoPorAutor", "justificacion"],
         },
       },
+      alcance: {
+        type: "object",
+        properties: {
+          tipo: { type: "string", enum: ["Amplio", "Limitado"] },
+          justificacion: { type: "string" },
+        },
+        required: ["tipo", "justificacion"],
+      },
     },
-    required: ["resultados"],
+    required: ["problemasNuevos", "alcance"],
   };
 
   return {
     system,
     user,
     toolName: "reportar_problemas_nuevos",
-    toolDescription: "Reporta los problemas nuevos y el alcance de cada explicación fuerte.",
+    toolDescription: "Reporta los problemas nuevos y el alcance de esta explicación fuerte.",
     inputSchema,
   };
 }
@@ -529,6 +537,15 @@ Esta sección debe:
   asume"), en vez de decir genéricamente que "no sobrevivió una variante". Nunca uses las palabras "predicción"
   ni "profecía".
 - Si hay explicaciones rivales o complementarias, explicar esa relación en prosa.
+- Si una explicación tiene veredicto "SinSustitutoGenuino", trátala aparte y con menos confianza que a las
+  explicaciones puestas a prueba: no se encontró ninguna alternativa genuina con la cual ponerla a competir, así
+  que su solidez sigue sin verificarse — no la describas con el mismo lenguaje de solidez que usarías para una
+  explicación que sí resistió el cambio de sus detalles ("resiste el cambio", "está realmente conectada con lo
+  que explica"), y no le atribuyas preguntas nuevas ni alcance (no los tiene, precisamente porque no fue puesta a
+  prueba). Dilo en prosa llana, por ejemplo: "esta explicación no llegó a enfrentarse a ninguna alternativa que
+  compitiera genuinamente por el mismo problema, así que no es posible afirmar todavía qué tan bien resistiría un
+  cambio en sus detalles." No la trates como un hallazgo negativo (no es lo mismo que "fácil de variar") ni como
+  positivo (no es lo mismo que "difícil de variar") — es, literalmente, una pregunta abierta sobre el texto.
 
 No incluyas los datos crudos (IDs, listas estructuradas) en el reporte: tradúcelos a prosa legible.
 

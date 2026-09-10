@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const result = await callTool<{
       candidatas: { cita: string; resumen: string }[];
       descartadas: Descartada[];
-    }>({ ...prompt, effort: "low" });
+    }>({ ...prompt, effort: "medium" });
 
     const explicaciones: Explicacion[] = asArray(result.candidatas)
       .filter((c) => c.cita?.trim() && c.resumen?.trim())

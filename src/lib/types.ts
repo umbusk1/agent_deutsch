@@ -37,7 +37,7 @@ export type ResultadoVariante = {
 export type Veredicto = {
   explicacionId: string;
   resultadosVariantes: ResultadoVariante[];
-  veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta";
+  veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta" | "SinSustitutoGenuino";
   justificacion: string;
 };
 

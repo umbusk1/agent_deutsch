@@ -25,18 +25,23 @@ export async function POST(request: Request) {
     }
 
     const porExplicacion = await Promise.all(
-      explicaciones.map(async (explicacion) => {
+      explicaciones.map(async (explicacion): Promise<Veredicto | null> => {
         const problema = problemas.find((p) => p.explicacionId === explicacion.id);
         if (!problema) return null;
 
         const variantes = asArray(variantesAceptadas).filter((v) => v.explicacionId === explicacion.id);
         if (variantes.length === 0) {
+          // El Paso 3 no logró generar ninguna variante que calificara como sustituto genuino (todas las que
+          // propuso resultaron complementarias u otro motivo de descarte). Esto NO es evidencia de que la
+          // explicación sea difícil de variar — solo significa que no se pudo poner a prueba. Asignarle
+          // DificilDeVariar aquí la haría indistinguible de una explicación que sí sobrevivió pruebas reales,
+          // así que se marca con su propio estado, sin someterla al veredicto binario.
           return {
             explicacionId: explicacion.id,
             resultadosVariantes: [],
-            veredicto: "DificilDeVariar" as const,
+            veredicto: "SinSustitutoGenuino" as const,
             justificacion:
-              "No fue posible proponer ninguna variante que compitiera genuinamente por resolver el mismo problema: cualquier cambio de detalles considerado terminaba resolviendo un problema distinto. Eso en sí mismo es indicio de que la explicación está fuertemente atada a los detalles que propone.",
+              "El paso anterior no logró generar ninguna variante que compitiera genuinamente por resolver el mismo problema: cualquier cambio de detalles considerado terminaba resolviendo un problema distinto. Esta explicación no fue puesta a prueba — no hay base para llamarla difícil de variar.",
           };
         }
 

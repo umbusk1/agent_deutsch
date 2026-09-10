@@ -4,7 +4,7 @@ import { step5Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Alcance } from "@/lib/types";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 export async function POST(request: Request) {
   try {
@@ -27,35 +27,53 @@ export async function POST(request: Request) {
       );
     }
 
-    const prompt = step5Prompt(texto, explicaciones, problemas, veredictos);
-    const result = await callTool<{
-      resultados: {
-        explicacionId: string;
-        problemasNuevos: { enunciado: string; reconocidoPorAutor: "Si" | "No"; justificacion: string }[];
-        alcance?: { tipo: "Amplio" | "Limitado"; justificacion: string };
-      }[];
-    }>(prompt);
+    // Una llamada por explicación fuerte (en paralelo), no una sola llamada combinada para todas: con una
+    // llamada combinada, la última explicación de la lista podía quedarse sin presupuesto de salida y salir
+    // sin alcance ni preguntas nuevas. Este patrón replica el de los Pasos 3 y 4.
+    const porExplicacion = await Promise.all(
+      explicaciones.map(async (explicacion) => {
+        // "SinSustitutoGenuino" nunca fue puesta a prueba (ver step4/route.ts) — igual que "FacilDeVariar",
+        // no debe recibir preguntas nuevas ni alcance: esos campos son una credencial adicional que solo le
+        // corresponde a una explicación que de verdad sobrevivió el escrutinio.
+        const veredicto = veredictos.find((v) => v.explicacionId === explicacion.id);
+        if (!veredicto || veredicto.veredicto === "FacilDeVariar" || veredicto.veredicto === "SinSustitutoGenuino") {
+          return null;
+        }
+
+        const problema = problemas.find((p) => p.explicacionId === explicacion.id);
+        if (!problema) return null;
+
+        const prompt = step5Prompt(texto, explicacion, problema, veredicto);
+        const result = await callTool<{
+          problemasNuevos: { enunciado: string; reconocidoPorAutor: "Si" | "No"; justificacion: string }[];
+          alcance?: { tipo: "Amplio" | "Limitado"; justificacion: string };
+        }>({ ...prompt, effort: "medium" });
+
+        return { explicacionId: explicacion.id, result };
+      })
+    );
 
     let contador = 0;
     const problemasNuevos: ProblemaNuevo[] = [];
     const alcances: Alcance[] = [];
-    for (const r of asArray(result.resultados)) {
-      for (const p of asArray(r.problemasNuevos)) {
+    for (const item of porExplicacion) {
+      if (!item) continue;
+      for (const p of asArray(item.result.problemasNuevos)) {
         if (!p.enunciado?.trim()) continue;
         contador += 1;
         problemasNuevos.push({
           id: `N${contador}`,
-          explicacionId: r.explicacionId,
+          explicacionId: item.explicacionId,
           enunciado: p.enunciado.trim(),
           reconocidoPorAutor: p.reconocidoPorAutor,
           justificacion: p.justificacion,
         });
       }
-      if (r.alcance?.tipo && r.alcance.justificacion?.trim()) {
+      if (item.result.alcance?.tipo && item.result.alcance.justificacion?.trim()) {
         alcances.push({
-          explicacionId: r.explicacionId,
-          tipo: r.alcance.tipo,
-          justificacion: r.alcance.justificacion.trim(),
+          explicacionId: item.explicacionId,
+          tipo: item.result.alcance.tipo,
+          justificacion: item.result.alcance.justificacion.trim(),
         });
       }
     }
