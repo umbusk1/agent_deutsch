@@ -35,6 +35,19 @@ Tu tarea en este paso: leer un texto de opinión y extraer las afirmaciones que 
 - juicio normativo puro: afirmar qué debería pasar o qué es deseable/indeseable, sin explicar por qué ocurre algo.
 
 Para cada afirmación explicativa candidata, cita el fragmento exacto del texto y resume la explicación en una frase.
+Además, distingue explícitamente DOS niveles de la misma explicación, sin fusionarlos y sin omitir detalle de
+ninguno de los dos:
+
+- mecanismoGeneral: el mecanismo UNIVERSAL que la explicación invoca — la regularidad que, en principio, operaría
+  igual de bien más allá de este caso concreto, si las condiciones relevantes se repitieran en cualquier otro
+  contexto. Enúncialo sin nombrar a los actores, países o hechos específicos de este texto (ej. no "el remanente
+  chavista evita el escrutinio judicial", sino "un grupo cuya riqueza depende de que su origen no sea escrutado
+  tiene un incentivo directo en bloquear las instituciones capaces de ese escrutinio"). Esto NO es pedir un
+  resumen más corto o más vago del mismo resumen — es un enunciado distinto, al nivel del patrón general, tan
+  completo y preciso en su propio nivel como el resumen lo es en el suyo.
+- resumen: la aplicación específica de ese mecanismo general al caso concreto del texto (quién, qué, cuándo) — se
+  mantiene igual de detallado que antes, como UNA INSTANCIA del mecanismo general, no como el mecanismo mismo.
+
 Para cada afirmación descartada por ser narración, descripción o juicio normativo puro, cita el fragmento y explica
 brevemente por qué no cuenta como explicación.
 
@@ -52,9 +65,17 @@ Sé exhaustivo pero no inventes explicaciones que el texto no contiene.
           type: "object",
           properties: {
             cita: { type: "string", description: "Fragmento textual citado del artículo" },
-            resumen: { type: "string", description: "Resumen breve de la afirmación explicativa" },
+            mecanismoGeneral: {
+              type: "string",
+              description:
+                "El mecanismo universal que esta explicación invoca, enunciado sin actores/hechos específicos de este texto — la versión general de la que 'resumen' es una instancia",
+            },
+            resumen: {
+              type: "string",
+              description: "Resumen de la afirmación explicativa, como aplicación específica de mecanismoGeneral al caso concreto del texto",
+            },
           },
-          required: ["cita", "resumen"],
+          required: ["cita", "mecanismoGeneral", "resumen"],
         },
       },
       descartadas: {
@@ -210,10 +231,21 @@ para poder evaluar después si una variante de la explicación sigue respondién
 
 Sin un problema bien formulado no se puede evaluar la calidad de la explicación, así que sé preciso y específico,
 evitando formulaciones vagas o demasiado generales.
+
+Cada explicación viene con dos niveles ya distinguidos: mecanismoGeneral (la regularidad universal que invoca) y
+resumen (su aplicación específica al caso del texto). Formula el problema al nivel de mecanismoGeneral, no al
+nivel de los detalles de resumen — la pregunta debe poder tener, en principio, más de un mecanismo general
+candidato como respuesta, aunque en este texto solo se defienda uno. Evita incorporar en el enunciado del
+problema matices, contrastes o calificadores que solo tengan sentido dentro de la aplicación específica de ESTA
+explicación al caso venezolano (incluyendo frases tomadas casi literalmente de cómo el texto original narra el
+caso) — eso ata el problema a que solo esta explicación pueda satisfacerlo, y hace imposible evaluarla después
+contra un rival genuino. Sigue siendo específico y evaluable (evita el otro extremo: una pregunta tan general
+que ni siquiera identifique el fenómeno concreto que hay que explicar) — el nivel correcto es el del mecanismo,
+no el de sus detalles de aplicación ni el de la redacción del artículo.
 `.trim();
 
   const user = `Texto original (para contexto):\n\n${texto}\n\nExplicaciones candidatas:\n${JSON.stringify(
-    explicaciones.map((e) => ({ id: e.id, cita: e.cita, resumen: e.resumen })),
+    explicaciones.map((e) => ({ id: e.id, cita: e.cita, mecanismoGeneral: e.mecanismoGeneral, resumen: e.resumen })),
     null,
     2
   )}`;

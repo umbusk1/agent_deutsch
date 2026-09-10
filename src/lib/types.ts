@@ -2,6 +2,8 @@ export type Explicacion = {
   id: string;
   cita: string;
   resumen: string;
+  /** El mecanismo universal ("parroquial" no) que resumen aplica al caso concreto del texto. */
+  mecanismoGeneral: string;
 };
 
 export type Descartada = {

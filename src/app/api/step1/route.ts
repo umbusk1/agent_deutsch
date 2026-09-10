@@ -36,20 +36,18 @@ export async function POST(request: Request) {
     }
 
     const prompt = step1Prompt(texto);
-    // TEMPORAL: revertido a "low" para una corrida de prueba aislada, para distinguir si subir a "medium"
-    // (commit e8dca9c) fue lo que hizo que el Paso 3 dejara de encontrar sustitutos genuinos en "Así no,
-    // Mister Trump" (6/6 en vez de 1/6). Revertir a "medium" (o decidir el valor final) una vez confirmado.
     const result = await callTool<{
-      candidatas: { cita: string; resumen: string }[];
+      candidatas: { cita: string; resumen: string; mecanismoGeneral: string }[];
       descartadas: Descartada[];
-    }>({ ...prompt, effort: "low" });
+    }>({ ...prompt, effort: "medium" });
 
     const explicaciones: Explicacion[] = asArray(result.candidatas)
-      .filter((c) => c.cita?.trim() && c.resumen?.trim())
+      .filter((c) => c.cita?.trim() && c.resumen?.trim() && c.mecanismoGeneral?.trim())
       .map((c, i) => ({
         id: `E${i + 1}`,
         cita: c.cita.trim(),
         resumen: c.resumen.trim(),
+        mecanismoGeneral: c.mecanismoGeneral.trim(),
       }));
 
     const descartadas = asArray(result.descartadas).filter((d) => d.cita?.trim() && d.motivo?.trim());
