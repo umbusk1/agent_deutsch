@@ -281,12 +281,31 @@ export function step3Prompt(texto: string, explicacion: Explicacion, problema: P
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso: generar 2 o 3 VARIANTES de los detalles de la explicación dada, cambiando los mecanismos,
-actores o causas concretas que propone, manteniendo el mismo problema como referencia.
+Tu tarea en este paso: generar 2 o 3 VARIANTES de los detalles de la explicación dada, cambiando el mecanismo,
+motivo o causa concreta que propone, manteniendo el mismo problema como referencia.
 
-Antes de aceptar una variante como válida, verifica que sea un SUSTITUTO GENUINO: debe competir por resolver
-EXACTAMENTE el mismo problema que la explicación original. Si una variante en realidad resuelve un problema
-distinto (es COMPLEMENTARIA, no rival), descártala explicando por qué.
+ANTES de generar cualquier variante, identifica el SUJETO del problema: de quién o de qué se está explicando el
+comportamiento o el efecto. Da igual si el problema lo nombra explícitamente (ej. "el gobierno X") o lo describe
+en abstracto sin nombrar a nadie en particular (ej. "un grupo que teme rendir cuentas", "un acuerdo que carece
+de legitimidad institucional") — identifícalo de todas formas. Ese sujeto queda FIJO en todas las variantes que
+generes. Nunca sustituyas de quién o de qué se habla por un actor, entidad o rol distinto, aunque ese otro actor
+esté involucrado en la misma situación o transacción — eso no es variar la explicación, es explicar otra cosa.
+Cambia ÚNICAMENTE el mecanismo, motivo o causa que se le atribuye a ese mismo sujeto.
+
+Ejemplo de variante INVÁLIDA por cambiar el sujeto: si la explicación es sobre por qué un vendedor cede
+condiciones desfavorables, una variante que en cambio explica por qué el comprador presiona para obtenerlas no
+es una variante de esa explicación — es una explicación sobre un sujeto distinto (el comprador), aunque hable de
+la misma transacción. Descártala como complementaria, no la cuentes entre las 2 o 3 variantes pedidas.
+
+Antes de aceptar una variante como válida, verifica que sea un SUSTITUTO GENUINO: debe mantener el mismo sujeto
+y competir por resolver EXACTAMENTE el mismo problema que la explicación original, cambiando solo el mecanismo
+que se le atribuye. Si una variante en realidad cambia de sujeto o resuelve un problema distinto (es
+COMPLEMENTARIA, no rival), descártala explicando por qué.
+
+Si genuinamente no logras pensar en ningún mecanismo alternativo que compita por resolver el mismo problema para
+el mismo sujeto, no fuerces una variante artificial ni la sustituyas por un cambio de sujeto disfrazado — es
+preferible devolver una lista de variantesAceptadas vacía (con las descartadas, si las hubo, explicando por qué
+no calificaron) que inventar una variante que en realidad no compite.
 
 Si la explicación hace una afirmación sobre el futuro, o extrapola hacia adelante una tendencia actual, genera
 SIEMPRE una variante adicional (más allá de las 2 o 3 normales) de un tipo específico: un escenario donde surge
@@ -311,8 +330,8 @@ razones), con su motivo de descarte.
     properties: {
       variantesAceptadas: {
         type: "array",
-        minItems: 1,
         maxItems: 4,
+        description: "Puede quedar vacío si genuinamente no se encontró ningún sustituto genuino — no se debe forzar una entrada aquí solo para no dejarlo vacío.",
         items: {
           type: "object",
           properties: {
