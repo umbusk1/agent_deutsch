@@ -395,6 +395,7 @@ export default function Home() {
   function buildTripletas(): string {
     const lines: string[] = ["# Glosario", ""];
     for (const e of explicaciones) lines.push(`${e.id}: ${e.resumen}`);
+    for (const e of explicaciones) lines.push(`${e.id} (mecanismo general): ${e.mecanismoGeneral}`);
     for (const p of problemas) lines.push(`${p.id}: ${p.enunciado}`);
     for (const v of variantesAceptadas) lines.push(`${v.id}: ${v.descripcion}`);
     for (const n of problemasNuevos) lines.push(`${n.id}: ${n.enunciado}`);
@@ -594,6 +595,20 @@ export default function Home() {
                 </label>
               </div>
               <div className="quote">&ldquo;{e.cita}&rdquo;</div>
+              <div className="item-label" style={{ marginTop: "0.5rem" }}>
+                <span>Mecanismo general (la regularidad universal que invoca, sin actores ni hechos de este caso)</span>
+              </div>
+              <textarea
+                value={e.mecanismoGeneral}
+                onChange={(ev) =>
+                  setExplicaciones((prev) =>
+                    prev.map((x) => (x.id === e.id ? { ...x, mecanismoGeneral: ev.target.value } : x))
+                  )
+                }
+              />
+              <div className="item-label" style={{ marginTop: "0.5rem" }}>
+                <span>Aplicación específica (ese mecanismo aplicado a este caso concreto)</span>
+              </div>
               <textarea
                 value={e.resumen}
                 onChange={(ev) =>
