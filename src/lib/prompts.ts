@@ -308,6 +308,38 @@ Algunas explicaciones son un híbrido (un actor cuya decisión desencadena, a su
 — en ese caso, identifica primero cuál de los dos eslabones es el que la explicación realmente pone en juego (el
 motivo del actor, o el factor que dispara la cadena) antes de decidir qué variar.
 
+CÓMO CONSTRUIR LA VARIANTE: debe ser una SUSTITUCIÓN MÍNIMA de un solo detalle concreto, no una reescritura
+estructural. Cambia solo el detalle exacto que corresponda según el tipo (el motivo específico, o el factor
+causal específico) y deja todo lo demás literalmente igual — mismo sujeto/actor, mismo dominio (el mismo tipo de
+causa: institucional, económico, reputacional, regulatorio, etc. — nunca saltes a un dominio distinto), y el
+mismo mecanismo o cadena que conecta la causa con el efecto.
+
+Ejemplos de sustitución mínima VÁLIDA (detalle original → detalle sustituido, mismo dominio, mismo sujeto/cadena):
+- [cadena causal] "la ilegitimidad institucional genera incertidumbre que desalienta la inversión de largo
+  plazo" → "la informalidad administrativa genera incertidumbre que desalienta la inversión de largo plazo".
+  (Mismo dominio: características institucionales de gobernanza. Misma cadena intacta: incertidumbre → desalienta
+  inversión.)
+- [cadena causal] "la escasez de vivienda ocurre porque las restricciones de zonificación limitan la
+  construcción, lo cual reduce la oferta y sube los precios" → "...porque los impuestos prediales elevados a la
+  construcción nueva limitan la construcción, lo cual reduce la oferta y sube los precios". (Mismo dominio:
+  política regulatoria de vivienda. Misma cadena intacta: limita construcción → reduce oferta → sube precios.)
+- [actor-con-motivo] "el remanente chavista cede recursos con tal de evitar el costo de su ilegitimidad" → "el
+  remanente chavista cede recursos con tal de asegurar impunidad penal para sus líderes". (Mismo actor: el
+  remanente chavista. Misma categoría de motivo: auto-preservación frente a la rendición de cuentas.)
+- [actor-con-motivo] "el gerente aprueba el proyecto riesgoso porque quiere cumplir la meta trimestral de
+  ventas" → "el gerente aprueba el proyecto riesgoso porque quiere asegurar su bono anual". (Mismo actor: el
+  gerente. Misma categoría de motivo: incentivo financiero personal.)
+
+Estas NO son sustituciones mínimas, aunque parezcan variantes razonables — descártalas sin contarlas como
+candidatas, y si las generaste por error, repórtalas en variantesDescartadas explicando cuál de estos tres
+errores cometieron:
+- Cambio de DOMINIO completo (ej. cambiar "incertidumbre institucional" por "mala reputación empresarial" — es
+  un dominio causal distinto, no un detalle distinto dentro del mismo dominio).
+- Cambio de TIPO de explicación (ej. convertir una cadena causal impersonal en un motivo de legitimación de un
+  actor, o viceversa).
+- Cambio de SUJETO/ACTOR (el error más común: sustituir "el remanente chavista" por "las empresas" no es variar
+  el motivo, es explicar a otro sujeto — ver la sección de tipo ACTOR-CON-MOTIVO arriba).
+
 Antes de aceptar una variante como válida, verifica que sea un SUSTITUTO GENUINO: debe mantener fijo lo que
 corresponda según el tipo (el sujeto, o la cadena/mecanismo) y competir por resolver EXACTAMENTE el mismo
 problema que la explicación original, cambiando solo lo que sí está permitido variar. Si una variante en
