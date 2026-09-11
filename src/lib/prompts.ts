@@ -284,28 +284,41 @@ ${CRITERIO_CENTRAL}
 Tu tarea en este paso: generar 2 o 3 VARIANTES de los detalles de la explicación dada, cambiando el mecanismo,
 motivo o causa concreta que propone, manteniendo el mismo problema como referencia.
 
-ANTES de generar cualquier variante, identifica el SUJETO del problema: de quién o de qué se está explicando el
-comportamiento o el efecto. Da igual si el problema lo nombra explícitamente (ej. "el gobierno X") o lo describe
-en abstracto sin nombrar a nadie en particular (ej. "un grupo que teme rendir cuentas", "un acuerdo que carece
-de legitimidad institucional") — identifícalo de todas formas. Ese sujeto queda FIJO en todas las variantes que
-generes. Nunca sustituyas de quién o de qué se habla por un actor, entidad o rol distinto, aunque ese otro actor
-esté involucrado en la misma situación o transacción — eso no es variar la explicación, es explicar otra cosa.
-Cambia ÚNICAMENTE el mecanismo, motivo o causa que se le atribuye a ese mismo sujeto.
+ANTES de generar cualquier variante, identifica de qué TIPO es esta explicación, porque eso determina qué debe
+quedarse fijo y qué se puede variar:
 
-Ejemplo de variante INVÁLIDA por cambiar el sujeto: si la explicación es sobre por qué un vendedor cede
-condiciones desfavorables, una variante que en cambio explica por qué el comprador presiona para obtenerlas no
-es una variante de esa explicación — es una explicación sobre un sujeto distinto (el comprador), aunque hable de
-la misma transacción. Descártala como complementaria, no la cuentes entre las 2 o 3 variantes pedidas.
+- Tipo ACTOR-CON-MOTIVO: un sujeto (nombrado o descrito en abstracto — da igual, ej. "el gobierno X" o "un grupo
+  que teme rendir cuentas") hace o decide algo POR UN MOTIVO. Aquí el SUJETO queda FIJO en todas las variantes.
+  Nunca sustituyas de quién se habla por un actor, entidad o rol distinto, aunque ese otro actor esté involucrado
+  en la misma situación (ej. si la explicación es sobre por qué un vendedor cede condiciones desfavorables, una
+  variante que en cambio explica por qué el comprador presiona para obtenerlas no es una variante — es una
+  explicación sobre un sujeto distinto). Cambia ÚNICAMENTE el motivo o razón que se le atribuye a ese mismo
+  sujeto.
+- Tipo CADENA CAUSAL: no hay ningún sujeto que decida nada — es un mecanismo impersonal donde un factor concreto
+  produce un efecto a través de una cadena causal (ej. "la ilegitimidad institucional genera incertidumbre, y esa
+  incertidumbre desalienta la inversión de largo plazo"). Aquí la CADENA/MECANISMO que conecta causa y efecto
+  queda FIJA (ej. "incertidumbre desalienta inversión de largo plazo"). Cambia ÚNICAMENTE el factor causal
+  concreto que dispara esa cadena — nunca inventes un actor con motivo donde la explicación original no lo tiene.
+  Ejemplo de variante VÁLIDA de este tipo: sustituir "ilegitimidad institucional" por otra fuente de incertidumbre
+  política igual de concreta (inestabilidad regulatoria, riesgo cambiario, informalidad administrativa) y
+  verificar si la misma cadena ("esa incertidumbre desalienta la inversión de largo plazo") sigue resolviendo el
+  problema con esa fuente distinta — si sobrevive, es un sustituto genuino real, no un cambio de tema.
 
-Antes de aceptar una variante como válida, verifica que sea un SUSTITUTO GENUINO: debe mantener el mismo sujeto
-y competir por resolver EXACTAMENTE el mismo problema que la explicación original, cambiando solo el mecanismo
-que se le atribuye. Si una variante en realidad cambia de sujeto o resuelve un problema distinto (es
-COMPLEMENTARIA, no rival), descártala explicando por qué.
+Algunas explicaciones son un híbrido (un actor cuya decisión desencadena, a su vez, una cadena causal impersonal)
+— en ese caso, identifica primero cuál de los dos eslabones es el que la explicación realmente pone en juego (el
+motivo del actor, o el factor que dispara la cadena) antes de decidir qué variar.
 
-Si genuinamente no logras pensar en ningún mecanismo alternativo que compita por resolver el mismo problema para
-el mismo sujeto, no fuerces una variante artificial ni la sustituyas por un cambio de sujeto disfrazado — es
-preferible devolver una lista de variantesAceptadas vacía (con las descartadas, si las hubo, explicando por qué
-no calificaron) que inventar una variante que en realidad no compite.
+Antes de aceptar una variante como válida, verifica que sea un SUSTITUTO GENUINO: debe mantener fijo lo que
+corresponda según el tipo (el sujeto, o la cadena/mecanismo) y competir por resolver EXACTAMENTE el mismo
+problema que la explicación original, cambiando solo lo que sí está permitido variar. Si una variante en
+realidad cambia de sujeto, o de cadena causal, o resuelve un problema distinto (es COMPLEMENTARIA, no rival),
+descártala explicando por qué.
+
+Si genuinamente no logras pensar en ninguna alternativa que compita por resolver el mismo problema manteniendo
+fijo lo que corresponda (el sujeto, o la cadena/mecanismo), no fuerces una variante artificial ni la disfraces
+cambiando lo que debía quedarse fijo — es preferible devolver una lista de variantesAceptadas vacía (con las
+descartadas, si las hubo, explicando por qué no calificaron) que inventar una variante que en realidad no
+compite.
 
 Si la explicación hace una afirmación sobre el futuro, o extrapola hacia adelante una tendencia actual, genera
 SIEMPRE una variante adicional (más allá de las 2 o 3 normales) de un tipo específico: un escenario donde surge
