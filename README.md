@@ -51,6 +51,10 @@ Abre http://localhost:3000 — el navegador pedirá usuario/contraseña (usa cua
 3. Define `ANTHROPIC_API_KEY` y `APP_USERS` como variables de entorno del proyecto.
 4. Despliega. Cada una de las 7 rutas de `/api/step*` ya declara `maxDuration` para evitar cortes por tiempo límite; si tu plan de Vercel permite un máximo distinto, ajústalo en cada `route.ts`.
 
+## Modo "En construcción"
+
+Para poner el sitio completo en pausa (sin borrar ni modificar ninguna ruta), define `MAINTENANCE_MODE=true` como variable de entorno del proyecto en Vercel y redepliega. `src/proxy.ts` intercepta entonces cualquier petición — páginas y `/api/step*` incluidos — y responde con una página estática "En construcción" (HTTP 503) antes de llegar al resto del código. Para reactivar el sitio, quita la variable (o ponla en cualquier valor distinto de `"true"`) y redespliega.
+
 ## Notas para quien siga trabajando este código (o para un agente de IA)
 
 Este proyecto usa **Next.js 16**, que renombró `middleware.ts` a `proxy.ts` (ver `src/proxy.ts`) y tiene otros cambios respecto a versiones anteriores. Antes de asumir convenciones de versiones previas de Next.js, revisa `node_modules/next/dist/docs/` o `AGENTS.md`.
