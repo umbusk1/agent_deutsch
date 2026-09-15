@@ -3,7 +3,21 @@ import type { Explicacion, Problema, VarianteAceptada, Veredicto, Relacion, Pasa
 
 type Schema = Anthropic.Tool["input_schema"];
 
-const CRITERIO_CENTRAL = `
+const REGLA_JERGA = `
+Este criterio nunca debe nombrarse explícitamente en ningún texto dirigido al usuario final. No menciones autores,
+escuelas de pensamiento ni terminología técnica (como "difícil de variar", "conjetura", "falsable", etc.) fuera de
+los campos estructurados que se te piden. El usuario final debe leer prosa crítica ordinaria, no un tratado de
+epistemología.
+`.trim();
+
+const REGLA_IDIOMA = `
+El texto que vas a analizar puede estar en cualquier idioma. Todos los campos de texto libre que generes (resúmenes,
+enunciados de problemas, descripciones de variantes, justificaciones, etc.) deben estar SIEMPRE en español,
+independientemente del idioma del texto original. La única excepción son las citas textuales extraídas literalmente
+del texto ("cita"), que deben mantenerse en su idioma original sin traducir.
+`.trim();
+
+const CRITERIO_EXPLICACION = `
 Estás evaluando la calidad de explicaciones dentro de un texto de opinión, usando un criterio preciso:
 
 Una explicación es BUENA cuando es DIFÍCIL DE VARIAR en relación con el problema específico que resuelve.
@@ -13,21 +27,29 @@ deja de resolver el problema — cada parte de la explicación está haciendo un
 Una explicación es MALA (fácil de variar) cuando puedes cambiarle los detalles y, sin embargo, sigue "explicando"
 el problema igual de bien que antes. Eso revela que los detalles nunca estaban conectados de verdad con el problema:
 la explicación funcionaba más como una fórmula flexible que como una respuesta real.
-
-Este criterio nunca debe nombrarse explícitamente en ningún texto dirigido al usuario final. No menciones autores,
-escuelas de pensamiento ni terminología técnica (como "difícil de variar", "conjetura", "falsable", etc.) fuera de
-los campos estructurados que se te piden. El usuario final debe leer prosa crítica ordinaria, no un tratado de
-epistemología.
-
-El texto que vas a analizar puede estar en cualquier idioma. Todos los campos de texto libre que generes (resúmenes,
-enunciados de problemas, descripciones de variantes, justificaciones, etc.) deben estar SIEMPRE en español,
-independientemente del idioma del texto original. La única excepción son las citas textuales extraídas literalmente
-del texto ("cita"), que deben mantenerse en su idioma original sin traducir.
 `.trim();
+
+// TODO: de los 7 pasos que comparten este contexto, solo 3 de ellos usan CRITERIO_EXPLICACION para algo — los
+// otros 4 solo necesitan REGLA_IDIOMA/REGLA_JERGA y lo traían de más (contaminación temprana: primaba el marco de
+// "evaluar explicaciones" en pasos cuyo trabajo es distinto). Auditoría completa, para quien retome esto:
+//   1. Problema (problemaPrompt)         -> NO usa la definición. Ya recortado a REGLA_IDIOMA + REGLA_JERGA.
+//   2. Explicación (explicacionPrompt)   -> NO usa la definición (clasifica candidatas y chequea el puente, no
+//                                            evalúa si son difíciles de variar). Ya recortado.
+//   3. Variantes (step3Prompt)           -> SÍ la usa (genera las variantes que la ponen a prueba). Completo.
+//   4. Veredictos (step4Prompt)          -> SÍ la usa (aplica la definición para decidir el veredicto). Completo.
+//   5. Preguntas nuevas/Alcance (step5)  -> NO la usa (recibe el veredicto ya decidido como dato de entrada, nunca
+//                                            lo re-deriva). PENDIENTE de recortar — no tiene compuerta de rechazo
+//                                            que pueda fallar en silencio, así que el riesgo de posponerlo es bajo.
+//   6. Relaciones (step6Prompt)          -> NO la usa (compara si dos explicaciones abordan el mismo problema, no
+//                                            su calidad individual). PENDIENTE de recortar, mismo motivo que 5.
+//   7. Reporte principal (step7Principal)-> SÍ la usa (traduce los veredictos a prosa para el usuario). Completo.
+const CRITERIO_CENTRAL = `${CRITERIO_EXPLICACION}\n\n${REGLA_JERGA}\n\n${REGLA_IDIOMA}`.trim();
 
 export function problemaPrompt(texto: string) {
   const system = `
-${CRITERIO_CENTRAL}
+${REGLA_JERGA}
+
+${REGLA_IDIOMA}
 
 Tu tarea en este paso es distinta y ANTERIOR a la de buscar explicaciones: antes de mirar ninguna frase con forma
 de explicación, identifica el PROBLEMA o conflicto de ideas que el texto plantea — lo resuelva el texto o no.
@@ -36,6 +58,16 @@ Un problema genuino es una tensión entre lo que se esperaría y lo que se obser
 ambas ciertas al mismo tiempo. No es lo mismo que un tema (de qué habla el texto en general), ni que un principio
 metodológico o normativo enunciado en abstracto (qué debería hacerse o creerse, en general) — busca el conflicto
 concreto que hace que valga la pena preguntarse "¿por qué...?" o "¿cómo es posible que...?".
+
+La seguridad o el tono categórico con que el autor escribe no es evidencia de que no haya conflicto: puede afirmar
+cada cosa con total seguridad y sin embargo estar describiendo una situación donde dos afirmaciones, o una
+afirmación y un hecho reportado, no encajan del todo. No busques señales de que el autor DUDA o vacila — evalúa si
+lo que describe, más allá de su tono, contiene esa tensión o incompatibilidad. Ejemplo (de un dominio distinto, para
+mostrar que esto no es exclusivo de dictámenes legales): un artículo narra con total seguridad que una empresa
+"redujo costos un 30% eliminando personal" y, párrafos después, con la misma seguridad, que "la productividad del
+equipo restante se mantuvo intacta" — ninguna de las dos frases suena dudosa por sí sola, pero juntas plantean una
+tensión genuina (¿cómo se sostiene la misma producción con menos gente, sin que se explique la diferencia?) que el
+tono confiado del autor no resuelve ni debería ocultar.
 
 El formato retórico del texto es irrelevante para esta búsqueda: un conflicto genuino puede estar planteado en
 prosa narrativa continua, pero igual de bien en un formato de preguntas y respuestas, un dictamen legal, una lista,
@@ -127,7 +159,9 @@ puente.laguna=false con justificación "No hay problema maestro identificado en 
 explicaciones.`;
 
   const system = `
-${CRITERIO_CENTRAL}
+${REGLA_JERGA}
+
+${REGLA_IDIOMA}
 
 En el paso anterior ya se identificó el conflicto que este texto plantea, sin mirar todavía ninguna explicación.
 Ahora, y solo ahora, busca si el texto ofrece una EXPLICACIÓN genuina (un intento de responder "por qué ocurre X"
