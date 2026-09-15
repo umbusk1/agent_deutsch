@@ -3,6 +3,10 @@ export type AppUser = {
   password: string;
   unlimited?: boolean;
   limit?: number;
+  /** Nombre y apellido completos — usados en avatares, atribución y correos de apelación. */
+  fullName?: string;
+  /** Dirección de correo — usada solo para notificar restauraciones de cupo aprobadas. */
+  email?: string;
 };
 
 let cachedUsers: AppUser[] | null = null;

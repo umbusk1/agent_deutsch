@@ -17,27 +17,55 @@ function getRedis(): Redis {
   return redis;
 }
 
-function currentWeekKey(username: string): string {
-  const now = new Date();
-  const day = now.getUTCDay();
+function mondayOf(date: Date): string {
+  const day = date.getUTCDay();
   const diffToMonday = (day + 6) % 7;
   const monday = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diffToMonday)
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - diffToMonday)
   );
-  const mondayStr = monday.toISOString().slice(0, 10);
-  return `agente-deutsch:usage:${username}:${mondayStr}`;
+  return monday.toISOString().slice(0, 10);
 }
 
-export async function peekUsage(username: string): Promise<number> {
-  const value = await getRedis().get<number>(currentWeekKey(username));
+/** El identificador de la semana actual (lunes ISO, UTC) — el mismo que usan las claves de cuota. */
+export function currentWeekId(): string {
+  return mondayOf(new Date());
+}
+
+function usageKey(username: string, weekId: string): string {
+  return `agente-deutsch:usage:${username}:${weekId}`;
+}
+
+export async function peekUsage(username: string, weekId: string = currentWeekId()): Promise<number> {
+  const value = await getRedis().get<number>(usageKey(username, weekId));
   return value ?? 0;
 }
 
 export async function incrementUsage(username: string): Promise<number> {
-  const key = currentWeekKey(username);
+  const weekId = currentWeekId();
+  const key = usageKey(username, weekId);
   const count = await getRedis().incr(key);
   if (count === 1) {
     await getRedis().expire(key, WEEK_TTL_SECONDS);
   }
   return count;
+}
+
+/** Resta 1 uso a una semana específica (no necesariamente la actual) — usado al aprobar una apelación. */
+export async function restoreUsage(username: string, weekId: string): Promise<number> {
+  const key = usageKey(username, weekId);
+  const current = await getRedis().get<number>(key);
+  if (!current || current <= 0) return 0;
+  const next = await getRedis().decr(key);
+  if (next < 0) {
+    await getRedis().set(key, 0);
+    return 0;
+  }
+  return next;
+}
+
+/** Marca un token de restauración como usado. Devuelve true solo la primera vez (protege contra doble clic). */
+export async function markRestoreTokenUsed(token: string): Promise<boolean> {
+  const key = `agente-deutsch:restore-used:${token}`;
+  const result = await getRedis().set(key, "1", { nx: true, ex: WEEK_TTL_SECONDS });
+  return result === "OK";
 }

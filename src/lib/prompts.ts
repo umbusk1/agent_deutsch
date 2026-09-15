@@ -25,18 +25,105 @@ independientemente del idioma del texto original. La única excepción son las c
 del texto ("cita"), que deben mantenerse en su idioma original sin traducir.
 `.trim();
 
-export function step1Prompt(texto: string) {
+export function problemaPrompt(texto: string) {
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso: leer un texto de opinión y extraer las afirmaciones que funcionan como EXPLICACIONES
-(intentos de responder "por qué ocurre X" o "qué mecanismo produce X"), distinguiéndolas de:
+Tu tarea en este paso es distinta y ANTERIOR a la de buscar explicaciones: antes de mirar ninguna frase con forma
+de explicación, identifica el PROBLEMA o conflicto de ideas que el texto plantea — lo resuelva el texto o no.
+
+Un problema genuino es una tensión entre lo que se esperaría y lo que se observa, o dos ideas que no pueden ser
+ambas ciertas al mismo tiempo. No es lo mismo que un tema (de qué habla el texto en general), ni que un principio
+metodológico o normativo enunciado en abstracto (qué debería hacerse o creerse, en general) — busca el conflicto
+concreto que hace que valga la pena preguntarse "¿por qué...?" o "¿cómo es posible que...?".
+
+Distingue dos niveles:
+- "maestro": el conflicto que organiza al resto — si el texto tiene una pregunta central de la que las demás son
+  variaciones o consecuencias, esa es la maestra. Puede venir planteada como principio metodológico en vez de como
+  mecanismo causal explícito (ej. un texto que insiste en "hay que exigir explicaciones, no repetir consignas" está
+  planteando, aunque no lo diga con esas palabras, el problema de por qué las consignas repetidas sustituyen a las
+  explicaciones) — no lo pases por alto solo porque no está enunciado como pregunta causal directa. A lo sumo hay
+  UN problema maestro por texto (puede no haber ninguno si el texto no tiene ningún hilo que organice al resto).
+- "local": conflictos subsidiarios, más específicos o periféricos, que el texto también plantea (los resuelva o
+  no) pero que no organizan al resto.
+
+Busca también, de forma deliberada, problemas que el propio autor deja SIN resolver — silenciados, mencionados de
+pasada, o dejados como pregunta abierta a propósito. Estos cuentan igual que los que sí llegan a tener una
+explicación en el texto: en este paso NO estás buscando explicaciones, solo problemas.
+
+Si el texto no plantea ningún conflicto genuino (ninguna tensión entre expectativa y observación, ninguna
+incompatibilidad entre ideas), devuelve una lista vacía — no fuerces un problema donde solo hay narración, opinión
+o descripción de hechos sin tensión entre ellos. Esto es un resultado legítimo, no un fallo de este paso.
+`.trim();
+
+  const user = `Texto a analizar:\n\n${texto}`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      problemas: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            tipo: {
+              type: "string",
+              enum: ["maestro", "local"],
+              description: "A lo sumo un problema puede ser 'maestro' en todo el texto",
+            },
+            enunciado: {
+              type: "string",
+              description: "El problema formulado como pregunta o tensión concreta, evaluable",
+            },
+          },
+          required: ["tipo", "enunciado"],
+        },
+      },
+    },
+    required: ["problemas"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_problemas",
+    toolDescription: "Reporta el problema maestro (si lo hay) y los problemas locales que el texto plantea, sin mirar todavía ninguna explicación.",
+    inputSchema,
+  };
+}
+
+export function explicacionPrompt(texto: string, problemas: Problema[]) {
+  const maestro = problemas.find((p) => p.tipo === "maestro");
+
+  const chequeoDePuente = maestro
+    ? `CHEQUEO DE PUENTE: esto aplica únicamente a explicaciones que respondan a un problema LOCAL, nunca al
+problema maestro ("${maestro.enunciado}"). Cuando una explicación resuelve un problema local sin nunca argumentar
+cómo se conecta con el problema maestro —lo asume, no lo explica—, márcala con puente.laguna=true y justifica en
+una frase qué conexión se está asumiendo sin argumentar. Esta es una laguna distinta de que la explicación sea
+"fácil de variar" o de que no tenga sustituto genuino: es, específicamente, un puente faltante entre lo local y lo
+central. Si la explicación sí argumenta esa conexión, o si responde directamente al problema maestro (no aplica
+el chequeo), marca puente.laguna=false con una justificación breve de por qué no aplica o por qué el puente sí
+está argumentado.`
+    : `Como no se identificó ningún problema maestro en el paso anterior, el chequeo de puente no aplica: deja
+puente.laguna=false con justificación "No hay problema maestro identificado en este texto" en todas las
+explicaciones.`;
+
+  const system = `
+${CRITERIO_CENTRAL}
+
+En el paso anterior ya se identificó el conflicto que este texto plantea, sin mirar todavía ninguna explicación.
+Ahora, y solo ahora, busca si el texto ofrece una EXPLICACIÓN genuina (un intento de responder "por qué ocurre X"
+o "qué mecanismo produce X") para cada uno de los problemas ya formulados que se te entregan. No inventes una
+explicación para un problema si el texto no la ofrece — que un problema quede sin ninguna explicación candidata es
+un hallazgo legítimo de este paso, no un error: repórtalo simplemente sin candidatas asociadas a ese problema.
+
+Distingue las explicaciones de:
 - narración/descripción: relatar qué pasó o cómo son las cosas, sin proponer una causa o mecanismo.
 - juicio normativo puro: afirmar qué debería pasar o qué es deseable/indeseable, sin explicar por qué ocurre algo.
 
-Para cada afirmación explicativa candidata, cita el fragmento exacto del texto y resume la explicación en una frase.
-Además, distingue explícitamente DOS niveles de la misma explicación, sin fusionarlos y sin omitir detalle de
-ninguno de los dos:
+Para cada explicación candidata, indica a cuál de los problemas entregados responde (problemaId, usando el id
+exacto que se te dio), cita el fragmento exacto del texto, y resume la explicación en una frase. Además, distingue
+explícitamente DOS niveles de la misma explicación, sin fusionarlos y sin omitir detalle de ninguno de los dos:
 
 - mecanismoGeneral: el mecanismo UNIVERSAL que la explicación invoca — la regularidad que, en principio, operaría
   igual de bien más allá de este caso concreto, si las condiciones relevantes se repitieran en cualquier otro
@@ -48,13 +135,19 @@ ninguno de los dos:
 - resumen: la aplicación específica de ese mecanismo general al caso concreto del texto (quién, qué, cuándo) — se
   mantiene igual de detallado que antes, como UNA INSTANCIA del mecanismo general, no como el mecanismo mismo.
 
+${chequeoDePuente}
+
 Para cada afirmación descartada por ser narración, descripción o juicio normativo puro, cita el fragmento y explica
 brevemente por qué no cuenta como explicación.
 
 Sé exhaustivo pero no inventes explicaciones que el texto no contiene.
 `.trim();
 
-  const user = `Texto a analizar:\n\n${texto}`;
+  const user = `Texto a analizar:\n\n${texto}\n\nProblemas ya identificados (busca explicaciones para estos, y solo estos):\n${JSON.stringify(
+    problemas.map((p) => ({ id: p.id, tipo: p.tipo, enunciado: p.enunciado })),
+    null,
+    2
+  )}`;
 
   const inputSchema: Schema = {
     type: "object",
@@ -64,6 +157,7 @@ Sé exhaustivo pero no inventes explicaciones que el texto no contiene.
         items: {
           type: "object",
           properties: {
+            problemaId: { type: "string", description: "El id del problema (de la lista entregada) que esta explicación responde" },
             cita: { type: "string", description: "Fragmento textual citado del artículo" },
             mecanismoGeneral: {
               type: "string",
@@ -74,8 +168,16 @@ Sé exhaustivo pero no inventes explicaciones que el texto no contiene.
               type: "string",
               description: "Resumen de la afirmación explicativa, como aplicación específica de mecanismoGeneral al caso concreto del texto",
             },
+            puente: {
+              type: "object",
+              properties: {
+                laguna: { type: "boolean" },
+                justificacion: { type: "string" },
+              },
+              required: ["laguna", "justificacion"],
+            },
           },
-          required: ["cita", "mecanismoGeneral", "resumen"],
+          required: ["problemaId", "cita", "mecanismoGeneral", "resumen", "puente"],
         },
       },
       descartadas: {
@@ -97,8 +199,8 @@ Sé exhaustivo pero no inventes explicaciones que el texto no contiene.
   return {
     system,
     user,
-    toolName: "reportar_extraccion",
-    toolDescription: "Reporta las explicaciones candidatas y las afirmaciones descartadas.",
+    toolName: "reportar_explicaciones",
+    toolDescription: "Reporta las explicaciones candidatas (ligadas a los problemas ya identificados, con chequeo de puente) y las afirmaciones descartadas.",
     inputSchema,
   };
 }
@@ -216,63 +318,6 @@ ningún AntiRacional que no encuentres.
     user,
     toolName: "reportar_persuasion",
     toolDescription: "Reporta los pasajes que apelan a lealtad, urgencia, autoridad, tabú o vergüenza, y si ese envoltorio reemplaza o acompaña al argumento.",
-    inputSchema,
-  };
-}
-
-export function step2Prompt(texto: string, explicaciones: Explicacion[]) {
-  const system = `
-${CRITERIO_CENTRAL}
-
-Tu tarea en este paso: para cada explicación candidata que se te entrega, formular explícitamente el PROBLEMA
-o conflicto de ideas que esa explicación pretende resolver. El problema debe formularse como una pregunta concreta
-(ej. "¿por qué la participación electoral cayó en la región X durante la década Y?"), lo bastante específica como
-para poder evaluar después si una variante de la explicación sigue respondiéndola o no.
-
-Sin un problema bien formulado no se puede evaluar la calidad de la explicación, así que sé preciso y específico,
-evitando formulaciones vagas o demasiado generales.
-
-Cada explicación viene con dos niveles ya distinguidos: mecanismoGeneral (la regularidad universal que invoca) y
-resumen (su aplicación específica al caso del texto). Formula el problema al nivel de mecanismoGeneral, no al
-nivel de los detalles de resumen — la pregunta debe poder tener, en principio, más de un mecanismo general
-candidato como respuesta, aunque en este texto solo se defienda uno. Evita incorporar en el enunciado del
-problema matices, contrastes o calificadores que solo tengan sentido dentro de la aplicación específica de ESTA
-explicación al caso venezolano (incluyendo frases tomadas casi literalmente de cómo el texto original narra el
-caso) — eso ata el problema a que solo esta explicación pueda satisfacerlo, y hace imposible evaluarla después
-contra un rival genuino. Sigue siendo específico y evaluable (evita el otro extremo: una pregunta tan general
-que ni siquiera identifique el fenómeno concreto que hay que explicar) — el nivel correcto es el del mecanismo,
-no el de sus detalles de aplicación ni el de la redacción del artículo.
-`.trim();
-
-  const user = `Texto original (para contexto):\n\n${texto}\n\nExplicaciones candidatas:\n${JSON.stringify(
-    explicaciones.map((e) => ({ id: e.id, cita: e.cita, mecanismoGeneral: e.mecanismoGeneral, resumen: e.resumen })),
-    null,
-    2
-  )}`;
-
-  const inputSchema: Schema = {
-    type: "object",
-    properties: {
-      problemas: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            explicacionId: { type: "string" },
-            enunciado: { type: "string", description: "El problema formulado como pregunta específica" },
-          },
-          required: ["explicacionId", "enunciado"],
-        },
-      },
-    },
-    required: ["problemas"],
-  };
-
-  return {
-    system,
-    user,
-    toolName: "reportar_problemas",
-    toolDescription: "Reporta el problema que cada explicación pretende resolver.",
     inputSchema,
   };
 }
@@ -559,7 +604,7 @@ No fuerces una relación entre explicaciones que tratan asuntos completamente di
     explicaciones.map((e) => ({
       id: e.id,
       resumen: e.resumen,
-      problema: problemas.find((p) => p.explicacionId === e.id)?.enunciado,
+      problema: problemas.find((p) => p.id === e.problemaId)?.enunciado,
     })),
     null,
     2
@@ -642,6 +687,17 @@ Esta sección debe:
   compitiera genuinamente por el mismo problema, así que no es posible afirmar todavía qué tan bien resistiría un
   cambio en sus detalles." No la trates como un hallazgo negativo (no es lo mismo que "fácil de variar") ni como
   positivo (no es lo mismo que "difícil de variar") — es, literalmente, una pregunta abierta sobre el texto.
+- Si una explicación tiene una laguna de puente (puenteLaguna=true), señálalo en prosa como su propio tipo de
+  debilidad, distinto de ser fácil de variar o de no tener sustituto genuino: esta explicación resuelve un
+  problema local dando por sentado, sin argumentarlo, cómo se conecta con el conflicto central del texto. Usa la
+  justificación entregada para nombrar qué conexión se asume sin argumentar (ej. "el texto asume, sin explicarlo,
+  que resolver esto también resuelve..."). Esto aplica incluso a explicaciones con veredicto fuerte: sobrevivir el
+  cambio de sus propios detalles no repara un puente que nunca se argumentó.
+- Si hay problemas que el texto plantea pero para los que no se ofrece ninguna explicación (ver
+  "problemasSinExplicacion" en los datos), menciónalos en prosa como preguntas que el texto deja abiertas o sin
+  resolver, en una sección o párrafo propio. Trátalo como un hallazgo legítimo sobre el texto, no como un defecto
+  de este análisis — puede ser una omisión notable o una pregunta que el propio autor deja deliberadamente sin
+  responder.
 
 No incluyas los datos crudos (IDs, listas estructuradas) en el reporte: tradúcelos a prosa legible.
 
@@ -651,18 +707,25 @@ IMPORTANTE: NO escribas ninguna conclusión general, cierre ni valoración globa
 relación entre explicaciones, sin resumir ni cerrar.
 `.trim();
 
+  const problemasSinExplicacion = problemas
+    .filter((p) => !explicaciones.some((e) => e.problemaId === p.id))
+    .map((p) => p.enunciado);
+
   const user = `Texto original:\n\n${texto}\n\nDatos del análisis (uso interno, tradúcelos a prosa):\n${JSON.stringify(
     {
       explicaciones: explicaciones.map((e) => ({
         id: e.id,
         resumen: e.resumen,
         cita: e.cita,
-        problema: problemas.find((p) => p.explicacionId === e.id)?.enunciado,
+        problema: problemas.find((p) => p.id === e.problemaId)?.enunciado,
+        puenteLaguna: e.puente?.laguna ?? false,
+        puenteJustificacion: e.puente?.justificacion ?? "",
         veredicto: veredictos.find((v) => v.explicacionId === e.id),
         problemasNuevos: problemasNuevosPorExplicacion.get(e.id) ?? [],
         alcance: alcances.find((a) => a.explicacionId === e.id),
       })),
       relaciones,
+      problemasSinExplicacion,
     },
     null,
     2

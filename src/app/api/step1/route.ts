@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
-import { step1Prompt } from "@/lib/prompts";
+import { problemaPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import { findUser } from "@/lib/users";
 import { peekUsage, incrementUsage } from "@/lib/usage";
-import type { Explicacion, Descartada } from "@/lib/types";
+import type { Problema } from "@/lib/types";
 
 export const maxDuration = 60;
 
@@ -35,23 +35,29 @@ export async function POST(request: Request) {
       }
     }
 
-    const prompt = step1Prompt(texto);
+    const prompt = problemaPrompt(texto);
     const result = await callTool<{
-      candidatas: { cita: string; resumen: string; mecanismoGeneral: string }[];
-      descartadas: Descartada[];
+      problemas: { tipo: "maestro" | "local"; enunciado: string }[];
     }>({ ...prompt, effort: "medium" });
 
-    const explicaciones: Explicacion[] = asArray(result.candidatas)
-      .filter((c) => c.cita?.trim() && c.resumen?.trim() && c.mecanismoGeneral?.trim())
-      .map((c, i) => ({
-        id: `E${i + 1}`,
-        cita: c.cita.trim(),
-        resumen: c.resumen.trim(),
-        mecanismoGeneral: c.mecanismoGeneral.trim(),
-      }));
+    // A lo sumo un problema maestro: si el modelo devolvió más de uno, el primero se queda como
+    // maestro y el resto baja a local, para no romper el chequeo de puente del paso siguiente
+    // (que asume un único maestro de referencia).
+    let maestroAsignado = false;
+    const problemas: Problema[] = asArray(result.problemas)
+      .filter((p) => p.enunciado?.trim() && (p.tipo === "maestro" || p.tipo === "local"))
+      .map((p, i) => {
+        const esMaestro = p.tipo === "maestro" && !maestroAsignado;
+        if (esMaestro) maestroAsignado = true;
+        return {
+          id: `PR${i + 1}`,
+          tipo: esMaestro ? "maestro" : "local",
+          enunciado: p.enunciado.trim(),
+        };
+      });
 
-    const descartadas = asArray(result.descartadas).filter((d) => d.cita?.trim() && d.motivo?.trim());
-
+    // La llamada ya se hizo (costo real) independientemente de si se encontró algún problema, así
+    // que el cupo se consume igual — el paso 2 (o el rechazo) decide qué pasa después con esto.
     if (user && limited) {
       try {
         await incrementUsage(user.username);
@@ -60,7 +66,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ explicaciones, descartadas });
+    return NextResponse.json({ problemas });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

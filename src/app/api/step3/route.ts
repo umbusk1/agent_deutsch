@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
     const porExplicacion = await Promise.all(
       explicaciones.map(async (explicacion) => {
-        const problema = problemas.find((p) => p.explicacionId === explicacion.id);
+        const problema = problemas.find((p) => p.id === explicacion.problemaId);
         if (!problema) return null;
 
         const prompt = step3Prompt(texto, explicacion, problema);

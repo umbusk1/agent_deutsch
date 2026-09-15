@@ -1,9 +1,15 @@
 export type Explicacion = {
   id: string;
+  problemaId: string;
   cita: string;
   resumen: string;
   /** El mecanismo universal ("parroquial" no) que resumen aplica al caso concreto del texto. */
   mecanismoGeneral: string;
+  /** Si esta explicación resuelve un problema local sin argumentar cómo se conecta con el maestro. */
+  puente: {
+    laguna: boolean;
+    justificacion: string;
+  };
 };
 
 export type Descartada = {
@@ -14,7 +20,7 @@ export type Descartada = {
 
 export type Problema = {
   id: string;
-  explicacionId: string;
+  tipo: "maestro" | "local";
   enunciado: string;
 };
 

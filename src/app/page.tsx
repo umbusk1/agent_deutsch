@@ -16,9 +16,9 @@ import type {
 
 const STEP_LABELS = [
   "Texto",
-  "Extracción",
+  "Problema",
+  "Explicación",
   "Persuasión",
-  "Problemas",
   "Variantes",
   "Veredictos",
   "Preguntas nuevas",
@@ -59,6 +59,14 @@ export default function Home() {
     remaining?: number;
   } | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Compuerta de rechazo temprano: si el Paso 1 no encuentra ningún problema genuino, el pipeline
+  // se detiene aquí (no hay reporte ni datos que guardar) y se ofrece un camino de apelación.
+  const [rejected, setRejected] = useState(false);
+  const [apelacionTexto, setApelacionTexto] = useState("");
+  const [apelacionEnviando, setApelacionEnviando] = useState(false);
+  const [apelacionEnviada, setApelacionEnviada] = useState(false);
+  const [apelacionError, setApelacionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/usage")
@@ -160,17 +168,27 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ explicaciones: Explicacion[]; descartadas: Descartada[] }>(
-        "/api/step1",
-        { texto }
+      const data = await callApi<{ problemas: Problema[] }>("/api/step1", { texto });
+      // La llamada ya se hizo y ya consumió cupo real, haya o no problema — se refleja siempre.
+      setQuota((prev) =>
+        prev && !prev.unlimited && typeof prev.remaining === "number"
+          ? { ...prev, remaining: Math.max(0, prev.remaining - 1) }
+          : prev
       );
-      setExplicaciones(data.explicaciones);
-      setDescartadas(data.descartadas);
-      setExcluidas(new Set());
+
+      if (data.problemas.length === 0) {
+        setRejected(true);
+        return;
+      }
+
+      setProblemas(data.problemas);
+      setProblemasExcluidos(new Set());
       // Invalida todo lo que dependía de una corrida anterior.
+      setExplicaciones([]);
+      setDescartadas([]);
+      setExcluidas(new Set());
       setPasajesPersuasivos([]);
       setPasajesExcluidos(new Set());
-      setProblemas([]);
       setVariantesAceptadas([]);
       setVariantesDescartadas([]);
       setVeredictos([]);
@@ -180,11 +198,51 @@ export default function Home() {
       setReporte("");
       setStep(1);
       setFurthestStep(1);
-      setQuota((prev) =>
-        prev && !prev.unlimited && typeof prev.remaining === "number"
-          ? { ...prev, remaining: Math.max(0, prev.remaining - 1) }
-          : prev
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function enviarApelacion() {
+    if (!apelacionTexto.trim()) return;
+    setApelacionEnviando(true);
+    setApelacionError(null);
+    try {
+      await callApi("/api/apelar", { texto, justificacion: apelacionTexto });
+      setApelacionEnviada(true);
+    } catch (e) {
+      setApelacionError(e instanceof Error ? e.message : "Error inesperado.");
+    } finally {
+      setApelacionEnviando(false);
+    }
+  }
+
+  async function runStep2() {
+    const problemasActivos = problemas.filter((p) => !problemasExcluidos.has(p.id));
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await callApi<{ explicaciones: Explicacion[]; descartadas: Descartada[] }>(
+        "/api/step2",
+        { texto, problemas: problemasActivos }
       );
+      setProblemas(problemasActivos);
+      setExplicaciones(data.explicaciones);
+      setDescartadas(data.descartadas);
+      setExcluidas(new Set());
+      setPasajesPersuasivos([]);
+      setPasajesExcluidos(new Set());
+      setVariantesAceptadas([]);
+      setVariantesDescartadas([]);
+      setVeredictos([]);
+      setProblemasNuevos([]);
+      setAlcances([]);
+      setRelaciones([]);
+      setReporte("");
+      setStep(2);
+      setFurthestStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -200,37 +258,6 @@ export default function Home() {
       setPasajesPersuasivos(data.pasajesPersuasivos);
       setPasajesExcluidos(new Set());
       setReporte("");
-      setStep(2);
-      setFurthestStep(2);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error inesperado.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function runStep2() {
-    const activas = explicaciones.filter((e) => !excluidas.has(e.id));
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await callApi<{ problemas: Problema[] }>("/api/step2", {
-        texto,
-        explicaciones: activas,
-      });
-      const conProblema = activas.filter((e) =>
-        data.problemas.some((p) => p.explicacionId === e.id)
-      );
-      setExplicaciones(conProblema);
-      setProblemas(data.problemas.filter((p) => conProblema.some((e) => e.id === p.explicacionId)));
-      setProblemasExcluidos(new Set());
-      setVariantesAceptadas([]);
-      setVariantesDescartadas([]);
-      setVeredictos([]);
-      setProblemasNuevos([]);
-      setAlcances([]);
-      setRelaciones([]);
-      setReporte("");
       setStep(3);
       setFurthestStep(3);
     } catch (e) {
@@ -241,17 +268,15 @@ export default function Home() {
   }
 
   async function runStep3() {
-    const explicacionesActivas = explicaciones.filter((e) => !problemasExcluidos.has(e.id));
-    const problemasActivos = problemas.filter((p) => !problemasExcluidos.has(p.explicacionId));
+    const explicacionesActivas = explicaciones.filter((e) => !excluidas.has(e.id));
     setLoading(true);
     setError(null);
     try {
       const data = await callApi<{
         variantesAceptadas: VarianteAceptada[];
         variantesDescartadas: VarianteDescartada[];
-      }>("/api/step3", { texto, explicaciones: explicacionesActivas, problemas: problemasActivos });
+      }>("/api/step3", { texto, explicaciones: explicacionesActivas, problemas });
       setExplicaciones(explicacionesActivas);
-      setProblemas(problemasActivos);
       setVariantesAceptadas(data.variantesAceptadas);
       setVariantesDescartadas(data.variantesDescartadas);
       setVariantesExcluidas(new Set());
@@ -394,9 +419,12 @@ export default function Home() {
 
   function buildTripletas(): string {
     const lines: string[] = ["# Glosario", ""];
+    for (const p of problemas) lines.push(`${p.id} (${p.tipo}): ${p.enunciado}`);
     for (const e of explicaciones) lines.push(`${e.id}: ${e.resumen}`);
     for (const e of explicaciones) lines.push(`${e.id} (mecanismo general): ${e.mecanismoGeneral}`);
-    for (const p of problemas) lines.push(`${p.id}: ${p.enunciado}`);
+    for (const e of explicaciones) {
+      if (e.puente.laguna) lines.push(`${e.id} (laguna de puente): ${e.puente.justificacion}`);
+    }
     for (const v of variantesAceptadas) lines.push(`${v.id}: ${v.descripcion}`);
     for (const n of problemasNuevos) lines.push(`${n.id}: ${n.enunciado}`);
     for (const a of alcances) lines.push(`${a.explicacionId} (alcance): ${a.justificacion}`);
@@ -408,14 +436,18 @@ export default function Home() {
       for (const t of m.tecnicas) lines.push(`${m.id} --tecnica--> ${t}`);
     }
     for (const e of explicaciones) {
-      const p = problemas.find((p) => p.explicacionId === e.id);
+      const p = problemas.find((p) => p.id === e.problemaId);
       if (p) lines.push(`${e.id} --resuelve--> ${p.id}`);
+      if (e.puente.laguna) lines.push(`${e.id} --tiene_laguna_de_puente--> true`);
     }
     for (const v of variantesAceptadas) {
       lines.push(`${v.id} --es_variante_de--> ${v.explicacionId}`);
       const veredicto = veredictos.find((ve) => ve.explicacionId === v.explicacionId);
       const resultado = veredicto?.resultadosVariantes.find((r) => r.varianteId === v.id);
-      const problema = problemas.find((p) => p.explicacionId === v.explicacionId);
+      const explicacionDeVariante = explicaciones.find((e) => e.id === v.explicacionId);
+      const problema = explicacionDeVariante
+        ? problemas.find((p) => p.id === explicacionDeVariante.problemaId)
+        : undefined;
       if (resultado && problema) {
         lines.push(`${v.id} --${resultado.resultado}--> ${problema.id}`);
       }
@@ -437,6 +469,60 @@ export default function Home() {
   }
 
   const wordCount = texto.trim() ? texto.trim().split(/\s+/).length : 0;
+
+  if (rejected) {
+    return (
+      <div className="container">
+        <div className="header">
+          <h1>Agente Deutsch</h1>
+        </div>
+        <div className="card">
+          <h2>Este texto no parece tener material para analizar</h2>
+          <p>
+            Este texto no parece plantear ningún conflicto o pregunta abierta que el Agente Deutsch
+            pueda examinar — no encontramos una tensión entre lo que se espera y lo que se observa, ni
+            dos ideas que no puedan ser ambas ciertas. Sin un problema así, no hay ninguna explicación
+            que poner a prueba.
+          </p>
+          {!apelacionEnviada ? (
+            <>
+              <div className="item-label" style={{ marginTop: "1rem" }}>
+                <span>¿Por qué crees que sí hay material analizable aquí?</span>
+              </div>
+              <textarea
+                value={apelacionTexto}
+                onChange={(e) => setApelacionTexto(e.target.value)}
+                placeholder="Explica qué conflicto o pregunta crees que el texto sí plantea..."
+              />
+              {apelacionError && <div className="error-banner">{apelacionError}</div>}
+              <div className="actions">
+                <button onClick={() => window.location.reload()}>Analizar otro texto</button>
+                <button
+                  className="primary"
+                  disabled={apelacionEnviando || !apelacionTexto.trim()}
+                  onClick={enviarApelacion}
+                >
+                  {apelacionEnviando ? "Enviando..." : "Apelar este rechazo"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ marginTop: "1rem" }}>
+                Tu apelación fue enviada. Si se acepta, se te avisará por correo y se te restaurará el
+                uso consumido.
+              </p>
+              <div className="actions">
+                <button className="primary" onClick={() => window.location.reload()}>
+                  Analizar otro texto
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
@@ -580,45 +666,97 @@ export default function Home() {
 
       {step === 1 && (
         <div className="card">
-          <h2>Explicaciones candidatas</h2>
-          {explicaciones.map((e) => (
-            <div className="item" key={e.id}>
+          <h2>Problema que plantea el texto</h2>
+          <p className="loading" style={{ marginBottom: "1rem" }}>
+            Detectado antes de buscar ninguna explicación. Poda o edita los que no te interesen — el
+            siguiente paso solo busca explicaciones para los problemas que queden activos.
+          </p>
+          {problemas.map((p) => (
+            <div className="item" key={p.id} style={{ opacity: problemasExcluidos.has(p.id) ? 0.5 : 1 }}>
               <div className="item-label">
-                <span className="badge">{e.id}</span>
+                <span className="badge">
+                  {p.id} · {p.tipo === "maestro" ? "Maestro" : "Local"}
+                </span>
                 <label className="checkbox-row">
                   <input
                     type="checkbox"
-                    checked={excluidas.has(e.id)}
-                    onChange={() => toggleSet(excluidas, e.id, setExcluidas)}
+                    checked={problemasExcluidos.has(p.id)}
+                    onChange={() => toggleSet(problemasExcluidos, p.id, setProblemasExcluidos)}
                   />
-                  Excluir del análisis
+                  Excluir
                 </label>
               </div>
-              <div className="quote">&ldquo;{e.cita}&rdquo;</div>
-              <div className="item-label" style={{ marginTop: "0.5rem" }}>
-                <span>Mecanismo general (la regularidad universal que invoca, sin actores ni hechos de este caso)</span>
-              </div>
               <textarea
-                value={e.mecanismoGeneral}
+                value={p.enunciado}
+                disabled={problemasExcluidos.has(p.id)}
                 onChange={(ev) =>
-                  setExplicaciones((prev) =>
-                    prev.map((x) => (x.id === e.id ? { ...x, mecanismoGeneral: ev.target.value } : x))
-                  )
-                }
-              />
-              <div className="item-label" style={{ marginTop: "0.5rem" }}>
-                <span>Aplicación específica (ese mecanismo aplicado a este caso concreto)</span>
-              </div>
-              <textarea
-                value={e.resumen}
-                onChange={(ev) =>
-                  setExplicaciones((prev) =>
-                    prev.map((x) => (x.id === e.id ? { ...x, resumen: ev.target.value } : x))
+                  setProblemas((prev) =>
+                    prev.map((x) => (x.id === p.id ? { ...x, enunciado: ev.target.value } : x))
                   )
                 }
               />
             </div>
           ))}
+          <div className="actions">
+            <button className="primary" disabled={loading} onClick={runStep2}>
+              {loading ? "Buscando explicaciones..." : "Continuar"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="card">
+          <h2>Explicaciones candidatas</h2>
+          {explicaciones.map((e) => {
+            const problema = problemas.find((p) => p.id === e.problemaId);
+            return (
+              <div className="item" key={e.id}>
+                <div className="item-label">
+                  <span className="badge">
+                    {e.id} · resuelve {e.problemaId}
+                  </span>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={excluidas.has(e.id)}
+                      onChange={() => toggleSet(excluidas, e.id, setExcluidas)}
+                    />
+                    Excluir del análisis
+                  </label>
+                </div>
+                {problema && <div className="quote">&ldquo;{problema.enunciado}&rdquo;</div>}
+                <div className="quote">&ldquo;{e.cita}&rdquo;</div>
+                <div className="item-label" style={{ marginTop: "0.5rem" }}>
+                  <span>Mecanismo general (la regularidad universal que invoca, sin actores ni hechos de este caso)</span>
+                </div>
+                <textarea
+                  value={e.mecanismoGeneral}
+                  onChange={(ev) =>
+                    setExplicaciones((prev) =>
+                      prev.map((x) => (x.id === e.id ? { ...x, mecanismoGeneral: ev.target.value } : x))
+                    )
+                  }
+                />
+                <div className="item-label" style={{ marginTop: "0.5rem" }}>
+                  <span>Aplicación específica (ese mecanismo aplicado a este caso concreto)</span>
+                </div>
+                <textarea
+                  value={e.resumen}
+                  onChange={(ev) =>
+                    setExplicaciones((prev) =>
+                      prev.map((x) => (x.id === e.id ? { ...x, resumen: ev.target.value } : x))
+                    )
+                  }
+                />
+                {e.puente.laguna && (
+                  <p className="warning-note" style={{ marginTop: "0.5rem" }}>
+                    Puente sin argumentar: {e.puente.justificacion}
+                  </p>
+                )}
+              </div>
+            );
+          })}
 
           {descartadas.length > 0 && (
             <div className="discarded-list">
@@ -642,7 +780,7 @@ export default function Home() {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div className="card">
           <h2>Pasajes con mecanismo de persuasión</h2>
           <p className="loading" style={{ marginBottom: "1rem" }}>
@@ -710,51 +848,6 @@ export default function Home() {
               />
             </div>
           ))}
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep2}>
-              {loading ? "Formulando problemas..." : "Continuar"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="card">
-          <h2>Problema que resuelve cada explicación</h2>
-          <p className="loading" style={{ marginBottom: "1rem" }}>
-            Poda la lista si quieres quedarte solo con el problema principal, o con unos pocos relevantes:
-            eliminar un problema también descarta su explicación del resto del análisis.
-          </p>
-          {problemas.map((p) => {
-            const e = explicaciones.find((x) => x.id === p.explicacionId);
-            return (
-              <div className="item" key={p.id} style={{ opacity: problemasExcluidos.has(p.explicacionId) ? 0.5 : 1 }}>
-                <div className="item-label">
-                  <span className="badge">
-                    {p.id} · {p.explicacionId}
-                  </span>
-                  <label className="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={problemasExcluidos.has(p.explicacionId)}
-                      onChange={() => toggleSet(problemasExcluidos, p.explicacionId, setProblemasExcluidos)}
-                    />
-                    Eliminar (descarta también la explicación)
-                  </label>
-                </div>
-                {e && <div className="quote">&ldquo;{e.resumen}&rdquo;</div>}
-                <textarea
-                  value={p.enunciado}
-                  disabled={problemasExcluidos.has(p.explicacionId)}
-                  onChange={(ev) =>
-                    setProblemas((prev) =>
-                      prev.map((x) => (x.id === p.id ? { ...x, enunciado: ev.target.value } : x))
-                    )
-                  }
-                />
-              </div>
-            );
-          })}
           <div className="actions">
             <button className="primary" disabled={loading} onClick={runStep3}>
               {loading ? "Generando variantes..." : "Continuar"}

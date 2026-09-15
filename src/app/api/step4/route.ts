@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     const porExplicacion = await Promise.all(
       explicaciones.map(async (explicacion): Promise<Veredicto | null> => {
-        const problema = problemas.find((p) => p.explicacionId === explicacion.id);
+        const problema = problemas.find((p) => p.id === explicacion.problemaId);
         if (!problema) return null;
 
         const variantes = asArray(variantesAceptadas).filter((v) => v.explicacionId === explicacion.id);

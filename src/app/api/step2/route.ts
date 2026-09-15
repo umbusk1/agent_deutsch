@@ -1,41 +1,59 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
-import { step2Prompt } from "@/lib/prompts";
+import { explicacionPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import type { Explicacion, Problema } from "@/lib/types";
+import type { Explicacion, Descartada, Problema } from "@/lib/types";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const { texto, explicaciones } = (await request.json()) as {
-      texto: string;
-      explicaciones: Explicacion[];
-    };
-    if (!texto) {
-      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+    const { texto, problemas } = (await request.json()) as { texto: string; problemas: Problema[] };
+    if (!texto || !texto.trim()) {
+      return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
     }
-    if (!explicaciones?.length) {
+    if (!problemas?.length) {
       return NextResponse.json(
-        { error: "No hay explicaciones activas (¿se excluyeron todas en el paso anterior?)." },
+        { error: "No hay problemas activos (¿se excluyeron todos en el paso anterior?)." },
         { status: 400 }
       );
     }
 
-    const prompt = step2Prompt(texto, explicaciones);
+    const prompt = explicacionPrompt(texto, problemas);
     const result = await callTool<{
-      problemas: { explicacionId: string; enunciado: string }[];
-    }>(prompt);
+      candidatas: {
+        problemaId: string;
+        cita: string;
+        resumen: string;
+        mecanismoGeneral: string;
+        puente: { laguna: boolean; justificacion: string };
+      }[];
+      descartadas: Descartada[];
+    }>({ ...prompt, effort: "medium" });
 
-    const problemas: Problema[] = asArray(result.problemas)
-      .filter((p) => p.explicacionId?.trim() && p.enunciado?.trim())
-      .map((p, i) => ({
-        id: `P${i + 1}`,
-        explicacionId: p.explicacionId,
-        enunciado: p.enunciado,
+    const explicaciones: Explicacion[] = asArray(result.candidatas)
+      .filter(
+        (c) =>
+          c.cita?.trim() &&
+          c.resumen?.trim() &&
+          c.mecanismoGeneral?.trim() &&
+          problemas.some((p) => p.id === c.problemaId)
+      )
+      .map((c, i) => ({
+        id: `E${i + 1}`,
+        problemaId: c.problemaId,
+        cita: c.cita.trim(),
+        resumen: c.resumen.trim(),
+        mecanismoGeneral: c.mecanismoGeneral.trim(),
+        puente: {
+          laguna: Boolean(c.puente?.laguna),
+          justificacion: c.puente?.justificacion?.trim() ?? "",
+        },
       }));
 
-    return NextResponse.json({ problemas });
+    const descartadas = asArray(result.descartadas).filter((d) => d.cita?.trim() && d.motivo?.trim());
+
+    return NextResponse.json({ explicaciones, descartadas });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
