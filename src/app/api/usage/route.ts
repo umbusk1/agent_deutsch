@@ -4,10 +4,11 @@ import { peekUsage } from "@/lib/usage";
 
 export async function GET(request: Request) {
   try {
-    const username = request.headers.get("x-au-user");
-    if (!username) {
+    const rawUsername = request.headers.get("x-au-user");
+    if (!rawUsername) {
       return NextResponse.json({ error: "No se pudo identificar al usuario." }, { status: 401 });
     }
+    const username = decodeURIComponent(rawUsername);
 
     const user = findUser(username);
     if (!user) {

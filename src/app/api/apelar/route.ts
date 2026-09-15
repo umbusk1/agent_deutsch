@@ -20,7 +20,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const username = request.headers.get("x-au-user");
+    const rawUsername = request.headers.get("x-au-user");
+    const username = rawUsername ? decodeURIComponent(rawUsername) : null;
     const user = username ? findUser(username) : undefined;
     if (!user) {
       return NextResponse.json({ error: "No se pudo identificar al usuario." }, { status: 401 });

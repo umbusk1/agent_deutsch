@@ -76,7 +76,10 @@ export function proxy(request: NextRequest) {
 
     if (user && safeCompare(suppliedPassword, user.password)) {
       const requestHeaders = new Headers(request.headers);
-      requestHeaders.set("x-au-user", user.username);
+      // Codificado porque el nombre de usuario puede llevar tildes/espacios (ej. "Moisés Ramírez"):
+      // el salto de red real entre el Proxy y la función serverless en Vercel corrompe bytes no-ASCII
+      // en headers, aunque en `next dev` local (todo en un proceso) no se note.
+      requestHeaders.set("x-au-user", encodeURIComponent(user.username));
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
   }

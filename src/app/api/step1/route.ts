@@ -15,7 +15,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
     }
 
-    const username = request.headers.get("x-au-user");
+    const rawUsername = request.headers.get("x-au-user");
+    const username = rawUsername ? decodeURIComponent(rawUsername) : null;
     const user = username ? findUser(username) : undefined;
     const limited = Boolean(user && !user.unlimited && user.limit);
 

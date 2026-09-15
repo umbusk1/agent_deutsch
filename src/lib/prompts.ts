@@ -37,6 +37,24 @@ ambas ciertas al mismo tiempo. No es lo mismo que un tema (de qué habla el text
 metodológico o normativo enunciado en abstracto (qué debería hacerse o creerse, en general) — busca el conflicto
 concreto que hace que valga la pena preguntarse "¿por qué...?" o "¿cómo es posible que...?".
 
+El formato retórico del texto es irrelevante para esta búsqueda: un conflicto genuino puede estar planteado en
+prosa narrativa continua, pero igual de bien en un formato de preguntas y respuestas, un dictamen legal, una lista,
+o cualquier otra estructura. No asumas que un texto organizado como FAQ o Q&A es meramente informativo o
+descriptivo solo por su forma — evalúa el contenido, no el envoltorio. Presta atención especial a dos lugares
+donde el formato puede esconder un conflicto real:
+- El conflicto puede estar planteado en un párrafo introductorio (narrativo) que antecede a un cuerpo en
+  preguntas y respuestas, y no repetirse explícitamente después — no lo descartes por no reaparecer en cada
+  respuesta. Ejemplo: un texto abre narrando que una ley eliminó cierta figura legal, pero un documento reciente
+  describe que esa misma figura fue otorgada de nuevo, y el propio autor llama a esto "inconsistencias jurídicas"
+  — eso es un conflicto genuino (norma vs. hecho reportado) aunque el resto del texto sea una serie de preguntas
+  puntuales que nunca vuelven a mencionarlo con esas palabras.
+- El conflicto puede emerger de comparar dos respuestas o secciones separadas entre sí, no de una sola frase
+  aislada. Ejemplo: una respuesta concluye "X es nulo SI se probara una agresión", y otra respuesta (sobre un tema
+  aparentemente distinto) concluye "SI NO hubo agresión, entonces la justificación Y se cae por su propio peso" —
+  ambas ramas no pueden ser ciertas a la vez de forma cómoda para el mismo texto, y eso es precisamente el tipo de
+  incompatibilidad entre ideas que este paso debe capturar, aunque ninguna de las dos respuestas por separado
+  parezca "plantear un conflicto".
+
 Distingue dos niveles:
 - "maestro": el conflicto que organiza al resto — si el texto tiene una pregunta central de la que las demás son
   variaciones o consecuencias, esa es la maestra. Puede venir planteada como principio metodológico en vez de como
