@@ -79,11 +79,6 @@ o descripción de hechos sin tensión entre ellos. Esto es un resultado legítim
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      razonamientoDiagnostico: {
-        type: "string",
-        description:
-          "TEMPORAL, solo para depuración interna: en 2-4 frases, qué posibles conflictos consideraste en el texto y por qué los aceptaste o descartaste. Si devuelves la lista de problemas vacía, explica aquí específicamente por qué cada candidato que consideraste no calificó.",
-      },
       problemas: {
         type: "array",
         items: {
@@ -103,7 +98,7 @@ o descripción de hechos sin tensión entre ellos. Esto es un resultado legítim
         },
       },
     },
-    required: ["razonamientoDiagnostico", "problemas"],
+    required: ["problemas"],
   };
 
   return {
