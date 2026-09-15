@@ -54,10 +54,12 @@ ${REGLA_IDIOMA}
 Tu tarea en este paso es distinta y ANTERIOR a la de buscar explicaciones: antes de mirar ninguna frase con forma
 de explicación, identifica el PROBLEMA o conflicto de ideas que el texto plantea — lo resuelva el texto o no.
 
-Un problema genuino es una tensión entre lo que se esperaría y lo que se observa, o dos ideas que no pueden ser
-ambas ciertas al mismo tiempo. No es lo mismo que un tema (de qué habla el texto en general), ni que un principio
-metodológico o normativo enunciado en abstracto (qué debería hacerse o creerse, en general) — busca el conflicto
-concreto que hace que valga la pena preguntarse "¿por qué...?" o "¿cómo es posible que...?".
+Un problema genuino es la pregunta —explícita o implícita— a la que el texto, o una afirmación central de él, está
+respondiendo. Cualquier afirmación central de un texto argumentativo puede leerse como la respuesta a alguna
+pregunta que la vuelve necesaria: encuentra esa pregunta, exista o no una tensión visible en el tono del autor. No
+es lo mismo que un tema (de qué habla el texto en general), ni que un principio metodológico o normativo enunciado
+en abstracto (qué debería hacerse o creerse, en general) — la pregunta debe ser lo bastante concreta y específica
+como para que una respuesta distinta de la que da el texto sea una alternativa genuina, no solo retórica.
 
 La seguridad o el tono categórico con que el autor escribe no es evidencia de que no haya conflicto: puede afirmar
 cada cosa con total seguridad y sin embargo estar describiendo una situación donde dos afirmaciones, o una
