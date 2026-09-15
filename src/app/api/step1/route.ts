@@ -38,6 +38,7 @@ export async function POST(request: Request) {
 
     const prompt = problemaPrompt(texto);
     const result = await callTool<{
+      razonamientoDiagnostico: string;
       problemas: { tipo: "maestro" | "local"; enunciado: string }[];
     }>({ ...prompt, effort: "medium" });
 
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ problemas });
+    return NextResponse.json({ problemas, _debugRazonamiento: result.razonamientoDiagnostico });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
