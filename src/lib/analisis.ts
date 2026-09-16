@@ -75,7 +75,13 @@ export async function guardarAnalisis(input: GuardarAnalisisInput): Promise<Anal
   };
 
   await getRedis().set(analisisKey(registro.id), registro);
-  await getRedis().zadd(INDEX_KEY, { score: Date.parse(registro.creadoEn), member: registro.id });
+  // El acordeón de la Biblioteca agrupa por mes de PUBLICACIÓN (metaFecha), no por cuándo se corrió el
+  // análisis — así que el índice ordena por esa fecha. metaFecha es un campo manual opcional y de texto
+  // libre; si falta o no es una fecha reconocible, se usa creadoEn como respaldo para no perder el registro
+  // del índice, pero quedará agrupado por la fecha de análisis en vez de la de publicación en ese caso.
+  const fechaPublicacion = Date.parse(registro.metaFecha);
+  const score = Number.isNaN(fechaPublicacion) ? Date.parse(registro.creadoEn) : fechaPublicacion;
+  await getRedis().zadd(INDEX_KEY, { score, member: registro.id });
 
   return registro;
 }
