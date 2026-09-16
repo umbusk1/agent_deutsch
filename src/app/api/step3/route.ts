@@ -44,7 +44,7 @@ export async function POST(request: Request) {
           variantesDescartadas: { descripcion: string; motivo: string }[];
         }>(variantesPrompt);
 
-        return { explicacion, result };
+        return { explicacion, result, identificacion };
       })
     );
 
@@ -73,7 +73,13 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ variantesAceptadas, variantesDescartadas });
+    return NextResponse.json({
+      variantesAceptadas,
+      variantesDescartadas,
+      _debugIdentificaciones: porExplicacion
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+        .map((x) => ({ explicacionId: x.explicacion.id, identificacion: x.identificacion })),
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
