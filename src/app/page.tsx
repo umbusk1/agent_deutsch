@@ -101,6 +101,7 @@ export default function Home() {
 
   const [relaciones, setRelaciones] = useState<Relacion[]>([]);
   const [reporte, setReporte] = useState("");
+  const [guardadoEstado, setGuardadoEstado] = useState<"guardando" | "ok" | "error" | null>(null);
 
   async function callApi<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(path, {
@@ -384,6 +385,25 @@ export default function Home() {
       setReporte(data.reporte);
       setStep(8);
       setFurthestStep(8);
+
+      // Guardado en la biblioteca compartida: no bloquea ni revierte la vista del reporte si falla —
+      // el usuario ya tiene su reporte y puede descargarlo igual; el estado se refleja de forma discreta.
+      setGuardadoEstado("guardando");
+      try {
+        await callApi("/api/analisis", {
+          metaFecha,
+          metaAutor,
+          metaMedio,
+          metaTitulo,
+          reporte: data.reporte,
+          tripletas: buildTripletas(),
+          problemas,
+          explicaciones,
+        });
+        setGuardadoEstado("ok");
+      } catch {
+        setGuardadoEstado("error");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -1107,6 +1127,12 @@ export default function Home() {
       {step === 8 && (
         <div className="card">
           <h2>Reporte final</h2>
+          {guardadoEstado === "guardando" && <p className="loading">Guardando en la biblioteca...</p>}
+          {guardadoEstado === "error" && (
+            <div className="error-banner">
+              No se pudo guardar este análisis en la biblioteca compartida (puedes descargarlo igual abajo).
+            </div>
+          )}
           <div className="report-preview">{reporte}</div>
           <div className="actions">
             <button onClick={() => window.location.reload()}>Analizar otro texto</button>
