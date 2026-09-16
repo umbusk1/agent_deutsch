@@ -24,6 +24,10 @@ type ToolCallParams = {
   maxTokens?: number;
   timeoutMs?: number;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  // Hace cumplir "required" de verdad (sin esto, el modelo puede omitir un campo "obligatorio" sin que la API
+  // lo rechace). Requiere additionalProperties:false en cada objeto del schema. Sonnet 5 lo soporta y es
+  // compatible con tool_choice forzado y con effort (confirmado contra la documentación de la API de Claude).
+  strict?: boolean;
 };
 
 // TODO (pendiente, no resolver en esta ronda): tool_choice va forzado a una tool específica en las 7 llamadas
@@ -47,6 +51,7 @@ export async function callTool<T>(params: ToolCallParams): Promise<T> {
             name: params.toolName,
             description: params.toolDescription,
             input_schema: params.inputSchema,
+            ...(params.strict ? { strict: true } : {}),
           },
         ],
         tool_choice: { type: "tool", name: params.toolName },

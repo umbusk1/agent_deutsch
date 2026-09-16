@@ -138,10 +138,12 @@ o descripción de hechos sin tensión entre ellos. Esto es un resultado legítim
             },
           },
           required: ["tipo", "enunciado"],
+          additionalProperties: false,
         },
       },
     },
     required: ["razonamientoDiagnostico", "problemas"],
+    additionalProperties: false,
   };
 
   return {
