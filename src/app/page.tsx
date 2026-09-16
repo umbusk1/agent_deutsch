@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
+import { Loader } from "@/components/Loader";
 import type {
   Explicacion,
   Descartada,
@@ -14,16 +15,45 @@ import type {
   Alcance,
 } from "@/lib/types";
 
-const STEP_LABELS = [
-  "Texto",
-  "Problema",
-  "Explicación",
-  "Persuasión",
-  "Variantes",
-  "Veredictos",
-  "Preguntas nuevas",
-  "Relaciones",
-  "Reporte",
+const STEP_LABELS = ["Texto", "Problema", "Explicación", "Test", "Consecuencia", "Reporte"];
+
+const MENSAJES_PROBLEMA = [
+  "Buscando el conflicto que organiza el texto...",
+  "Distinguiendo un tema de un problema real...",
+  "Revisando si el autor deja preguntas sin resolver...",
+];
+
+const MENSAJES_EXPLICACION = [
+  "Buscando explicaciones genuinas para cada problema...",
+  "Separando narración de explicación...",
+  "Chequeando si cada explicación conecta con el problema central...",
+];
+
+const MENSAJES_TEST_VARIANTES = [
+  "Buscando pasajes que piden lealtad en vez de razones...",
+  "Generando variantes de cada explicación...",
+  "Cambiando motivos y mecanismos, uno a la vez...",
+  "Separando ingenio de descalificación...",
+];
+
+const MENSAJES_TEST_VEREDICTOS = [
+  "Poniendo a prueba cada variante...",
+  "Viendo si el problema sobrevive el cambio de detalles...",
+  "Redactando los veredictos...",
+];
+
+const MENSAJES_CONSECUENCIA = [
+  "Buscando qué preguntas nuevas abre cada explicación fuerte...",
+  "Evaluando si el alcance de la explicación es amplio o limitado...",
+  "Comparando explicaciones entre sí...",
+  "Buscando relaciones de competencia o complemento...",
+];
+
+const MENSAJES_REPORTE = [
+  "Redactando la sección de explicaciones...",
+  "Redactando la sección de persuasión...",
+  "Ensamblando introducción y cierre...",
+  "Guardando en la biblioteca...",
 ];
 
 const ACCENT_MAP: Record<string, string> = {
@@ -94,6 +124,9 @@ export default function Home() {
   const [variantesExcluidas, setVariantesExcluidas] = useState<Set<string>>(new Set());
 
   const [veredictos, setVeredictos] = useState<Veredicto[]>([]);
+  // Dentro de "Test", separa la fase de revisar variantes (antes de pedir veredictos, el único corte
+  // que protege gasto real) de la fase donde los veredictos ya están listos para revisar.
+  const [veredictosCalculados, setVeredictosCalculados] = useState(false);
 
   const [problemasNuevos, setProblemasNuevos] = useState<ProblemaNuevo[]>([]);
   const [problemasNuevosExcluidos, setProblemasNuevosExcluidos] = useState<Set<string>>(new Set());
@@ -114,8 +147,8 @@ export default function Home() {
     return data as T;
   }
 
-  // El Paso 7 responde con Server-Sent Events (heartbeats + un evento final) en vez de JSON directo,
-  // para mantener la conexión viva durante las llamadas largas a Claude. Ver /api/step7/route.ts.
+  // Los Pasos 1 y 7 responden con Server-Sent Events (heartbeats + un evento final) en vez de JSON
+  // directo, para mantener la conexión viva durante las llamadas largas a Claude.
   async function callApiStream<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(path, {
       method: "POST",
@@ -193,6 +226,7 @@ export default function Home() {
       setVariantesAceptadas([]);
       setVariantesDescartadas([]);
       setVeredictos([]);
+      setVeredictosCalculados(false);
       setProblemasNuevos([]);
       setAlcances([]);
       setRelaciones([]);
@@ -238,6 +272,7 @@ export default function Home() {
       setVariantesAceptadas([]);
       setVariantesDescartadas([]);
       setVeredictos([]);
+      setVeredictosCalculados(false);
       setProblemasNuevos([]);
       setAlcances([]);
       setRelaciones([]);
@@ -251,13 +286,33 @@ export default function Home() {
     }
   }
 
-  async function runStep1B() {
+  // Entrada a "Test": Persuasión (independiente del texto, no depende de qué explicaciones queden
+  // activas) y Variantes (sí depende de las explicaciones activas) no dependen una de la otra —
+  // corren en paralelo. El motor sigue haciendo las mismas dos llamadas de siempre; lo que cambia es
+  // que el usuario ve una sola pantalla ("Test") en vez de dos.
+  async function runTest() {
+    const explicacionesActivas = explicaciones.filter((e) => !excluidas.has(e.id));
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ pasajesPersuasivos: PasajePersuasivo[] }>("/api/step1b", { texto });
-      setPasajesPersuasivos(data.pasajesPersuasivos);
+      const [pasajesData, variantesData] = await Promise.all([
+        callApi<{ pasajesPersuasivos: PasajePersuasivo[] }>("/api/step1b", { texto }),
+        callApi<{ variantesAceptadas: VarianteAceptada[]; variantesDescartadas: VarianteDescartada[] }>(
+          "/api/step3",
+          { texto, explicaciones: explicacionesActivas, problemas }
+        ),
+      ]);
+      setExplicaciones(explicacionesActivas);
+      setPasajesPersuasivos(pasajesData.pasajesPersuasivos);
       setPasajesExcluidos(new Set());
+      setVariantesAceptadas(variantesData.variantesAceptadas);
+      setVariantesDescartadas(variantesData.variantesDescartadas);
+      setVariantesExcluidas(new Set());
+      setVeredictos([]);
+      setVeredictosCalculados(false);
+      setProblemasNuevos([]);
+      setAlcances([]);
+      setRelaciones([]);
       setReporte("");
       setStep(3);
       setFurthestStep(3);
@@ -268,34 +323,10 @@ export default function Home() {
     }
   }
 
-  async function runStep3() {
-    const explicacionesActivas = explicaciones.filter((e) => !excluidas.has(e.id));
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await callApi<{
-        variantesAceptadas: VarianteAceptada[];
-        variantesDescartadas: VarianteDescartada[];
-      }>("/api/step3", { texto, explicaciones: explicacionesActivas, problemas });
-      setExplicaciones(explicacionesActivas);
-      setVariantesAceptadas(data.variantesAceptadas);
-      setVariantesDescartadas(data.variantesDescartadas);
-      setVariantesExcluidas(new Set());
-      setVeredictos([]);
-      setProblemasNuevos([]);
-      setAlcances([]);
-      setRelaciones([]);
-      setReporte("");
-      setStep(4);
-      setFurthestStep(4);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error inesperado.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function runStep4() {
+  // Segunda fase, dentro de "Test": el único corte manual que se conserva — las variantes excluidas
+  // aquí nunca llegan a pedir veredicto (a diferencia de las demás exclusiones de la app, que solo se
+  // aplican, de forma cosmética, al armar el reporte final).
+  async function runVeredictos() {
     const activas = variantesAceptadas.filter((v) => !variantesExcluidas.has(v.id));
     setLoading(true);
     setError(null);
@@ -308,12 +339,11 @@ export default function Home() {
       });
       setVariantesAceptadas(activas);
       setVeredictos(data.veredictos);
+      setVeredictosCalculados(true);
       setProblemasNuevos([]);
       setAlcances([]);
       setRelaciones([]);
       setReporte("");
-      setStep(5);
-      setFurthestStep(5);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -321,44 +351,28 @@ export default function Home() {
     }
   }
 
-  async function runStep5() {
+  // Entrada a "Consecuencia": Preguntas nuevas/Alcance y Relaciones no se necesitan entre sí (Relaciones
+  // solo usa explicaciones y problemas), así que corren en paralelo, igual que Persuasión+Variantes.
+  async function runConsecuencia() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ problemasNuevos: ProblemaNuevo[]; alcances: Alcance[] }>("/api/step5", {
-        texto,
-        explicaciones,
-        problemas,
-        veredictos,
-      });
-      setProblemasNuevos(data.problemasNuevos);
+      const [nuevosData, relacionesData] = await Promise.all([
+        callApi<{ problemasNuevos: ProblemaNuevo[]; alcances: Alcance[] }>("/api/step5", {
+          texto,
+          explicaciones,
+          problemas,
+          veredictos,
+        }),
+        callApi<{ relaciones: Relacion[] }>("/api/step6", { explicaciones, problemas }),
+      ]);
+      setProblemasNuevos(nuevosData.problemasNuevos);
       setProblemasNuevosExcluidos(new Set());
-      setAlcances(data.alcances);
-      setRelaciones([]);
+      setAlcances(nuevosData.alcances);
+      setRelaciones(relacionesData.relaciones);
       setReporte("");
-      setStep(6);
-      setFurthestStep(6);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error inesperado.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function runStep6() {
-    const activos = problemasNuevos.filter((p) => !problemasNuevosExcluidos.has(p.id));
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await callApi<{ relaciones: Relacion[] }>("/api/step6", {
-        explicaciones,
-        problemas,
-      });
-      setProblemasNuevos(activos);
-      setRelaciones(data.relaciones);
-      setReporte("");
-      setStep(7);
-      setFurthestStep(7);
+      setStep(4);
+      setFurthestStep(4);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
@@ -368,6 +382,7 @@ export default function Home() {
 
   async function runStep7() {
     const pasajesActivos = pasajesPersuasivos.filter((p) => !pasajesExcluidos.has(p.id));
+    const problemasNuevosActivos = problemasNuevos.filter((p) => !problemasNuevosExcluidos.has(p.id));
     setLoading(true);
     setError(null);
     try {
@@ -376,15 +391,16 @@ export default function Home() {
         explicaciones,
         problemas,
         veredictos,
-        problemasNuevos,
+        problemasNuevos: problemasNuevosActivos,
         relaciones,
         pasajesPersuasivos: pasajesActivos,
         alcances,
       });
       setPasajesPersuasivos(pasajesActivos);
+      setProblemasNuevos(problemasNuevosActivos);
       setReporte(data.reporte);
-      setStep(8);
-      setFurthestStep(8);
+      setStep(5);
+      setFurthestStep(5);
 
       // Guardado en la biblioteca compartida: no bloquea ni revierte la vista del reporte si falla —
       // el usuario ya tiene su reporte y puede descargarlo igual; el estado se refleja de forma discreta.
@@ -643,17 +659,21 @@ export default function Home() {
                 : `Te quedan ${quota.remaining} de ${quota.limit} análisis esta semana.`}
             </p>
           )}
-          <div className="actions">
-            <button
-              className="primary"
-              disabled={loading || !texto.trim() || quota?.remaining === 0}
-              onClick={() => setShowConfirm(true)}
-            >
-              Comenzar análisis
-            </button>
-          </div>
+          {loading ? (
+            <Loader messages={MENSAJES_PROBLEMA} />
+          ) : (
+            <div className="actions">
+              <button
+                className="primary"
+                disabled={loading || !texto.trim() || quota?.remaining === 0}
+                onClick={() => setShowConfirm(true)}
+              >
+                Comenzar análisis
+              </button>
+            </div>
+          )}
 
-          {showConfirm && (
+          {showConfirm && !loading && (
             <div className="card" style={{ marginTop: "1rem", borderColor: "var(--accent)" }}>
               <h3>Confirma antes de empezar</h3>
               <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "0.5rem" }}>
@@ -676,7 +696,7 @@ export default function Home() {
                     runStep1();
                   }}
                 >
-                  {loading ? "Extrayendo..." : "Confirmar y analizar"}
+                  Confirmar y analizar
                 </button>
               </div>
             </div>
@@ -717,11 +737,15 @@ export default function Home() {
               />
             </div>
           ))}
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep2}>
-              {loading ? "Buscando explicaciones..." : "Continuar"}
-            </button>
-          </div>
+          {loading ? (
+            <Loader messages={MENSAJES_EXPLICACION} />
+          ) : (
+            <div className="actions">
+              <button className="primary" disabled={loading} onClick={runStep2}>
+                Continuar
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -792,17 +816,23 @@ export default function Home() {
             </div>
           )}
 
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep1B}>
-              {loading ? "Analizando persuasión..." : "Continuar"}
-            </button>
-          </div>
+          {loading ? (
+            <Loader messages={MENSAJES_TEST_VARIANTES} />
+          ) : (
+            <div className="actions">
+              <button className="primary" disabled={loading} onClick={runTest}>
+                Continuar
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {step === 3 && (
         <div className="card">
-          <h2>Pasajes con mecanismo de persuasión</h2>
+          <h2>Test: persuasión, variantes y veredictos</h2>
+
+          <h3>Pasajes con mecanismo de persuasión</h3>
           <p className="loading" style={{ marginBottom: "1rem" }}>
             Lectura independiente del Paso 1: identifica pasajes que le piden al lector dejar de cuestionar
             una afirmación (por lealtad, urgencia, autoridad, tabú o vergüenza anticipada), y si esa carga
@@ -868,17 +898,8 @@ export default function Home() {
               />
             </div>
           ))}
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep3}>
-              {loading ? "Generando variantes..." : "Continuar"}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {step === 4 && (
-        <div className="card">
-          <h2>Variantes por explicación</h2>
+          <h3 style={{ marginTop: "1.5rem" }}>Variantes por explicación</h3>
           {explicaciones.map((e) => {
             const aceptadas = variantesAceptadas.filter((v) => v.explicacionId === e.id);
             const descartadasE = variantesDescartadas.filter((v) => v.explicacionId === e.id);
@@ -896,6 +917,7 @@ export default function Home() {
                         <input
                           type="checkbox"
                           checked={variantesExcluidas.has(v.id)}
+                          disabled={veredictosCalculados}
                           onChange={() => toggleSet(variantesExcluidas, v.id, setVariantesExcluidas)}
                         />
                         Excluir
@@ -903,6 +925,7 @@ export default function Home() {
                     </div>
                     <textarea
                       value={v.descripcion}
+                      disabled={veredictosCalculados}
                       onChange={(ev) =>
                         setVariantesAceptadas((prev) =>
                           prev.map((x) => (x.id === v.id ? { ...x, descripcion: ev.target.value } : x))
@@ -923,84 +946,104 @@ export default function Home() {
               </div>
             );
           })}
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep4}>
-              {loading ? "Evaluando variantes..." : "Continuar"}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {step === 5 && (
-        <div className="card">
-          <h2>Veredictos</h2>
-          {veredictos.map((ve) => {
-            const e = explicaciones.find((x) => x.id === ve.explicacionId);
-            return (
-              <div className="item" key={ve.explicacionId}>
-                <h3>
-                  {e?.id}: {e?.resumen}
-                </h3>
-                {ve.veredicto === "SinSustitutoGenuino" && (
-                  <p className="warning-note">
-                    El paso anterior no logró generar ninguna variante que compitiera genuinamente por el mismo
-                    problema — esta explicación no fue puesta a prueba. No es lo mismo que &ldquo;difícil de
-                    variar&rdquo;.
-                  </p>
-                )}
-                {ve.resultadosVariantes.map((r) => {
-                  const v = variantesAceptadas.find((x) => x.id === r.varianteId);
-                  return (
-                    <div key={r.varianteId} style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
-                      <span className="badge">{r.resultado}</span> {v?.descripcion}
-                      <div style={{ color: "var(--muted)" }}>{r.justificacion}</div>
-                    </div>
-                  );
-                })}
-                <div className="item-label" style={{ marginTop: "0.6rem" }}>
-                  <span>Veredicto</span>
-                </div>
-                <select
-                  value={ve.veredicto}
-                  onChange={(ev) =>
-                    setVeredictos((prev) =>
-                      prev.map((x) =>
-                        x.explicacionId === ve.explicacionId
-                          ? { ...x, veredicto: ev.target.value as Veredicto["veredicto"] }
-                          : x
-                      )
-                    )
-                  }
-                >
-                  <option value="DificilDeVariar">DificilDeVariar</option>
-                  <option value="FacilDeVariar">FacilDeVariar</option>
-                  <option value="Mixta">Mixta</option>
-                  <option value="SinSustitutoGenuino">SinSustitutoGenuino (no puesta a prueba)</option>
-                </select>
-                <textarea
-                  value={ve.justificacion}
-                  onChange={(ev) =>
-                    setVeredictos((prev) =>
-                      prev.map((x) =>
-                        x.explicacionId === ve.explicacionId ? { ...x, justificacion: ev.target.value } : x
-                      )
-                    )
-                  }
-                />
+          {!veredictosCalculados && (
+            <p className="warning-note" style={{ marginTop: "1rem" }}>
+              Excluye aquí las variantes que no quieras evaluar — a diferencia de las demás exclusiones
+              de esta app, estas nunca llegan a pedir veredicto (ahorra costo real). Una vez que
+              continúes, esta lista queda fija.
+            </p>
+          )}
+
+          {!veredictosCalculados ? (
+            loading ? (
+              <Loader messages={MENSAJES_TEST_VEREDICTOS} />
+            ) : (
+              <div className="actions">
+                <button className="primary" disabled={loading} onClick={runVeredictos}>
+                  Pedir veredictos de las variantes activas
+                </button>
               </div>
-            );
-          })}
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep5}>
-              {loading ? "Buscando preguntas nuevas..." : "Continuar"}
-            </button>
-          </div>
+            )
+          ) : (
+            <>
+              <h3 style={{ marginTop: "1.5rem" }}>Veredictos</h3>
+              {veredictos.map((ve) => {
+                const e = explicaciones.find((x) => x.id === ve.explicacionId);
+                return (
+                  <div className="item" key={ve.explicacionId}>
+                    <h3>
+                      {e?.id}: {e?.resumen}
+                    </h3>
+                    {ve.veredicto === "SinSustitutoGenuino" && (
+                      <p className="warning-note">
+                        El paso anterior no logró generar ninguna variante que compitiera genuinamente por
+                        el mismo problema — esta explicación no fue puesta a prueba. No es lo mismo que
+                        &ldquo;difícil de variar&rdquo;.
+                      </p>
+                    )}
+                    {ve.resultadosVariantes.map((r) => {
+                      const v = variantesAceptadas.find((x) => x.id === r.varianteId);
+                      return (
+                        <div key={r.varianteId} style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
+                          <span className="badge">{r.resultado}</span> {v?.descripcion}
+                          <div style={{ color: "var(--muted)" }}>{r.justificacion}</div>
+                        </div>
+                      );
+                    })}
+                    <div className="item-label" style={{ marginTop: "0.6rem" }}>
+                      <span>Veredicto</span>
+                    </div>
+                    <select
+                      value={ve.veredicto}
+                      onChange={(ev) =>
+                        setVeredictos((prev) =>
+                          prev.map((x) =>
+                            x.explicacionId === ve.explicacionId
+                              ? { ...x, veredicto: ev.target.value as Veredicto["veredicto"] }
+                              : x
+                          )
+                        )
+                      }
+                    >
+                      <option value="DificilDeVariar">DificilDeVariar</option>
+                      <option value="FacilDeVariar">FacilDeVariar</option>
+                      <option value="Mixta">Mixta</option>
+                      <option value="SinSustitutoGenuino">SinSustitutoGenuino (no puesta a prueba)</option>
+                    </select>
+                    <textarea
+                      value={ve.justificacion}
+                      onChange={(ev) =>
+                        setVeredictos((prev) =>
+                          prev.map((x) =>
+                            x.explicacionId === ve.explicacionId ? { ...x, justificacion: ev.target.value } : x
+                          )
+                        )
+                      }
+                    />
+                  </div>
+                );
+              })}
+
+              {loading ? (
+                <Loader messages={MENSAJES_CONSECUENCIA} />
+              ) : (
+                <div className="actions">
+                  <button className="primary" disabled={loading} onClick={runConsecuencia}>
+                    Continuar
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
-      {step === 6 && (
+      {step === 4 && (
         <div className="card">
-          <h2>Preguntas nuevas que abren las explicaciones fuertes</h2>
+          <h2>Consecuencia: preguntas nuevas y relaciones</h2>
+
+          <h3>Preguntas nuevas que abren las explicaciones fuertes</h3>
           {problemasNuevos.length === 0 && <p className="loading">No se generaron preguntas nuevas.</p>}
           {problemasNuevos.map((n) => (
             <div className="item" key={n.id}>
@@ -1072,17 +1115,7 @@ export default function Home() {
             </div>
           )}
 
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep6}>
-              {loading ? "Comparando explicaciones..." : "Continuar"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 7 && (
-        <div className="card">
-          <h2>Relaciones entre explicaciones</h2>
+          <h3 style={{ marginTop: "1.5rem" }}>Relaciones entre explicaciones</h3>
           {relaciones.length === 0 && (
             <p className="loading">No se encontraron explicaciones comparables entre sí.</p>
           )}
@@ -1116,15 +1149,20 @@ export default function Home() {
               />
             </div>
           ))}
-          <div className="actions">
-            <button className="primary" disabled={loading} onClick={runStep7}>
-              {loading ? "Redactando reporte..." : "Generar reporte final"}
-            </button>
-          </div>
+
+          {loading ? (
+            <Loader messages={MENSAJES_REPORTE} />
+          ) : (
+            <div className="actions">
+              <button className="primary" disabled={loading} onClick={runStep7}>
+                Generar reporte final
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {step === 8 && (
+      {step === 5 && (
         <div className="card">
           <h2>Reporte final</h2>
           {guardadoEstado === "guardando" && <p className="loading">Guardando en la biblioteca...</p>}

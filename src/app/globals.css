@@ -267,3 +267,51 @@ button:disabled {
   border: 1px solid var(--border);
   color: var(--muted);
 }
+
+/* Loader animado de Umbusk: gira y pulsa mientras una etapa procesa por dentro. */
+.umbusk-loader-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
+}
+
+.umbusk-loader-wrap {
+  --umbusk-loader-size: 96px;
+  --umbusk-loader-speed: 1.6s;
+  --umbusk-pulse-min: 0.94;
+  --umbusk-pulse-max: 1.04;
+  width: var(--umbusk-loader-size);
+  height: var(--umbusk-loader-size);
+  display: grid;
+  place-items: center;
+  overflow: visible;
+}
+
+.umbusk-loader {
+  width: 100%;
+  height: auto;
+  display: block;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  animation: umbusk-spin-pulse var(--umbusk-loader-speed) linear infinite;
+}
+
+@keyframes umbusk-spin-pulse {
+  0%   { transform: rotate(0deg) scale(var(--umbusk-pulse-min)); }
+  25%  { transform: rotate(-90deg) scale(1.00); }
+  50%  { transform: rotate(-180deg) scale(var(--umbusk-pulse-max)); }
+  75%  { transform: rotate(-270deg) scale(1.00); }
+  100% { transform: rotate(-360deg) scale(var(--umbusk-pulse-min)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .umbusk-loader { animation: none; }
+}
+
+.umbusk-loader-message {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
