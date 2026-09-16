@@ -127,7 +127,6 @@ vacío de contenido.
     properties: {
       razonamientoDiagnostico: {
         type: "string",
-        minLength: 150,
         description:
           "TEMPORAL, solo para depuración interna: en 2-4 frases, qué posibles conflictos consideraste en el texto y por qué los aceptaste o descartaste. Si devuelves la lista de problemas vacía, explica aquí específicamente por qué cada candidato que consideraste no calificó.",
       },
