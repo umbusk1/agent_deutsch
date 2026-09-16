@@ -40,6 +40,7 @@ export async function POST(request: Request) {
 
         const variantesPrompt = step3VariantesPrompt(texto, explicacion, problema, identificacion);
         const result = await callTool<{
+          candidatosBrutos: string[];
           variantesAceptadas: { descripcion: string }[];
           variantesDescartadas: { descripcion: string; motivo: string }[];
         }>(variantesPrompt);
@@ -78,7 +79,11 @@ export async function POST(request: Request) {
       variantesDescartadas,
       _debugIdentificaciones: porExplicacion
         .filter((x): x is NonNullable<typeof x> => x !== null)
-        .map((x) => ({ explicacionId: x.explicacion.id, identificacion: x.identificacion })),
+        .map((x) => ({
+          explicacionId: x.explicacion.id,
+          identificacion: x.identificacion,
+          candidatosBrutos: x.result.candidatosBrutos,
+        })),
     });
   } catch (error) {
     console.error(error);

@@ -528,13 +528,22 @@ para cada uno construir la descripción completa de la variante — la explicaci
 variable reemplazado por el nuevo valor, dejando el elemento fijo y todo lo demás literalmente igual.
 
 Ya no tienes que descubrir qué varía — eso ya se hizo en el paso anterior. Tu único trabajo es de generación
-dentro de un dominio ya delimitado, y encontrar 2 o 3 miembros de una misma categoría casi siempre es posible:
+dentro de un dominio ya delimitado, y encontrar varios miembros de una misma categoría casi siempre es posible:
 si el dominio es "características institucionales de gobernanza", otros miembros obvios incluyen informalidad
 administrativa, discrecionalidad regulatoria, opacidad presupuestaria, debilidad del sistema judicial, etc. — no
 hace falta que sean creativos o insólitos, solo que sean genuinamente distintos entre sí y pertenezcan al mismo
-dominio. Antes de considerar que no hay ninguno, enumera mentalmente al menos 4 o 5 candidatos dentro del dominio
-indicado; de esos, elige los 2 o 3 mejores para variantesAceptadas y, si alguno de los que consideraste violaba
-alguno de los tres errores de abajo, repórtalo en variantesDescartadas en vez de simplemente omitirlo.
+dominio.
+
+PRIMER PASO OBLIGATORIO: antes de construir ninguna descripción de variante, llena candidatosBrutos con al menos
+4 o 5 valores CRUDOS — sustantivos o frases cortas (ej. "informalidad administrativa", "discrecionalidad
+regulatoria"), NO oraciones completas ni descripciones de variante — que consideres como posible reemplazo del
+ingrediente variable, dentro del dominio indicado. Escribe esta lista antes de evaluar cuáles califican; es tu
+espacio para pensar en voz alta, no el resultado final.
+
+SEGUNDO PASO: para cada valor de candidatosBrutos, evalúa si de verdad pertenece al dominio y mantiene intacto el
+elemento fijo al sustituirlo. Los que sí califiquen, constrúyelos como una descripción completa de variante en
+variantesAceptadas (máximo 2-3, elige los mejores si sobran). Los que no, repórtalos en variantesDescartadas
+explicando cuál de los tres errores de abajo cometieron — no los omitas silenciosamente.
 
 Ejemplos de sustitución mínima VÁLIDA (ingrediente original → alternativa, mismo dominio, mismo elemento fijo):
 - [cadena causal] elemento fijo "esa incertidumbre desalienta la inversión de largo plazo", ingrediente
@@ -586,6 +595,11 @@ Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descar
   const inputSchema: Schema = {
     type: "object",
     properties: {
+      candidatosBrutos: {
+        type: "array",
+        description: "PRIMER PASO: al menos 4-5 valores crudos (sustantivos o frases cortas, no oraciones completas) que consideraste para el ingrediente variable, antes de vetar cuáles califican.",
+        items: { type: "string" },
+      },
       variantesAceptadas: {
         type: "array",
         maxItems: 4,
@@ -611,7 +625,7 @@ Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descar
         },
       },
     },
-    required: ["variantesAceptadas", "variantesDescartadas"],
+    required: ["candidatosBrutos", "variantesAceptadas", "variantesDescartadas"],
   };
 
   return {
