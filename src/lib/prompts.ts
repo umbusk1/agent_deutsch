@@ -110,6 +110,14 @@ explicación en el texto: en este paso NO estás buscando explicaciones, solo pr
 Si el texto no plantea ningún conflicto genuino (ninguna tensión entre expectativa y observación, ninguna
 incompatibilidad entre ideas), devuelve una lista vacía — no fuerces un problema donde solo hay narración, opinión
 o descripción de hechos sin tensión entre ellos. Esto es un resultado legítimo, no un fallo de este paso.
+
+El campo razonamientoDiagnostico es obligatorio y nunca debe llenarse con una palabra o frase de relleno genérica
+("placeholder", "ninguno", "no aplica", "n/a" o equivalentes) solo para satisfacer el schema. Tanto si encuentras
+problemas como si no, ese campo debe contener el razonamiento real: qué candidatos concretos consideraste (citando
+o parafraseando el texto), y por qué cada uno calificó o no calificó como problema genuino. Si genuinamente no
+encontraste ningún conflicto, dilo explícitamente ahí y explica en al menos dos frases qué buscaste y por qué no lo
+hallaste — esa ausencia de hallazgo es un resultado válido, pero el razonamiento que la sustenta no lo es si está
+vacío de contenido.
 `.trim();
 
   const user = `Texto a analizar:\n\n${texto}`;
@@ -119,6 +127,7 @@ o descripción de hechos sin tensión entre ellos. Esto es un resultado legítim
     properties: {
       razonamientoDiagnostico: {
         type: "string",
+        minLength: 150,
         description:
           "TEMPORAL, solo para depuración interna: en 2-4 frases, qué posibles conflictos consideraste en el texto y por qué los aceptaste o descartaste. Si devuelves la lista de problemas vacía, explica aquí específicamente por qué cada candidato que consideraste no calificó.",
       },
