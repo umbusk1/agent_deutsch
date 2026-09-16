@@ -168,7 +168,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ problemas: Problema[] }>("/api/step1", { texto });
+      const data = await callApiStream<{ problemas: Problema[] }>("/api/step1", { texto });
       // La llamada ya se hizo y ya consumió cupo real, haya o no problema — se refleja siempre.
       setQuota((prev) =>
         prev && !prev.unlimited && typeof prev.remaining === "number"
