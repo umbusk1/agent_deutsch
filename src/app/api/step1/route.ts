@@ -6,7 +6,7 @@ import { findUser } from "@/lib/users";
 import { peekUsage, incrementUsage } from "@/lib/usage";
 import type { Problema } from "@/lib/types";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 export async function POST(request: Request) {
   try {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const result = await callTool<{
       razonamientoDiagnostico: string;
       problemas: { tipo: "maestro" | "local"; enunciado: string }[];
-    }>({ ...prompt, effort: "high" });
+    }>({ ...prompt, effort: "medium", strict: true, timeoutMs: 85_000 });
 
     // A lo sumo un problema maestro: si el modelo devolvió más de uno, el primero se queda como
     // maestro y el resto baja a local, para no romper el chequeo de puente del paso siguiente
