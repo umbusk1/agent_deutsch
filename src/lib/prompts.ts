@@ -527,6 +527,15 @@ Tu tarea ahora: proponer 2 o 3 valores ALTERNATIVOS para el ingrediente variable
 para cada uno construir la descripción completa de la variante — la explicación original con el ingrediente
 variable reemplazado por el nuevo valor, dejando el elemento fijo y todo lo demás literalmente igual.
 
+Ya no tienes que descubrir qué varía — eso ya se hizo en el paso anterior. Tu único trabajo es de generación
+dentro de un dominio ya delimitado, y encontrar 2 o 3 miembros de una misma categoría casi siempre es posible:
+si el dominio es "características institucionales de gobernanza", otros miembros obvios incluyen informalidad
+administrativa, discrecionalidad regulatoria, opacidad presupuestaria, debilidad del sistema judicial, etc. — no
+hace falta que sean creativos o insólitos, solo que sean genuinamente distintos entre sí y pertenezcan al mismo
+dominio. Antes de considerar que no hay ninguno, enumera mentalmente al menos 4 o 5 candidatos dentro del dominio
+indicado; de esos, elige los 2 o 3 mejores para variantesAceptadas y, si alguno de los que consideraste violaba
+alguno de los tres errores de abajo, repórtalo en variantesDescartadas en vez de simplemente omitirlo.
+
 Ejemplos de sustitución mínima VÁLIDA (ingrediente original → alternativa, mismo dominio, mismo elemento fijo):
 - [cadena causal] elemento fijo "esa incertidumbre desalienta la inversión de largo plazo", ingrediente
   "ilegitimidad institucional" → alternativa "informalidad administrativa" (mismo dominio: características
@@ -559,10 +568,11 @@ trayectoria) para que sea evaluable como las demás. Esta variante siempre cuent
 mismo problema, no la descartes por "ser complementaria": existe específicamente para poner a prueba si la
 explicación deja espacio para que algo así ocurra.
 
-Si genuinamente no logras pensar en ningún valor alternativo dentro del dominio indicado que compita por
-resolver el mismo problema, no fuerces uno artificial ni lo disfraces cambiando lo que debía quedarse fijo — es
-preferible devolver una lista de variantesAceptadas vacía (con las descartadas, si las hubo, explicando por qué
-no calificaron) que inventar una variante que en realidad no compite.
+Devolver variantesAceptadas Y variantesDescartadas ambas vacías debería ser un resultado raro, reservado para
+cuando el dominio indicado es genuinamente tan estrecho que no admite ningún otro miembro genuino (esto es
+distinto de "no se me ocurre nada ahora mismo" — vuelve a intentar la enumeración de candidatos antes de
+concluir esto). No fuerces una variante artificial ni la disfraces cambiando lo que debía quedarse fijo solo para
+no dejar la lista vacía — pero tampoco declares vacío sin haber enumerado activamente varios candidatos primero.
 
 Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descartadas, con su motivo de descarte.
 `.trim();
