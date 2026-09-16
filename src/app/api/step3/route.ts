@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
-import { step3Prompt } from "@/lib/prompts";
+import { step3IdentificarPrompt, step3VariantesPrompt, type IdentificacionVariante } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada } from "@/lib/types";
 
@@ -31,11 +31,18 @@ export async function POST(request: Request) {
         const problema = problemas.find((p) => p.id === explicacion.problemaId);
         if (!problema) return null;
 
-        const prompt = step3Prompt(texto, explicacion, problema);
+        // Dos llamadas: primero identificar qué es fijo y cuál es el ingrediente variable (sin generar
+        // todavía ningún sustituto), luego generar sustitutos solo para ese ingrediente ya nombrado. Mezclar
+        // ambas cosas en una sola llamada producía sistemáticamente reescrituras estructurales en vez de
+        // sustituciones mínimas — ver el comentario junto a step3IdentificarPrompt.
+        const identificacionPrompt = step3IdentificarPrompt(texto, explicacion, problema);
+        const identificacion = await callTool<IdentificacionVariante>(identificacionPrompt);
+
+        const variantesPrompt = step3VariantesPrompt(texto, explicacion, problema, identificacion);
         const result = await callTool<{
           variantesAceptadas: { descripcion: string }[];
           variantesDescartadas: { descripcion: string; motivo: string }[];
-        }>(prompt);
+        }>(variantesPrompt);
 
         return { explicacion, result };
       })

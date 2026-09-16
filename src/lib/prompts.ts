@@ -423,80 +423,133 @@ ningún AntiRacional que no encuentres.
   };
 }
 
-export function step3Prompt(texto: string, explicacion: Explicacion, problema: Problema) {
+export type IdentificacionVariante = {
+  tipo: "actor_con_motivo" | "cadena_causal" | "hibrido";
+  elementoFijo: string;
+  ingredienteVariable: string;
+  dominio: string;
+};
+
+// Paso 1 de 2 en la generación de variantes: solo identifica qué es fijo y cuál es el "ingrediente variable" —
+// no genera ningún sustituto todavía. Mezclar "identificar qué varía" con "ya generar un reemplazo" en la misma
+// llamada producía sistemáticamente sustituciones que cambiaban de dominio, de tipo de explicación o de sujeto,
+// en vez de sustituciones mínimas genuinas (confirmado empíricamente: explicaciones de tipo cadena causal
+// generaban 0 variantes válidas de 3 intentos, todas autodescartadas por exactamente estos tres errores).
+export function step3IdentificarPrompt(texto: string, explicacion: Explicacion, problema: Problema) {
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso: generar 2 o 3 VARIANTES de los detalles de la explicación dada, cambiando el mecanismo,
-motivo o causa concreta que propone, manteniendo el mismo problema como referencia.
+Tu tarea en este paso es SOLO identificar, con precisión, qué parte de esta explicación debe quedar fija y cuál
+es el "ingrediente variable" — el detalle concreto que un paso posterior va a intentar sustituir. No generes
+ningún sustituto todavía; eso es trabajo exclusivo del paso siguiente.
 
-ANTES de generar cualquier variante, identifica de qué TIPO es esta explicación, porque eso determina qué debe
-quedarse fijo y qué se puede variar:
+Primero, identifica de qué TIPO es esta explicación:
 
-- Tipo ACTOR-CON-MOTIVO: un sujeto (nombrado o descrito en abstracto — da igual, ej. "el gobierno X" o "un grupo
-  que teme rendir cuentas") hace o decide algo POR UN MOTIVO. Aquí el SUJETO queda FIJO en todas las variantes.
-  Nunca sustituyas de quién se habla por un actor, entidad o rol distinto, aunque ese otro actor esté involucrado
-  en la misma situación (ej. si la explicación es sobre por qué un vendedor cede condiciones desfavorables, una
-  variante que en cambio explica por qué el comprador presiona para obtenerlas no es una variante — es una
-  explicación sobre un sujeto distinto). Cambia ÚNICAMENTE el motivo o razón que se le atribuye a ese mismo
-  sujeto.
-- Tipo CADENA CAUSAL: no hay ningún sujeto que decida nada — es un mecanismo impersonal donde un factor concreto
-  produce un efecto a través de una cadena causal (ej. "la ilegitimidad institucional genera incertidumbre, y esa
-  incertidumbre desalienta la inversión de largo plazo"). Aquí la CADENA/MECANISMO que conecta causa y efecto
-  queda FIJA (ej. "incertidumbre desalienta inversión de largo plazo"). Cambia ÚNICAMENTE el factor causal
-  concreto que dispara esa cadena — nunca inventes un actor con motivo donde la explicación original no lo tiene.
-  Ejemplo de variante VÁLIDA de este tipo: sustituir "ilegitimidad institucional" por otra fuente de incertidumbre
-  política igual de concreta (inestabilidad regulatoria, riesgo cambiario, informalidad administrativa) y
-  verificar si la misma cadena ("esa incertidumbre desalienta la inversión de largo plazo") sigue resolviendo el
-  problema con esa fuente distinta — si sobrevive, es un sustituto genuino real, no un cambio de tema.
+- ACTOR-CON-MOTIVO: un sujeto (nombrado o descrito en abstracto — da igual, ej. "el gobierno X" o "un grupo que
+  teme rendir cuentas") hace o decide algo POR UN MOTIVO. El SUJETO es el elemento fijo. El ingrediente variable
+  es el motivo o razón específica que se le atribuye.
+- CADENA CAUSAL: no hay ningún sujeto que decida nada — un factor concreto produce un efecto a través de una
+  cadena impersonal (ej. "la ilegitimidad institucional genera incertidumbre, y esa incertidumbre desalienta la
+  inversión de largo plazo"). La CADENA que conecta causa y efecto (ej. "esa incertidumbre desalienta la
+  inversión de largo plazo") es el elemento fijo. El ingrediente variable es el factor causal concreto que
+  dispara esa cadena (ej. "ilegitimidad institucional").
+- HÍBRIDO: un actor cuya decisión desencadena, a su vez, una cadena causal impersonal — identifica cuál de los
+  dos eslabones es el que la explicación realmente pone en juego antes de clasificar, y trátalo como el tipo
+  correspondiente (actor-con-motivo o cadena causal) para el resto de este paso.
 
-Algunas explicaciones son un híbrido (un actor cuya decisión desencadena, a su vez, una cadena causal impersonal)
-— en ese caso, identifica primero cuál de los dos eslabones es el que la explicación realmente pone en juego (el
-motivo del actor, o el factor que dispara la cadena) antes de decidir qué variar.
+Luego, extrae el ingrediente variable tal como aparece en la explicación (cítalo o parafraséalo muy de cerca —
+no lo generalices ni lo abstraigas todavía), y nombra su DOMINIO: la categoría concreta a la que pertenece (ej.
+"características institucionales de gobernanza", "incentivo financiero personal", "riesgo regulatorio"). Ese
+dominio es el límite que usará el paso siguiente — los sustitutos que proponga deben quedarse dentro de él.
 
-CÓMO CONSTRUIR LA VARIANTE: debe ser una SUSTITUCIÓN MÍNIMA de un solo detalle concreto, no una reescritura
-estructural. Cambia solo el detalle exacto que corresponda según el tipo (el motivo específico, o el factor
-causal específico) y deja todo lo demás literalmente igual — mismo sujeto/actor, mismo dominio (el mismo tipo de
-causa: institucional, económico, reputacional, regulatorio, etc. — nunca saltes a un dominio distinto), y el
-mismo mecanismo o cadena que conecta la causa con el efecto.
+Usa mecanismoGeneral (la versión abstracta que ya se extrajo en el Paso 2, sin actores ni hechos específicos de
+este texto) como ayuda para separar lo fijo de lo variable: resumen es la instancia concreta, mecanismoGeneral ya
+muestra el patrón general del que el ingrediente variable es un caso particular.
+`.trim();
 
-Ejemplos de sustitución mínima VÁLIDA (detalle original → detalle sustituido, mismo dominio, mismo sujeto/cadena):
-- [cadena causal] "la ilegitimidad institucional genera incertidumbre que desalienta la inversión de largo
-  plazo" → "la informalidad administrativa genera incertidumbre que desalienta la inversión de largo plazo".
-  (Mismo dominio: características institucionales de gobernanza. Misma cadena intacta: incertidumbre → desalienta
-  inversión.)
-- [cadena causal] "la escasez de vivienda ocurre porque las restricciones de zonificación limitan la
-  construcción, lo cual reduce la oferta y sube los precios" → "...porque los impuestos prediales elevados a la
-  construcción nueva limitan la construcción, lo cual reduce la oferta y sube los precios". (Mismo dominio:
-  política regulatoria de vivienda. Misma cadena intacta: limita construcción → reduce oferta → sube precios.)
-- [actor-con-motivo] "el remanente chavista cede recursos con tal de evitar el costo de su ilegitimidad" → "el
-  remanente chavista cede recursos con tal de asegurar impunidad penal para sus líderes". (Mismo actor: el
-  remanente chavista. Misma categoría de motivo: auto-preservación frente a la rendición de cuentas.)
-- [actor-con-motivo] "el gerente aprueba el proyecto riesgoso porque quiere cumplir la meta trimestral de
-  ventas" → "el gerente aprueba el proyecto riesgoso porque quiere asegurar su bono anual". (Mismo actor: el
-  gerente. Misma categoría de motivo: incentivo financiero personal.)
+  const user = `Texto original (para contexto):\n\n${texto}\n\nExplicación:\n${JSON.stringify(
+    { id: explicacion.id, cita: explicacion.cita, resumen: explicacion.resumen, mecanismoGeneral: explicacion.mecanismoGeneral },
+    null,
+    2
+  )}\n\nProblema que pretende resolver:\n${problema.enunciado}`;
 
-Estas NO son sustituciones mínimas, aunque parezcan variantes razonables — descártalas sin contarlas como
-candidatas, y si las generaste por error, repórtalas en variantesDescartadas explicando cuál de estos tres
-errores cometieron:
-- Cambio de DOMINIO completo (ej. cambiar "incertidumbre institucional" por "mala reputación empresarial" — es
-  un dominio causal distinto, no un detalle distinto dentro del mismo dominio).
-- Cambio de TIPO de explicación (ej. convertir una cadena causal impersonal en un motivo de legitimación de un
-  actor, o viceversa).
-- Cambio de SUJETO/ACTOR (el error más común: sustituir "el remanente chavista" por "las empresas" no es variar
-  el motivo, es explicar a otro sujeto — ver la sección de tipo ACTOR-CON-MOTIVO arriba).
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      tipo: {
+        type: "string",
+        enum: ["actor_con_motivo", "cadena_causal", "hibrido"],
+      },
+      elementoFijo: {
+        type: "string",
+        description: "El sujeto (actor-con-motivo) o la cadena/mecanismo completo (cadena causal) que debe permanecer igual en toda variante",
+      },
+      ingredienteVariable: {
+        type: "string",
+        description: "El detalle concreto específico —tal como aparece en la explicación— que sí se puede sustituir",
+      },
+      dominio: {
+        type: "string",
+        description: "La categoría o campo al que pertenece el ingrediente variable, que limita qué sustitutos son válidos",
+      },
+    },
+    required: ["tipo", "elementoFijo", "ingredienteVariable", "dominio"],
+  };
 
-Antes de aceptar una variante como válida, verifica que sea un SUSTITUTO GENUINO: debe mantener fijo lo que
-corresponda según el tipo (el sujeto, o la cadena/mecanismo) y competir por resolver EXACTAMENTE el mismo
-problema que la explicación original, cambiando solo lo que sí está permitido variar. Si una variante en
-realidad cambia de sujeto, o de cadena causal, o resuelve un problema distinto (es COMPLEMENTARIA, no rival),
-descártala explicando por qué.
+  return {
+    system,
+    user,
+    toolName: "reportar_identificacion",
+    toolDescription: "Identifica el elemento fijo y el ingrediente variable de esta explicación, sin generar todavía ningún sustituto.",
+    inputSchema,
+  };
+}
 
-Si genuinamente no logras pensar en ninguna alternativa que compita por resolver el mismo problema manteniendo
-fijo lo que corresponda (el sujeto, o la cadena/mecanismo), no fuerces una variante artificial ni la disfraces
-cambiando lo que debía quedarse fijo — es preferible devolver una lista de variantesAceptadas vacía (con las
-descartadas, si las hubo, explicando por qué no calificaron) que inventar una variante que en realidad no
-compite.
+// Paso 2 de 2: recibe la identificación ya hecha (sin volver a juzgar tipo/elemento fijo) y solo propone valores
+// alternativos para el ingrediente ya nombrado — una tarea mucho más angosta y mecánica que "identifica y genera
+// a la vez", que es donde el modelo derrapaba hacia reescrituras estructurales.
+export function step3VariantesPrompt(
+  texto: string,
+  explicacion: Explicacion,
+  problema: Problema,
+  identificacion: IdentificacionVariante
+) {
+  const system = `
+${CRITERIO_CENTRAL}
+
+En el paso anterior ya se identificó, para esta explicación:
+- Tipo: ${identificacion.tipo}
+- Elemento fijo (debe permanecer igual en toda variante, palabra por palabra si hace falta): "${identificacion.elementoFijo}"
+- Ingrediente variable (el único detalle que puedes sustituir): "${identificacion.ingredienteVariable}"
+- Dominio (los sustitutos deben quedarse dentro de esta categoría, nunca saltar a otra): "${identificacion.dominio}"
+
+Tu tarea ahora: proponer 2 o 3 valores ALTERNATIVOS para el ingrediente variable, dentro del mismo dominio, y
+para cada uno construir la descripción completa de la variante — la explicación original con el ingrediente
+variable reemplazado por el nuevo valor, dejando el elemento fijo y todo lo demás literalmente igual.
+
+Ejemplos de sustitución mínima VÁLIDA (ingrediente original → alternativa, mismo dominio, mismo elemento fijo):
+- [cadena causal] elemento fijo "esa incertidumbre desalienta la inversión de largo plazo", ingrediente
+  "ilegitimidad institucional" → alternativa "informalidad administrativa" (mismo dominio: características
+  institucionales de gobernanza). Variante resultante: "la informalidad administrativa genera incertidumbre que
+  desalienta la inversión de largo plazo".
+- [cadena causal] elemento fijo "limita la construcción, lo cual reduce la oferta y sube los precios",
+  ingrediente "restricciones de zonificación" → alternativa "impuestos prediales elevados a la construcción
+  nueva" (mismo dominio: política regulatoria de vivienda).
+- [actor-con-motivo] elemento fijo "el remanente chavista cede recursos con tal de...", ingrediente "evitar el
+  costo de su ilegitimidad" → alternativa "asegurar impunidad penal para sus líderes" (mismo dominio:
+  auto-preservación frente a la rendición de cuentas).
+- [actor-con-motivo] elemento fijo "el gerente aprueba el proyecto riesgoso porque quiere...", ingrediente
+  "cumplir la meta trimestral de ventas" → alternativa "asegurar su bono anual" (mismo dominio: incentivo
+  financiero personal).
+
+Antes de aceptar cada propuesta como válida, verifica que el valor alternativo sí pertenezca al dominio indicado
+y que la variante resultante mantenga intacto el elemento fijo. Si al proponer un valor notas que en realidad se
+sale del dominio, cambia el elemento fijo, o convierte esto en un tipo de explicación distinto, repórtalo en
+variantesDescartadas explicando cuál de estos tres errores cometió — sigue siendo información valiosa, aunque el
+paso anterior ya haya fijado qué ingrediente sustituir:
+- Cambio de DOMINIO (la alternativa pertenece a una categoría distinta a la indicada).
+- Cambio de TIPO de explicación (convierte una cadena causal impersonal en un motivo de un actor, o viceversa).
+- Cambio de ELEMENTO FIJO (el sujeto, o la cadena/mecanismo, terminó siendo distinto al indicado).
 
 Si la explicación hace una afirmación sobre el futuro, o extrapola hacia adelante una tendencia actual, genera
 SIEMPRE una variante adicional (más allá de las 2 o 3 normales) de un tipo específico: un escenario donde surge
@@ -506,12 +559,16 @@ trayectoria) para que sea evaluable como las demás. Esta variante siempre cuent
 mismo problema, no la descartes por "ser complementaria": existe específicamente para poner a prueba si la
 explicación deja espacio para que algo así ocurra.
 
-Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descartadas (complementarias u otras
-razones), con su motivo de descarte.
+Si genuinamente no logras pensar en ningún valor alternativo dentro del dominio indicado que compita por
+resolver el mismo problema, no fuerces uno artificial ni lo disfraces cambiando lo que debía quedarse fijo — es
+preferible devolver una lista de variantesAceptadas vacía (con las descartadas, si las hubo, explicando por qué
+no calificaron) que inventar una variante que en realidad no compite.
+
+Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descartadas, con su motivo de descarte.
 `.trim();
 
   const user = `Texto original (para contexto):\n\n${texto}\n\nExplicación:\n${JSON.stringify(
-    { id: explicacion.id, cita: explicacion.cita, resumen: explicacion.resumen },
+    { id: explicacion.id, cita: explicacion.cita, resumen: explicacion.resumen, mecanismoGeneral: explicacion.mecanismoGeneral },
     null,
     2
   )}\n\nProblema que pretende resolver:\n${problema.enunciado}`;
@@ -538,7 +595,7 @@ razones), con su motivo de descarte.
           type: "object",
           properties: {
             descripcion: { type: "string" },
-            motivo: { type: "string", description: "Por qué se descarta (ej. es complementaria, no sustituta)" },
+            motivo: { type: "string", description: "Por qué se descarta (ej. cambio de dominio, de tipo, o de elemento fijo)" },
           },
           required: ["descripcion", "motivo"],
         },
@@ -551,7 +608,7 @@ razones), con su motivo de descarte.
     system,
     user,
     toolName: "reportar_variantes",
-    toolDescription: "Reporta las variantes aceptadas y descartadas de una explicación.",
+    toolDescription: "Reporta las variantes aceptadas y descartadas, sustituyendo solo el ingrediente variable ya identificado.",
     inputSchema,
   };
 }
