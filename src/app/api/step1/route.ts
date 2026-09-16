@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         }
 
         clearInterval(heartbeat);
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ problemas, _debugRazonamiento: razonamiento })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ problemas, razonamiento })}\n\n`));
         controller.close();
       } catch (error) {
         clearInterval(heartbeat);
