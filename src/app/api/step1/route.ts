@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { callTool } from "@/lib/anthropic";
-import { problemaPrompt } from "@/lib/prompts";
+import { callFreeform, callTool } from "@/lib/anthropic";
+import { problemaRazonamientoPrompt, problemaEstructuraPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import { findUser } from "@/lib/users";
 import { peekUsage, incrementUsage } from "@/lib/usage";
@@ -36,11 +36,20 @@ export async function POST(request: Request) {
       }
     }
 
-    const prompt = problemaPrompt(texto);
+    // Dos llamadas: primero razonamiento libre (sin tool_choice forzado, para que el modelo piense de verdad en
+    // vez de tomar el atajo de relleno bajo presión de schema), luego una llamada corta que solo estructura lo
+    // que el razonamiento ya aceptó.
+    const razonamientoPrompt = problemaRazonamientoPrompt(texto);
+    const razonamiento = await callFreeform({
+      ...razonamientoPrompt,
+      effort: "medium",
+      timeoutMs: 40_000,
+    });
+
+    const estructuraPrompt = problemaEstructuraPrompt(razonamiento);
     const result = await callTool<{
-      razonamientoDiagnostico: string;
       problemas: { tipo: "maestro" | "local"; enunciado: string }[];
-    }>({ ...prompt, effort: "medium", strict: true, timeoutMs: 85_000 });
+    }>({ ...estructuraPrompt, effort: "medium", strict: true, timeoutMs: 40_000 });
 
     // A lo sumo un problema maestro: si el modelo devolvió más de uno, el primero se queda como
     // maestro y el resto baja a local, para no romper el chequeo de puente del paso siguiente
@@ -68,7 +77,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ problemas, _debugRazonamiento: result.razonamientoDiagnostico });
+    return NextResponse.json({ problemas, _debugRazonamiento: razonamiento });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

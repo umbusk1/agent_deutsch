@@ -32,7 +32,11 @@ la explicación funcionaba más como una fórmula flexible que como una respuest
 // TODO: de los 7 pasos que comparten este contexto, solo 3 de ellos usan CRITERIO_EXPLICACION para algo — los
 // otros 4 solo necesitan REGLA_IDIOMA/REGLA_JERGA y lo traían de más (contaminación temprana: primaba el marco de
 // "evaluar explicaciones" en pasos cuyo trabajo es distinto). Auditoría completa, para quien retome esto:
-//   1. Problema (problemaPrompt)         -> NO usa la definición. Ya recortado a REGLA_IDIOMA + REGLA_JERGA.
+//   1. Problema (problemaRazonamientoPrompt/problemaEstructuraPrompt) -> NO usa la definición. Se separó en dos
+//                                            llamadas ("pensar" en prosa libre, luego "estructurar") para evitar
+//                                            el atajo de relleno genérico bajo presión de schema; la de
+//                                            razonamiento usa REGLA_IDIOMA + REGLA_JERGA, la de estructurar solo
+//                                            REGLA_IDIOMA (transcribe texto ya limpio del paso anterior).
 //   2. Explicación (explicacionPrompt)   -> NO usa la definición (clasifica candidatas y chequea el puente, no
 //                                            evalúa si son difíciles de variar). Ya recortado.
 //   3. Variantes (step3Prompt)           -> SÍ la usa (genera las variantes que la ponen a prueba). Completo.
@@ -45,7 +49,7 @@ la explicación funcionaba más como una fórmula flexible que como una respuest
 //   7. Reporte principal (step7Principal)-> SÍ la usa (traduce los veredictos a prosa para el usuario). Completo.
 const CRITERIO_CENTRAL = `${CRITERIO_EXPLICACION}\n\n${REGLA_JERGA}\n\n${REGLA_IDIOMA}`.trim();
 
-export function problemaPrompt(texto: string) {
+export function problemaRazonamientoPrompt(texto: string) {
   const system = `
 ${REGLA_JERGA}
 
@@ -108,28 +112,52 @@ pasada, o dejados como pregunta abierta a propósito. Estos cuentan igual que lo
 explicación en el texto: en este paso NO estás buscando explicaciones, solo problemas.
 
 Si el texto no plantea ningún conflicto genuino (ninguna tensión entre expectativa y observación, ninguna
-incompatibilidad entre ideas), devuelve una lista vacía — no fuerces un problema donde solo hay narración, opinión
-o descripción de hechos sin tensión entre ellos. Esto es un resultado legítimo, no un fallo de este paso.
+incompatibilidad entre ideas), concluye eso — no fuerces un problema donde solo hay narración, opinión o
+descripción de hechos sin tensión entre ellos. Esto es un resultado legítimo, no un fallo de este paso, pero debe
+ser una conclusión razonada: qué candidatos concretos consideraste (citando o parafraseando el texto) y por qué
+cada uno no calificó como problema genuino — nunca una afirmación vacía sin ese trabajo detrás.
 
-El campo razonamientoDiagnostico es obligatorio y nunca debe llenarse con una palabra o frase de relleno genérica
-("placeholder", "ninguno", "no aplica", "n/a" o equivalentes) solo para satisfacer el schema. Tanto si encuentras
-problemas como si no, ese campo debe contener el razonamiento real: qué candidatos concretos consideraste (citando
-o parafraseando el texto), y por qué cada uno calificó o no calificó como problema genuino. Si genuinamente no
-encontraste ningún conflicto, dilo explícitamente ahí y explica en al menos dos frases qué buscaste y por qué no lo
-hallaste — esa ausencia de hallazgo es un resultado válido, pero el razonamiento que la sustenta no lo es si está
-vacío de contenido.
+Razona en prosa libre, con el detalle que haga falta, mostrando explícitamente qué candidatos consideraste y por
+qué cada uno calificó o no. Termina tu respuesta con una sección exacta con este formato, sin texto adicional
+después de ella:
+
+PROBLEMAS ACEPTADOS:
+MAESTRO: <enunciado del problema maestro, si lo hay>
+LOCAL: <enunciado de un problema local>
+LOCAL: <enunciado de otro problema local, si lo hay>
+
+Si no aceptaste ningún problema, la sección debe decir exactamente:
+
+PROBLEMAS ACEPTADOS:
+(ninguno)
 `.trim();
 
   const user = `Texto a analizar:\n\n${texto}`;
 
+  return { system, user };
+}
+
+// Paso 2 de la detección de Problema: recibe el razonamiento ya escrito por problemaRazonamientoPrompt (llamada
+// libre, sin tool_choice forzado) y solo lo estructura — no vuelve a juzgar si los problemas son genuinos. Separar
+// "pensar" de "estructurar" evita que el modelo tome el atajo de relleno genérico bajo la presión de producir ya
+// una respuesta con schema, visto en el Paso 1 incluso con tool_choice forzado + strict:true + una instrucción
+// explícita prohibiendo el relleno, cuando pensar y estructurar competían en la misma llamada.
+export function problemaEstructuraPrompt(razonamiento: string) {
+  const system = `
+${REGLA_IDIOMA}
+
+Vas a recibir el razonamiento ya completo de un paso anterior, donde se analizó un texto para encontrar problemas
+o conflictos genuinos. Tu única tarea es EXTRAER y estructurar los problemas que ese razonamiento aceptó — no
+vuelvas a juzgar si son genuinos, no agregues problemas que el razonamiento no aceptó explícitamente, y no omitas
+ninguno de los que sí aceptó. Busca la sección "PROBLEMAS ACEPTADOS:" al final del razonamiento y transcribe cada
+línea a la estructura pedida. Si esa sección dice "(ninguno)", devuelve una lista vacía.
+`.trim();
+
+  const user = `Razonamiento ya completo:\n\n${razonamiento}`;
+
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      razonamientoDiagnostico: {
-        type: "string",
-        description:
-          "TEMPORAL, solo para depuración interna: en 2-4 frases, qué posibles conflictos consideraste en el texto y por qué los aceptaste o descartaste. Si devuelves la lista de problemas vacía, explica aquí específicamente por qué cada candidato que consideraste no calificó.",
-      },
       problemas: {
         type: "array",
         items: {
@@ -150,7 +178,7 @@ vacío de contenido.
         },
       },
     },
-    required: ["razonamientoDiagnostico", "problemas"],
+    required: ["problemas"],
     additionalProperties: false,
   };
 
@@ -158,7 +186,7 @@ vacío de contenido.
     system,
     user,
     toolName: "reportar_problemas",
-    toolDescription: "Reporta el problema maestro (si lo hay) y los problemas locales que el texto plantea, sin mirar todavía ninguna explicación.",
+    toolDescription: "Estructura los problemas ya aceptados en el razonamiento previo.",
     inputSchema,
   };
 }

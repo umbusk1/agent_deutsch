@@ -74,6 +74,44 @@ export async function callTool<T>(params: ToolCallParams): Promise<T> {
   return toolUse.input as T;
 }
 
+type FreeformCallParams = {
+  system: string;
+  user: string;
+  maxTokens?: number;
+  timeoutMs?: number;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
+};
+
+// Llamada de texto libre, sin tools ni tool_choice forzado: para pasos donde el modelo debe razonar en prosa
+// abierta antes de que otra llamada (con callTool) estructure esa conclusión ya escrita. Separar "pensar" de
+// "estructurar" evita que el modelo, bajo la presión de producir ya una respuesta con schema, tome el atajo más
+// barato (relleno genérico) en vez de razonar de verdad — visto en el Paso 1 incluso con tool_choice forzado +
+// strict:true + una instrucción explícita prohibiendo el relleno.
+export async function callFreeform(params: FreeformCallParams): Promise<string> {
+  let response;
+  try {
+    response = await getClient().messages.create(
+      {
+        model: MODEL,
+        max_tokens: params.maxTokens ?? 4096,
+        system: params.system,
+        messages: [{ role: "user", content: params.user }],
+        ...(params.effort ? { output_config: { effort: params.effort } } : {}),
+      },
+      { timeout: params.timeoutMs ?? 50_000 }
+    );
+  } catch (error) {
+    throw new Error(friendlyClaudeErrorMessage(error));
+  }
+
+  const textBlock = response.content.find((block) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("Claude no devolvió texto en este paso.");
+  }
+
+  return textBlock.text;
+}
+
 export function friendlyClaudeErrorMessage(error: unknown): string {
   if (error instanceof Anthropic.APIConnectionTimeoutError) {
     return "Se agotó el tiempo de espera al conectar con Claude. Intenta de nuevo.";
