@@ -26,6 +26,13 @@ type ToolCallParams = {
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
 };
 
+// TODO (pendiente, no resolver en esta ronda): tool_choice va forzado a una tool específica en las 7 llamadas
+// de prompts.ts, pero ninguna declara `strict: true` en la tool — sin eso, "required" del input_schema no se
+// aplica de verdad: el modelo puede omitir un campo "obligatorio" sin que la API lo rechace (lo confirmamos con
+// razonamientoDiagnostico en el diagnóstico de Paso 1, que a veces venía completamente ausente pese a estar en
+// "required"). Falta una auditoría de los 7 schemas en prompts.ts para ver si algún otro campo obligatorio se
+// está perdiendo en silencio del mismo modo, sin que lo hayamos notado porque el código downstream no lo exige
+// con la misma dureza que exigimos razonamientoDiagnostico en ese diagnóstico puntual.
 export async function callTool<T>(params: ToolCallParams): Promise<T> {
   let response;
   try {

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const prompt = problemaPrompt(texto);
     const result = await callTool<{
       problemas: { tipo: "maestro" | "local"; enunciado: string }[];
-    }>({ ...prompt, effort: "medium" });
+    }>({ ...prompt, effort: "high" });
 
     // A lo sumo un problema maestro: si el modelo devolvió más de uno, el primero se queda como
     // maestro y el resto baja a local, para no romper el chequeo de puente del paso siguiente
