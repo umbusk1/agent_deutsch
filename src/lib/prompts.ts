@@ -71,6 +71,10 @@ equipo restante se mantuvo intacta" — ninguna de las dos frases suena dudosa p
 tensión genuina (¿cómo se sostiene la misma producción con menos gente, sin que se explique la diferencia?) que el
 tono confiado del autor no resuelve ni debería ocultar.
 
+Busca también dónde el autor se distingue explícitamente de una postura distinta a la suya, o se defiende de una
+acusación o malentendido anticipado — esa distinción defensiva casi siempre revela un problema real debajo, incluso
+cuando el autor la resuelve con total seguridad.
+
 El formato retórico del texto es irrelevante para esta búsqueda: un conflicto genuino puede estar planteado en
 prosa narrativa continua, pero igual de bien en un formato de preguntas y respuestas, un dictamen legal, una lista,
 o cualquier otra estructura. No asumas que un texto organizado como FAQ o Q&A es meramente informativo o
