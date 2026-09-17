@@ -37,6 +37,15 @@ type ToolCallParams = {
 // "required"). Falta una auditoría de los 7 schemas en prompts.ts para ver si algún otro campo obligatorio se
 // está perdiendo en silencio del mismo modo, sin que lo hayamos notado porque el código downstream no lo exige
 // con la misma dureza que exigimos razonamientoDiagnostico en ese diagnóstico puntual.
+//
+// Patrón confirmado 3 veces en esta misma ronda: "el schema permite una salida vacía/trivial → bajo presión de
+// generación, el modelo toma ese atajo en vez de hacer el trabajo real". Visto en razonamientoDiagnostico (Paso 1,
+// arriba), en candidatosBrutos (Paso 3 — variantesAceptadas podía salir vacía con una sola llamada mezclando
+// "identificar" y "generar"; se resolvió con el split de dos llamadas + candidatosBrutos como campo obligatorio de
+// scaffolding) y en Relaciones (Paso 6 — relaciones podía salir [] aun con explicaciones que compartían
+// problemaId; se resolvió reemplazando el array libre por una clave obligatoria por par, ver step6Prompt en
+// prompts.ts). Vale la pena revisar los pasos restantes (2, 4, 5, 7) con esta misma pregunta antes de que aparezca
+// un cuarto caso sin que lo hayamos anticipado.
 export async function callTool<T>(params: ToolCallParams): Promise<T> {
   let response;
   try {

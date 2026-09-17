@@ -806,23 +806,52 @@ hallazgo legítimo, no un fallo de este paso.
   };
 }
 
+// Pares de explicaciones que comparten problemaId — compartir problemaId ya confirma que abordan el mismo
+// problema, así que para estos pares "no comparable" no es una respuesta válida (ver step6Prompt). Exportada
+// para que route.ts recorra exactamente los mismos pares al leer de vuelta las claves del schema.
+export function paresMismoProblema(explicaciones: Explicacion[]): [Explicacion, Explicacion][] {
+  const pares: [Explicacion, Explicacion][] = [];
+  for (let i = 0; i < explicaciones.length; i++) {
+    for (let j = i + 1; j < explicaciones.length; j++) {
+      if (explicaciones[i].problemaId === explicaciones[j].problemaId) {
+        pares.push([explicaciones[i], explicaciones[j]]);
+      }
+    }
+  }
+  return pares;
+}
+
+export function claveRelacionMismoProblema(aId: string, bId: string): string {
+  return `relacion_${aId}_${bId}`;
+}
+
 export function step6Prompt(explicaciones: Explicacion[], problemas: Problema[]) {
+  const pares = paresMismoProblema(explicaciones);
+
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso: cuando haya más de una explicación comparable en el texto, determinar si compiten por
-resolver EL MISMO problema (son SUSTITUTAS/rivales genuinas, "compite_con") o si en realidad resuelven problemas
-distintos y pueden convivir sin contradecirse (son "complementa").
+Tu tarea en este paso tiene dos partes, con el MISMO nivel de exigencia en ambas:
 
-Cada explicación trae su problemaId. Si dos explicaciones comparten el mismo problemaId, ESO YA CONFIRMA que
-abordan el mismo problema — no lo vuelvas a evaluar comparando el texto de resumen entre sí, y nunca las
-descartes como "no comparables" por tratar aspectos superficialmente distintos del mismo asunto. Para ese par, la
-única pregunta que queda es si compiten entre sí ("compite_con") o si, pese a resolver el mismo problema, lo
-hacen de forma compatible y pueden convivir sin contradecirse ("complementa") — nunca la ausencia de relación.
+1) PARES OBLIGATORIOS (mismo problemaId). Cada explicación trae su problemaId. Si dos explicaciones comparten el
+mismo problemaId, ESO YA CONFIRMA que abordan el mismo problema — no lo vuelvas a evaluar comparando el resumen
+de texto entre sí. Para cada uno de estos pares, "no comparable" NO es una opción válida bajo ninguna
+circunstancia: tu única decisión es si compiten entre sí por resolver ese problema ("compite_con", son
+sustitutas/rivales genuinas) o si, pese a resolver el mismo problema, lo hacen de forma compatible y pueden
+convivir sin contradecirse ("complementa"). Esto se cumple incluso si a primera vista los resúmenes tratan
+aspectos superficialmente distintos del mismo asunto — no lo tomes como señal de que "no comparan". La
+justificación de cada par debe ser sustantiva y específica del contenido real de esas dos explicaciones — nunca
+una frase de relleno genérica que serviría igual para cualquier otro par (el mismo cuidado que ya exigimos en el
+Paso 3 al generar variantes: "obligatorio" nunca puede traducirse en "obligatorio pero vacío de contenido").
 
-Solo cuando dos explicaciones tengan problemaId DISTINTOS evalúa por contenido si sus problemas son, en el fondo,
-iguales o muy cercanos pese a tener IDs distintos (puede pasar si el Paso 1 los separó como locales distintos
-pero en realidad se solapan). Si sus problemas son genuinamente distintos, no fuerces ninguna relación entre ellas.
+2) RELACIONES ADICIONALES (problemaId distintos) — esta parte NO es secundaria frente a la anterior, es igual de
+importante. Cuando dos explicaciones tengan problemaId DISTINTOS, evalúa por contenido si sus problemas son, en
+el fondo, iguales o muy cercanos pese a tener IDs distintos: esto pasa cuando el Paso 1 los separó como
+problemas locales distintos pero en realidad se solapan o compiten de verdad. Es exactamente el tipo de relación
+que esta parte del paso existe para detectar — no la trates como un caso raro ni como relleno opcional. Repórtala
+en "relacionesAdicionales" con el mismo rigor y la misma justificación sustantiva que en la parte 1. Solo si,
+tras evaluar el contenido, los problemas son genuinamente distintos y no hay relación real entre las
+explicaciones, no fuerces nada ahí.
 `.trim();
 
   const user = `Explicaciones y sus problemas:\n${JSON.stringify(
@@ -834,27 +863,52 @@ pero en realidad se solapan). Si sus problemas son genuinamente distintos, no fu
     })),
     null,
     2
-  )}`;
+  )}${
+    pares.length > 0
+      ? `\n\nPares que comparten problemaId — debes clasificar CADA UNO de estos, sin excepción, con "compite_con" o "complementa" (nunca "no comparable"):\n${pares
+          .map(([a, b]) => `- ${a.id} y ${b.id} (ambas resuelven ${a.problemaId})`)
+          .join("\n")}`
+      : "\n\nNinguna explicación de esta lista comparte problemaId con otra."
+  }`;
 
-  const inputSchema: Schema = {
+  const relacionMismoProblemaSchema = {
     type: "object",
     properties: {
-      relaciones: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            explicacionAId: { type: "string" },
-            explicacionBId: { type: "string" },
-            tipo: { type: "string", enum: ["compite_con", "complementa"] },
-            justificacion: { type: "string" },
-          },
-          required: ["explicacionAId", "explicacionBId", "tipo", "justificacion"],
-        },
+      tipo: { type: "string", enum: ["compite_con", "complementa"] },
+      justificacion: {
+        type: "string",
+        description:
+          "Sustantiva y específica del contenido real de ambas explicaciones — nunca una frase de relleno genérica.",
       },
     },
-    required: ["relaciones"],
+    required: ["tipo", "justificacion"],
   };
+
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  for (const [a, b] of pares) {
+    properties[claveRelacionMismoProblema(a.id, b.id)] = relacionMismoProblemaSchema;
+    required.push(claveRelacionMismoProblema(a.id, b.id));
+  }
+
+  properties.relacionesAdicionales = {
+    type: "array",
+    description:
+      "Relaciones genuinas entre explicaciones con problemaId DISTINTOS que en el fondo resuelven el mismo problema o uno muy cercano. Mismo nivel de exigencia que los pares obligatorios: repórtalas cuando sean reales, no las trates como secundarias.",
+    items: {
+      type: "object",
+      properties: {
+        explicacionAId: { type: "string" },
+        explicacionBId: { type: "string" },
+        tipo: { type: "string", enum: ["compite_con", "complementa"] },
+        justificacion: { type: "string" },
+      },
+      required: ["explicacionAId", "explicacionBId", "tipo", "justificacion"],
+    },
+  };
+  required.push("relacionesAdicionales");
+
+  const inputSchema: Schema = { type: "object", properties, required };
 
   return {
     system,
