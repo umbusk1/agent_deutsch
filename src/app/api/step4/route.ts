@@ -42,6 +42,7 @@ export async function POST(request: Request) {
             veredicto: "SinSustitutoGenuino" as const,
             justificacion:
               "El paso anterior no logró generar ninguna variante que compitiera genuinamente por resolver el mismo problema: cualquier cambio de detalles considerado terminaba resolviendo un problema distinto. Esta explicación no fue puesta a prueba — no hay base para llamarla difícil de variar.",
+            resisteConocimientoNuevo: null,
           };
         }
 
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
           resultadosVariantes: { varianteId: string; resultado: "rompe" | "sobrevive"; justificacion: string }[];
           veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta";
           justificacion: string;
+          resisteConocimientoNuevo?: { resultado: "rompe" | "sobrevive"; justificacion: string };
         }>(prompt);
 
         return {
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
           resultadosVariantes: asArray(result.resultadosVariantes),
           veredicto: result.veredicto,
           justificacion: result.justificacion,
+          resisteConocimientoNuevo: result.resisteConocimientoNuevo ?? null,
         };
       })
     );

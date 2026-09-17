@@ -461,7 +461,7 @@ export default function Home() {
     for (const e of explicaciones) {
       if (e.puente.laguna) lines.push(`${e.id} (laguna de puente): ${e.puente.justificacion}`);
     }
-    for (const v of variantesAceptadas) lines.push(`${v.id}: ${v.descripcion}`);
+    for (const v of variantesAceptadas) lines.push(`${v.id} (${v.tipo}): ${v.descripcion}`);
     for (const n of problemasNuevos) lines.push(`${n.id}: ${n.enunciado}`);
     for (const a of alcances) lines.push(`${a.explicacionId} (alcance): ${a.justificacion}`);
     for (const m of pasajesPersuasivos) lines.push(`${m.id}: ${m.cita}`);
@@ -490,6 +490,9 @@ export default function Home() {
     }
     for (const ve of veredictos) {
       lines.push(`${ve.explicacionId} --tiene_veredicto--> ${ve.veredicto}`);
+      if (ve.resisteConocimientoNuevo) {
+        lines.push(`${ve.explicacionId} --resiste_conocimiento_nuevo--> ${ve.resisteConocimientoNuevo.resultado}`);
+      }
     }
     for (const a of alcances) {
       lines.push(`${a.explicacionId} --tiene_alcance--> ${a.tipo}`);
@@ -986,13 +989,22 @@ export default function Home() {
                       const v = variantesAceptadas.find((x) => x.id === r.varianteId);
                       return (
                         <div key={r.varianteId} style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
-                          <span className="badge">{r.resultado}</span> {v?.descripcion}
+                          <span className="badge">{r.resultado}</span>{" "}
+                          {v?.tipo === "conocimiento_nuevo" && <span className="badge">conocimiento nuevo</span>}{" "}
+                          {v?.descripcion}
                           <div style={{ color: "var(--muted)" }}>{r.justificacion}</div>
                         </div>
                       );
                     })}
+                    {ve.resisteConocimientoNuevo && (
+                      <p className="warning-note" style={{ marginTop: "0.5rem" }}>
+                        Conocimiento nuevo (aparte del veredicto principal):{" "}
+                        <span className="badge">{ve.resisteConocimientoNuevo.resultado}</span>{" "}
+                        {ve.resisteConocimientoNuevo.justificacion}
+                      </p>
+                    )}
                     <div className="item-label" style={{ marginTop: "0.6rem" }}>
-                      <span>Veredicto</span>
+                      <span>Veredicto principal</span>
                     </div>
                     <select
                       value={ve.veredicto}

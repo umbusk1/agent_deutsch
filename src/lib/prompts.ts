@@ -542,8 +542,8 @@ espacio para pensar en voz alta, no el resultado final.
 
 SEGUNDO PASO: para cada valor de candidatosBrutos, evalúa si de verdad pertenece al dominio y mantiene intacto el
 elemento fijo al sustituirlo. Los que sí califiquen, constrúyelos como una descripción completa de variante en
-variantesAceptadas (máximo 2-3, elige los mejores si sobran). Los que no, repórtalos en variantesDescartadas
-explicando cuál de los tres errores de abajo cometieron — no los omitas silenciosamente.
+variantesAceptadas con tipo "sustitucion_minima" (máximo 2-3, elige los mejores si sobran). Los que no, repórtalos
+en variantesDescartadas explicando cuál de los tres errores de abajo cometieron — no los omitas silenciosamente.
 
 Ejemplos de sustitución mínima VÁLIDA (ingrediente original → alternativa, mismo dominio, mismo elemento fijo):
 - [cadena causal] elemento fijo "esa incertidumbre desalienta la inversión de largo plazo", ingrediente
@@ -570,12 +570,14 @@ paso anterior ya haya fijado qué ingrediente sustituir:
 - Cambio de ELEMENTO FIJO (el sujeto, o la cadena/mecanismo, terminó siendo distinto al indicado).
 
 Si la explicación hace una afirmación sobre el futuro, o extrapola hacia adelante una tendencia actual, genera
-SIEMPRE una variante adicional (más allá de las 2 o 3 normales) de un tipo específico: un escenario donde surge
-conocimiento nuevo —una innovación, un cambio de política, un desarrollo imprevisto— que altera la trayectoria
-que la explicación asume. Descríbela con suficiente detalle concreto (qué tipo de desarrollo, cómo altera la
-trayectoria) para que sea evaluable como las demás. Esta variante siempre cuenta como sustituto genuino del
-mismo problema, no la descartes por "ser complementaria": existe específicamente para poner a prueba si la
-explicación deja espacio para que algo así ocurra.
+SIEMPRE una variante adicional (más allá de las 2 o 3 de tipo "sustitucion_minima") con tipo "conocimiento_nuevo":
+un escenario donde surge conocimiento nuevo —una innovación, un cambio de política, un desarrollo imprevisto— que
+altera la trayectoria que la explicación asume. Descríbela con suficiente detalle concreto (qué tipo de
+desarrollo, cómo altera la trayectoria) para que sea evaluable como las demás. Va en variantesAceptadas (no la
+descartes por "ser complementaria": existe específicamente para poner a prueba si la explicación deja espacio
+para que algo así ocurra) — pero prueba algo distinto de una sustitución de dominio, así que el paso siguiente la
+evaluará y reportará por separado del veredicto principal. Es la única variante que puede llevar tipo
+"conocimiento_nuevo"; nunca la confundas con una sustitución mínima ni generes más de una por explicación.
 
 Devolver variantesAceptadas Y variantesDescartadas ambas vacías debería ser un resultado raro, reservado para
 cuando el dominio indicado es genuinamente tan estrecho que no admite ningún otro miembro genuino (esto es
@@ -608,8 +610,13 @@ Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descar
           type: "object",
           properties: {
             descripcion: { type: "string", description: "Descripción de la variante (sustituto genuino), no vacía" },
+            tipo: {
+              type: "string",
+              enum: ["sustitucion_minima", "conocimiento_nuevo"],
+              description: "'conocimiento_nuevo' solo para la variante especial de desarrollo futuro/imprevisto, si aplica — a lo sumo una por explicación",
+            },
           },
-          required: ["descripcion"],
+          required: ["descripcion", "tipo"],
         },
       },
       variantesDescartadas: {
@@ -648,14 +655,30 @@ ${CRITERIO_CENTRAL}
 
 Tu tarea en este paso: evaluar, para cada variante, si al ponerla a prueba contra el problema original TODAVÍA
 lo resuelve ("sobrevive" → la explicación es fácil de variar en ese aspecto, señal de debilidad) o DEJA de
-resolverlo ("rompe" → la explicación es difícil de variar en ese aspecto, señal de fuerza).
+resolverlo ("rompe" → la explicación es difícil de variar en ese aspecto, señal de fuerza). Evalúa TODAS las
+variantes que recibas, sin importar su tipo, y reporta el resultado de cada una en resultadosVariantes.
 
-Después, con base en el patrón de resultados de todas las variantes, da un veredicto global para la explicación:
-- "DificilDeVariar": la mayoría o todas las variantes rompen (la explicación es fuerte).
-- "FacilDeVariar": la mayoría o todas las variantes sobreviven (la explicación es débil).
-- "Mixta": resultados mezclados, sin un patrón claro.
+Las variantes vienen marcadas con un tipo, y eso decide qué cuenta para qué:
+- "sustitucion_minima": prueban si un detalle concreto dentro del mismo dominio es intercambiable. SOLO estas
+  cuentan para el veredicto principal.
+- "conocimiento_nuevo": prueba algo cualitativamente distinto — si la aparición de información, una innovación o
+  un desarrollo imprevisto (no una sustitución de dominio) cambiaría la trayectoria que la explicación asume.
+  NUNCA la mezcles con las de sustitución mínima al calcular el veredicto principal — se reporta aparte, en su
+  propio campo.
 
-Justifica el veredicto con una frase que sintetice el patrón observado.
+Con base ÚNICAMENTE en el patrón de resultados de las variantes de tipo "sustitucion_minima" (ignora por completo
+cualquier "conocimiento_nuevo" para este cálculo), da un veredicto PRINCIPAL para la explicación:
+- "DificilDeVariar": la mayoría o todas las variantes de sustitución mínima rompen (la explicación es fuerte).
+- "FacilDeVariar": la mayoría o todas las variantes de sustitución mínima sobreviven (la explicación es débil).
+- "Mixta": resultados mezclados entre las variantes de sustitución mínima, sin un patrón claro.
+
+Justifica el veredicto principal con una frase que sintetice el patrón observado entre las variantes de
+sustitución mínima — SIN mencionar el resultado de la variante de conocimiento nuevo ahí; es una señal aparte,
+nunca evidencia para este veredicto.
+
+Si entre las variantes recibidas hay una de tipo "conocimiento_nuevo", repórtala también, aparte, en
+resisteConocimientoNuevo: su propio resultado (rompe/sobrevive, con el mismo criterio de arriba) y su
+justificación. Si no recibiste ninguna variante de ese tipo, omite el campo resisteConocimientoNuevo por completo.
 `.trim();
 
   const user = `Texto original (para contexto):\n\n${texto}\n\nExplicación:\n${JSON.stringify(
@@ -663,7 +686,7 @@ Justifica el veredicto con una frase que sintetice el patrón observado.
     null,
     2
   )}\n\nProblema:\n${problema.enunciado}\n\nVariantes a evaluar:\n${JSON.stringify(
-    variantes.map((v) => ({ id: v.id, descripcion: v.descripcion })),
+    variantes.map((v) => ({ id: v.id, descripcion: v.descripcion, tipo: v.tipo })),
     null,
     2
   )}`;
@@ -683,8 +706,21 @@ Justifica el veredicto con una frase que sintetice el patrón observado.
           required: ["varianteId", "resultado", "justificacion"],
         },
       },
-      veredicto: { type: "string", enum: ["DificilDeVariar", "FacilDeVariar", "Mixta"] },
+      veredicto: {
+        type: "string",
+        enum: ["DificilDeVariar", "FacilDeVariar", "Mixta"],
+        description: "Calculado SOLO sobre las variantes de tipo sustitucion_minima",
+      },
       justificacion: { type: "string" },
+      resisteConocimientoNuevo: {
+        type: "object",
+        description: "Solo si evaluaste una variante de tipo conocimiento_nuevo; omite este campo por completo si no recibiste ninguna.",
+        properties: {
+          resultado: { type: "string", enum: ["rompe", "sobrevive"] },
+          justificacion: { type: "string" },
+        },
+        required: ["resultado", "justificacion"],
+      },
     },
     required: ["resultadosVariantes", "veredicto", "justificacion"],
   };
@@ -853,12 +889,16 @@ Esta sección debe:
   es específica al caso puntual del texto y no generalizaría a nada parecido (alcance limitado, explica por qué
   con la justificación entregada). Trata ambos resultados como hallazgos legítimos sobre el texto, no como una
   nota de calidad — un alcance limitado no es un defecto de la explicación.
-- Si alguna explicación resulta débil (veredicto "FacilDeVariar" o "Mixta") específicamente porque no sobrevivió
-  la variante que planteaba la aparición de conocimiento nuevo, una innovación, un cambio de política o un
-  desarrollo imprevisto que altera la trayectoria que la explicación asume, nombra esa debilidad con esa misma
-  especificidad (ej. "esta explicación no deja espacio para que conocimiento futuro cambie la trayectoria que
-  asume"), en vez de decir genéricamente que "no sobrevivió una variante". Nunca uses las palabras "predicción"
-  ni "profecía".
+- El veredicto principal (DificilDeVariar/FacilDeVariar/Mixta) y la señal de resisteConocimientoNuevo son DOS
+  observaciones distintas sobre la misma explicación — nunca las fusiones en una sola frase de causa-efecto (ej.
+  nunca digas que la explicación "es Mixta porque no resistió el conocimiento nuevo": esa variante nunca cuenta
+  para el veredicto principal, así que no es su causa). Narra el veredicto principal primero, con su propia
+  justificación. Si además hay un dato en resisteConocimientoNuevo (puede no haberlo — la explicación no siempre
+  hace una afirmación sobre el futuro), añádelo como una observación aparte, con su propia justificación: si
+  resultado es "rompe", algo como "esta explicación, además, no deja espacio para que conocimiento futuro cambie
+  la trayectoria que asume"; si es "sobrevive", algo como "esta explicación sí deja espacio para que un desarrollo
+  futuro imprevisto altere lo que asume, sin que eso la debilite". Nunca uses las palabras "predicción" ni
+  "profecía" para ninguna de las dos.
 - Si hay explicaciones rivales o complementarias, explicar esa relación en prosa.
 - Si una explicación tiene veredicto "SinSustitutoGenuino", trátala aparte y con menos confianza que a las
   explicaciones puestas a prueba: no se encontró ninguna alternativa genuina con la cual ponerla a competir, así

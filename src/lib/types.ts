@@ -28,6 +28,9 @@ export type VarianteAceptada = {
   id: string;
   explicacionId: string;
   descripcion: string;
+  /** "conocimiento_nuevo" prueba algo distinto de una sustitución mínima de dominio — nunca cuenta para el
+   * veredicto principal, se evalúa y reporta por separado (ver Veredicto.resisteConocimientoNuevo). */
+  tipo: "sustitucion_minima" | "conocimiento_nuevo";
 };
 
 export type VarianteDescartada = {
@@ -45,8 +48,12 @@ export type ResultadoVariante = {
 export type Veredicto = {
   explicacionId: string;
   resultadosVariantes: ResultadoVariante[];
+  /** Calculado SOLO sobre variantes de tipo "sustitucion_minima" — la de "conocimiento_nuevo" nunca cuenta aquí. */
   veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta" | "SinSustitutoGenuino";
   justificacion: string;
+  /** Resultado de la variante de conocimiento nuevo, aparte del veredicto principal — null si no aplicaba
+   * (la explicación no hacía ninguna afirmación sobre el futuro) o si no hubo sustituto genuino que evaluar. */
+  resisteConocimientoNuevo: { resultado: "rompe" | "sobrevive"; justificacion: string } | null;
 };
 
 export type ProblemaNuevo = {
