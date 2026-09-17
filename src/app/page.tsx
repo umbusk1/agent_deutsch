@@ -953,8 +953,10 @@ export default function Home() {
           {!veredictosCalculados && (
             <p className="warning-note" style={{ marginTop: "1rem" }}>
               Excluye aquí las variantes que no quieras evaluar — a diferencia de las demás exclusiones
-              de esta app, estas nunca llegan a pedir veredicto (ahorra costo real). Una vez que
-              continúes, esta lista queda fija.
+              de esta app, estas sí cambian qué se le pide al modelo. Excluir algunas abarata la
+              evaluación de esa explicación (menos variantes que revisar en la misma llamada); para
+              saltarte por completo el costo de una explicación, excluye todas sus variantes. Una vez
+              que continúes, esta lista queda fija.
             </p>
           )}
 
