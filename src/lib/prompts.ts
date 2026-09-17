@@ -809,6 +809,14 @@ hallazgo legítimo, no un fallo de este paso.
 // Pares de explicaciones que comparten problemaId — compartir problemaId ya confirma que abordan el mismo
 // problema, así que para estos pares "no comparable" no es una respuesta válida (ver step6Prompt). Exportada
 // para que route.ts recorra exactamente los mismos pares al leer de vuelta las claves del schema.
+//
+// TODO (no urgente, anotado para más adelante): el número de pares obligatorios crece combinatorio con la
+// cantidad de explicaciones que comparten un mismo problemaId (C(n,2) — 5 explicaciones sobre el mismo problema
+// = 10 pares forzados, cada uno una clave de schema separada). No es un problema hoy con los volúmenes actuales,
+// pero si en algún texto futuro muchas explicaciones terminan bajo el mismo problemaId, esto infla el tamaño del
+// schema y el costo/latencia de la llamada de forma no lineal. Si se vuelve real, la salida más simple es un
+// límite superior de pares obligatorios por problemaId (ej. degradar a instrucción reforzada en vez de clave de
+// schema por par a partir de cierto n), no rehacer el mecanismo entero.
 export function paresMismoProblema(explicaciones: Explicacion[]): [Explicacion, Explicacion][] {
   const pares: [Explicacion, Explicacion][] = [];
   for (let i = 0; i < explicaciones.length; i++) {
