@@ -7,6 +7,9 @@ export type AppUser = {
   fullName?: string;
   /** Dirección de correo — usada solo para notificar restauraciones de cupo aprobadas. */
   email?: string;
+  /** Único valor soportado hoy: "admin" habilita eliminar análisis en la Biblioteca y da comparaciones
+   * ilimitadas. Se configura manualmente agregando este campo a la entrada del usuario en APP_USERS. */
+  role?: "admin";
 };
 
 let cachedUsers: AppUser[] | null = null;

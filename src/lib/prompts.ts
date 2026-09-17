@@ -1141,3 +1141,108 @@ secciones — tu trabajo es puramente de enlace editorial, no de análisis nuevo
     inputSchema,
   };
 }
+
+export type AnalisisParaComparar = {
+  metaTitulo: string;
+  metaAutor: string;
+  reporte: string;
+  tripletas: string;
+};
+
+export function comparacionPrompt(analisisA: AnalisisParaComparar, analisisB: AnalisisParaComparar) {
+  const system = `
+${REGLA_JERGA}
+
+${REGLA_IDIOMA}
+
+Vas a comparar dos análisis críticos YA TERMINADOS de dos textos de opinión distintos (no el texto crudo: cada
+análisis ya incluye su reporte final y una representación estructurada de sus problemas, explicaciones, variantes,
+veredictos y relaciones). Tu tarea tiene un límite estricto: comparás ESTRUCTURA y RIGOR ARGUMENTATIVO, nunca cuál
+de las dos descripciones se acerca más a la realidad. Esa segunda pregunta no es tuya para responder — ni de forma
+directa, ni insinuada en el tono de la síntesis, ni "colándola" como si fuera una consecuencia natural de comparar
+el rigor. Dos análisis pueden ser igual de rigurosos aunque defiendan posiciones opuestas, y uno puede ser más
+riguroso que el otro sin que eso diga nada sobre cuál tiene razón.
+
+Tu tarea tiene tres partes independientes, cada una con su propio campo de respuesta — no fusiones ninguna con
+otra:
+
+1) ¿Resuelven el mismo problema o problemas distintos? Compará los problemas centrales que cada análisis identificó
+(ver "problemas" en la sección de tripletas de cada uno) y decidí si, en el fondo, están respondiendo la misma
+pregunta o preguntas genuinamente distintas — incluso si los textos originales tratan temas superficialmente
+distintos, o incluso si tratan el mismo tema pero desde ángulos que en realidad no compiten. La justificación tiene
+que ser sustantiva y específica de ambos análisis, nunca una frase genérica que serviría para cualquier otro par.
+
+2) Firmeza del puente hacia la conclusión de CADA análisis, evaluada de forma independiente (no comparativa entre
+sí): ¿la cadena de razonamiento de ese análisis — desde lo que el texto original argumenta hasta la conclusión que
+el reporte sostiene — está bien tendida, o tiene saltos, lagunas o veredictos débiles (explicaciones fáciles de
+variar, sin sustituto genuino evaluado, etc.) que la debilitan? Esto se evalúa una vez por cada análisis, cada uno
+con su propia justificación sustantiva basada en lo que ese reporte y esas tripletas realmente muestran — nunca
+copies o parafrasees la justificación de un análisis para el otro.
+
+3) Síntesis final: un párrafo breve que resume la comparación estructural (mismo problema o no, firmeza relativa
+de cada puente) en prosa ordinaria para el usuario final. Puede señalar que un puente es más firme que otro sin
+que eso se traduzca en ninguna afirmación sobre cuál texto describe mejor la realidad — si sentís la tentación de
+escribir algo como "por lo tanto X tiene razón" o "el argumento correcto es el de Y", es la señal de que te saliste
+del límite de esta tarea; reformulá en términos de estructura y rigor solamente.
+`.trim();
+
+  const user = `Análisis A — "${analisisA.metaTitulo || "(sin título)"}" (${analisisA.metaAutor || "autor no especificado"}):
+
+Reporte:
+${analisisA.reporte}
+
+Tripletas:
+${analisisA.tripletas}
+
+---
+
+Análisis B — "${analisisB.metaTitulo || "(sin título)"}" (${analisisB.metaAutor || "autor no especificado"}):
+
+Reporte:
+${analisisB.reporte}
+
+Tripletas:
+${analisisB.tripletas}`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      mismoProblema: { type: "boolean" },
+      justificacionProblema: {
+        type: "string",
+        description: "Sustantiva y específica de ambos análisis — nunca una frase genérica.",
+      },
+      firmezaPuenteA: {
+        type: "object",
+        properties: {
+          firme: { type: "boolean" },
+          justificacion: { type: "string" },
+        },
+        required: ["firme", "justificacion"],
+      },
+      firmezaPuenteB: {
+        type: "object",
+        properties: {
+          firme: { type: "boolean" },
+          justificacion: { type: "string" },
+        },
+        required: ["firme", "justificacion"],
+      },
+      sintesis: {
+        type: "string",
+        description:
+          "Solo estructura y rigor — nunca declara cuál descripción es más cercana a la realidad.",
+      },
+    },
+    required: ["mismoProblema", "justificacionProblema", "firmezaPuenteA", "firmezaPuenteB", "sintesis"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_comparacion",
+    toolDescription:
+      "Reporta la comparación estructural entre dos análisis ya terminados, sin declarar cuál describe mejor la realidad.",
+    inputSchema,
+  };
+}

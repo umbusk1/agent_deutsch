@@ -84,3 +84,18 @@ export type PasajePersuasivo = {
   tecnicas: string[];
   justificacion: string;
 };
+
+export type Comparacion = {
+  id: string;
+  analisisAId: string;
+  analisisBId: string;
+  mismoProblema: boolean;
+  justificacionProblema: string;
+  /** Independiente por análisis — nunca se fusiona con "cuál describe mejor la realidad". */
+  firmezaPuenteA: { firme: boolean; justificacion: string };
+  firmezaPuenteB: { firme: boolean; justificacion: string };
+  /** Síntesis de estructura y rigor — nunca declara cuál descripción es más cercana a la realidad. */
+  sintesis: string;
+  creadoPor: string;
+  creadoEn: string;
+};

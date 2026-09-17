@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { Redis } from "@upstash/redis";
 import type { Problema, Explicacion } from "./types";
+import { findUser } from "./users";
 
 let redis: Redis | null = null;
 
@@ -36,6 +37,27 @@ export type AnalisisGuardado = {
   problemasConExplicacion: number;
   creadoEn: string;
 };
+
+export type AnalisisResumen = {
+  id: string;
+  metaFecha: string;
+  metaAutor: string;
+  metaMedio: string;
+  metaTitulo: string;
+  usuario: string;
+  iniciales: string;
+  totalProblemas: number;
+  problemasConExplicacion: number;
+  creadoEn: string;
+};
+
+function iniciales(nombreCompleto: string | undefined, fallback: string): string {
+  const fuente = nombreCompleto?.trim() || fallback;
+  const partes = fuente.split(/\s+/).filter(Boolean);
+  const primera = partes[0]?.[0] ?? "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : "";
+  return (primera + ultima).toUpperCase();
+}
 
 type GuardarAnalisisInput = {
   metaFecha: string;
@@ -84,4 +106,38 @@ export async function guardarAnalisis(input: GuardarAnalisisInput): Promise<Anal
   await getRedis().zadd(INDEX_KEY, { score, member: registro.id });
 
   return registro;
+}
+
+/** Lista para la Biblioteca: más reciente primero por fecha de PUBLICACIÓN (mismo criterio que el índice
+ * de guardarAnalisis), sin los campos pesados (reporte/tripletas) que solo hacen falta al ver el detalle. */
+export async function listarAnalisis(): Promise<AnalisisResumen[]> {
+  const redis = getRedis();
+  const ids = await redis.zrange<string[]>(INDEX_KEY, 0, -1, { rev: true });
+  if (ids.length === 0) return [];
+
+  const registros = await redis.mget<AnalisisGuardado[]>(...ids.map(analisisKey));
+
+  return registros
+    .filter((r): r is AnalisisGuardado => r !== null)
+    .map((r) => ({
+      id: r.id,
+      metaFecha: r.metaFecha,
+      metaAutor: r.metaAutor,
+      metaMedio: r.metaMedio,
+      metaTitulo: r.metaTitulo,
+      usuario: r.usuario,
+      iniciales: iniciales(findUser(r.usuario)?.fullName, r.usuario),
+      totalProblemas: r.totalProblemas,
+      problemasConExplicacion: r.problemasConExplicacion,
+      creadoEn: r.creadoEn,
+    }));
+}
+
+export async function obtenerAnalisis(id: string): Promise<AnalisisGuardado | null> {
+  return getRedis().get<AnalisisGuardado>(analisisKey(id));
+}
+
+export async function eliminarAnalisis(id: string): Promise<void> {
+  await getRedis().del(analisisKey(id));
+  await getRedis().zrem(INDEX_KEY, id);
 }

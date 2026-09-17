@@ -2,6 +2,10 @@ import { Redis } from "@upstash/redis";
 
 const WEEK_TTL_SECONDS = 9 * 24 * 60 * 60;
 
+/** Cupo semanal de comparaciones para usuarios no-admin — fijo, no configurable por usuario, y separado
+ * por completo del cupo de análisis (contador distinto, ver usageKey). Los admin no lo consumen. */
+export const COMPARACION_LIMIT_SEMANAL = 2;
+
 let redis: Redis | null = null;
 
 function getRedis(): Redis {
@@ -31,18 +35,26 @@ export function currentWeekId(): string {
   return mondayOf(new Date());
 }
 
-function usageKey(username: string, weekId: string): string {
-  return `agente-deutsch:usage:${username}:${weekId}`;
+// "analisis" mantiene el formato de clave original (sin prefijo) para no resetear contadores ya activos;
+// cualquier otro "kind" (ej. "comparacion") usa su propio contador, separado del de análisis.
+function usageKey(username: string, weekId: string, kind: string = "analisis"): string {
+  return kind === "analisis"
+    ? `agente-deutsch:usage:${username}:${weekId}`
+    : `agente-deutsch:usage:${kind}:${username}:${weekId}`;
 }
 
-export async function peekUsage(username: string, weekId: string = currentWeekId()): Promise<number> {
-  const value = await getRedis().get<number>(usageKey(username, weekId));
+export async function peekUsage(
+  username: string,
+  weekId: string = currentWeekId(),
+  kind: string = "analisis"
+): Promise<number> {
+  const value = await getRedis().get<number>(usageKey(username, weekId, kind));
   return value ?? 0;
 }
 
-export async function incrementUsage(username: string): Promise<number> {
+export async function incrementUsage(username: string, kind: string = "analisis"): Promise<number> {
   const weekId = currentWeekId();
-  const key = usageKey(username, weekId);
+  const key = usageKey(username, weekId, kind);
   const count = await getRedis().incr(key);
   if (count === 1) {
     await getRedis().expire(key, WEEK_TTL_SECONDS);

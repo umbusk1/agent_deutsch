@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
-import { guardarAnalisis } from "@/lib/analisis";
+import { guardarAnalisis, listarAnalisis } from "@/lib/analisis";
 import { findUser } from "@/lib/users";
 import type { Problema, Explicacion } from "@/lib/types";
 
 export const maxDuration = 30;
+
+export async function GET() {
+  try {
+    const analisis = await listarAnalisis();
+    return NextResponse.json({ analisis });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Error desconocido al listar los análisis." },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

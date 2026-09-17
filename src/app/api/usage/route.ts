@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findUser } from "@/lib/users";
-import { peekUsage } from "@/lib/usage";
+import { peekUsage, COMPARACION_LIMIT_SEMANAL } from "@/lib/usage";
 
 export async function GET(request: Request) {
   try {
@@ -15,13 +15,35 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
     }
 
+    const isAdmin = user.role === "admin";
+    const identidad = { username: user.username, fullName: user.fullName, isAdmin };
+
+    const { searchParams } = new URL(request.url);
+    const tipo = searchParams.get("tipo") === "comparacion" ? "comparacion" : "analisis";
+
+    if (tipo === "comparacion") {
+      // Cupo de comparaciones: constante fija, y los admin no lo consumen (comparaciones ilimitadas) —
+      // no tiene relación con el limit/unlimited configurado por usuario para análisis.
+      if (isAdmin) {
+        return NextResponse.json({ ...identidad, unlimited: true });
+      }
+      const used = await peekUsage(user.username, undefined, "comparacion");
+      return NextResponse.json({
+        ...identidad,
+        unlimited: false,
+        limit: COMPARACION_LIMIT_SEMANAL,
+        used,
+        remaining: Math.max(0, COMPARACION_LIMIT_SEMANAL - used),
+      });
+    }
+
     if (user.unlimited || !user.limit) {
-      return NextResponse.json({ username: user.username, unlimited: true });
+      return NextResponse.json({ ...identidad, unlimited: true });
     }
 
     const used = await peekUsage(user.username);
     return NextResponse.json({
-      username: user.username,
+      ...identidad,
       unlimited: false,
       limit: user.limit,
       used,
