@@ -814,13 +814,21 @@ Tu tarea en este paso: cuando haya más de una explicación comparable en el tex
 resolver EL MISMO problema (son SUSTITUTAS/rivales genuinas, "compite_con") o si en realidad resuelven problemas
 distintos y pueden convivir sin contradecirse (son "complementa").
 
-Solo reporta pares de explicaciones que sean realmente comparables (que aborden problemas iguales o muy cercanos).
-No fuerces una relación entre explicaciones que tratan asuntos completamente distintos.
+Cada explicación trae su problemaId. Si dos explicaciones comparten el mismo problemaId, ESO YA CONFIRMA que
+abordan el mismo problema — no lo vuelvas a evaluar comparando el texto de resumen entre sí, y nunca las
+descartes como "no comparables" por tratar aspectos superficialmente distintos del mismo asunto. Para ese par, la
+única pregunta que queda es si compiten entre sí ("compite_con") o si, pese a resolver el mismo problema, lo
+hacen de forma compatible y pueden convivir sin contradecirse ("complementa") — nunca la ausencia de relación.
+
+Solo cuando dos explicaciones tengan problemaId DISTINTOS evalúa por contenido si sus problemas son, en el fondo,
+iguales o muy cercanos pese a tener IDs distintos (puede pasar si el Paso 1 los separó como locales distintos
+pero en realidad se solapan). Si sus problemas son genuinamente distintos, no fuerces ninguna relación entre ellas.
 `.trim();
 
   const user = `Explicaciones y sus problemas:\n${JSON.stringify(
     explicaciones.map((e) => ({
       id: e.id,
+      problemaId: e.problemaId,
       resumen: e.resumen,
       problema: problemas.find((p) => p.id === e.problemaId)?.enunciado,
     })),
