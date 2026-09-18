@@ -47,6 +47,7 @@ export default function Biblioteca() {
   const [analisis, setAnalisis] = useState<AnalisisResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [identidad, setIdentidad] = useState<Identidad | null>(null);
+  const [cupoAnalisis, setCupoAnalisis] = useState<Quota | null>(null);
   const [cupoComparaciones, setCupoComparaciones] = useState<Quota | null>(null);
 
   const [expandedMonths, setExpandedMonths] = useState<Set<string> | null>(null);
@@ -68,7 +69,10 @@ export default function Biblioteca() {
     fetch("/api/usage")
       .then((res) => res.json())
       .then((data) => {
-        if (!data.error) setIdentidad({ username: data.username, fullName: data.fullName, isAdmin: Boolean(data.isAdmin) });
+        if (!data.error) {
+          setIdentidad({ username: data.username, fullName: data.fullName, isAdmin: Boolean(data.isAdmin) });
+          setCupoAnalisis(data);
+        }
       })
       .catch(() => {});
 
@@ -146,6 +150,7 @@ export default function Biblioteca() {
 
   const comparacionAgotada =
     cupoComparaciones && !cupoComparaciones.unlimited && (cupoComparaciones.remaining ?? 0) <= 0;
+  const analisisAgotado = cupoAnalisis && !cupoAnalisis.unlimited && (cupoAnalisis.remaining ?? 0) <= 0;
 
   return (
     <div className="container">
@@ -155,16 +160,31 @@ export default function Biblioteca() {
       </div>
 
       <div className="actions" style={{ justifyContent: "space-between", marginBottom: "1.5rem" }}>
-        <Link href="/nuevo">
-          <button className="primary">+ Nuevo análisis</button>
-        </Link>
-        {cupoComparaciones && (
-          <span className="loading">
-            {cupoComparaciones.unlimited
-              ? "Comparaciones ilimitadas (admin)"
-              : `Te quedan ${cupoComparaciones.remaining} de ${cupoComparaciones.limit} comparaciones esta semana.`}
-          </span>
+        {analisisAgotado ? (
+          <button className="primary" disabled title="Ya usaste todo tu cupo de análisis de esta semana.">
+            + Nuevo análisis
+          </button>
+        ) : (
+          <Link href="/nuevo">
+            <button className="primary">+ Nuevo análisis</button>
+          </Link>
         )}
+        <span style={{ display: "flex", gap: "1rem" }}>
+          {cupoAnalisis && !cupoAnalisis.unlimited && (
+            <span className="loading">
+              {analisisAgotado
+                ? `Ya usaste tus ${cupoAnalisis.limit} análisis de esta semana.`
+                : `Te quedan ${cupoAnalisis.remaining} de ${cupoAnalisis.limit} análisis esta semana.`}
+            </span>
+          )}
+          {cupoComparaciones && (
+            <span className="loading">
+              {cupoComparaciones.unlimited
+                ? "Comparaciones ilimitadas (admin)"
+                : `Te quedan ${cupoComparaciones.remaining} de ${cupoComparaciones.limit} comparaciones esta semana.`}
+            </span>
+          )}
+        </span>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
