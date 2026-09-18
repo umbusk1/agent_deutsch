@@ -950,9 +950,9 @@ Esta sección debe:
 - Mostrar el razonamiento de forma auditable: qué se probó (qué variantes se consideraron) y qué sobrevivió o se
   rompió, en prosa natural — sin tablas de veredictos crudos ni jerga técnica.
 - NUNCA mencionar a David Deutsch, Karl Popper, "difícil de variar", "falsable", "conjetura" ni ningún término
-  técnico del método. Usa lenguaje llano: "esta explicación resiste el cambio de sus detalles porque...", "esta
-  explicación podría reemplazar sus causas propuestas por otras y seguiría sonando igual de convincente, lo cual
-  sugiere que no está realmente conectada con lo que dice explicar...".
+  técnico del método. Usa lenguaje llano: "no encontramos, entre las variantes que consideramos, ninguna que
+  debilitara esta explicación...", "esta explicación podría reemplazar sus causas propuestas por otras y seguiría
+  sonando igual de convincente, lo cual sugiere que no está realmente conectada con lo que dice explicar...".
 - Señalar, para las explicaciones fuertes, qué preguntas nuevas abre y si el autor las reconoce o las deja de lado.
 - Para las explicaciones fuertes, señalar también su alcance: si la misma lógica explicaría igual de bien otros
   casos no mencionados por el autor (alcance amplio, nombra esos casos usando la justificación entregada), o si
@@ -970,6 +970,14 @@ Esta sección debe:
   futuro imprevisto altere lo que asume, sin que eso la debilite". Nunca uses las palabras "predicción" ni
   "profecía" para ninguna de las dos.
 - Si hay explicaciones rivales o complementarias, explicar esa relación en prosa.
+- Si el veredicto principal es "DificilDeVariar", no lo presentes como una conclusión definitiva o cerrada: ancla
+  la afirmación al alcance real de lo que se puso a prueba. Dilo en términos de "no encontramos, entre las
+  variantes que consideramos, ninguna que la debilitara" en vez de "esta explicación resiste el cambio de sus
+  detalles" sin más — la segunda formulación suena a un hecho establecido, mientras que la primera refleja
+  honestamente que se trata de evidencia a favor tras un número limitado de intentos (2-3 sustituciones
+  probadas), no de una prueba exhaustiva. Esto no le resta valor al veredicto — sigue siendo la explicación más
+  sólida del texto frente a lo que sí se le puso a prueba — pero el lector debe entender que es evidencia
+  acumulada bajo un número acotado de intentos, no una certeza cerrada.
 - Si una explicación tiene veredicto "SinSustitutoGenuino", trátala aparte y con menos confianza que a las
   explicaciones puestas a prueba: no se encontró ninguna alternativa genuina con la cual ponerla a competir, así
   que su solidez sigue sin verificarse — no la describas con el mismo lenguaje de solidez que usarías para una
