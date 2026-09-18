@@ -41,6 +41,11 @@ export async function POST(request: Request) {
     if (!body.reporte?.trim()) {
       return NextResponse.json({ error: "Falta el reporte a guardar." }, { status: 400 });
     }
+    // La Biblioteca es compartida entre los 3 usuarios: un "(sin título)" ahí confunde a los otros dos, no
+    // solo a quien corrió el análisis — por eso se exige acá también, no solo deshabilitando el botón en la UI.
+    if (!body.metaTitulo?.trim()) {
+      return NextResponse.json({ error: "Falta el título del análisis." }, { status: 400 });
+    }
 
     const registro = await guardarAnalisis({
       metaFecha: body.metaFecha ?? "",

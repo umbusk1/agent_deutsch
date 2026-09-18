@@ -648,7 +648,7 @@ export default function Home() {
             </div>
             <div>
               <div className="item-label">
-                <span>Título corto (opcional)</span>
+                <span>Título corto</span>
               </div>
               <input
                 type="text"
@@ -658,6 +658,13 @@ export default function Home() {
               />
             </div>
           </div>
+          {/* Obligatorio: la Biblioteca es compartida entre los 3 usuarios, y un "(sin título)" ahí genera
+              confusión real para los otros dos, no solo para quien corrió el análisis. */}
+          {!metaTitulo.trim() && (
+            <p className="loading" style={{ marginTop: "0.5rem" }}>
+              El título es obligatorio — la Biblioteca lo usa para identificar el análisis frente a los demás usuarios.
+            </p>
+          )}
           {quota && !quota.unlimited && (
             <p className="loading" style={{ marginTop: "0.75rem" }}>
               {quota.remaining === 0
@@ -671,7 +678,7 @@ export default function Home() {
             <div className="actions">
               <button
                 className="primary"
-                disabled={loading || !texto.trim() || quota?.remaining === 0}
+                disabled={loading || !texto.trim() || !metaTitulo.trim() || quota?.remaining === 0}
                 onClick={() => setShowConfirm(true)}
               >
                 Comenzar análisis
