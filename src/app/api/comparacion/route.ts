@@ -48,8 +48,7 @@ export async function POST(request: Request) {
 
     const prompt = comparacionPrompt(analisisA, analisisB);
     const result = await callTool<{
-      mismoProblema: boolean;
-      justificacionProblema: string;
+      analisisProblema: { mismoProblema: boolean; justificacion: string };
       firmezaPuenteA: { firme: boolean; justificacion: string };
       firmezaPuenteB: { firme: boolean; justificacion: string };
       sintesis: string;
@@ -58,8 +57,8 @@ export async function POST(request: Request) {
     const comparacion = await guardarComparacion({
       analisisAId,
       analisisBId,
-      mismoProblema: result.mismoProblema,
-      justificacionProblema: result.justificacionProblema,
+      mismoProblema: result.analisisProblema.mismoProblema,
+      justificacionProblema: result.analisisProblema.justificacion,
       firmezaPuenteA: result.firmezaPuenteA,
       firmezaPuenteB: result.firmezaPuenteB,
       sintesis: result.sintesis,

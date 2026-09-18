@@ -1157,7 +1157,7 @@ ${REGLA_IDIOMA}
 
 Vas a comparar dos análisis críticos YA TERMINADOS de dos textos de opinión distintos (no el texto crudo: cada
 análisis ya incluye su reporte final y una representación estructurada de sus problemas, explicaciones, variantes,
-veredictos y relaciones). Tu tarea tiene un límite estricto: comparás ESTRUCTURA y RIGOR ARGUMENTATIVO, nunca cuál
+veredictos y relaciones). Tu tarea tiene un límite estricto: comparas ESTRUCTURA y RIGOR ARGUMENTATIVO, nunca cuál
 de las dos descripciones se acerca más a la realidad. Esa segunda pregunta no es tuya para responder — ni de forma
 directa, ni insinuada en el tono de la síntesis, ni "colándola" como si fuera una consecuencia natural de comparar
 el rigor. Dos análisis pueden ser igual de rigurosos aunque defiendan posiciones opuestas, y uno puede ser más
@@ -1166,8 +1166,8 @@ riguroso que el otro sin que eso diga nada sobre cuál tiene razón.
 Tu tarea tiene tres partes independientes, cada una con su propio campo de respuesta — no fusiones ninguna con
 otra:
 
-1) ¿Resuelven el mismo problema o problemas distintos? Compará los problemas centrales que cada análisis identificó
-(ver "problemas" en la sección de tripletas de cada uno) y decidí si, en el fondo, están respondiendo la misma
+1) ¿Resuelven el mismo problema o problemas distintos? Compara los problemas centrales que cada análisis identificó
+(ver "problemas" en la sección de tripletas de cada uno) y decide si, en el fondo, están respondiendo la misma
 pregunta o preguntas genuinamente distintas — incluso si los textos originales tratan temas superficialmente
 distintos, o incluso si tratan el mismo tema pero desde ángulos que en realidad no compiten. La justificación tiene
 que ser sustantiva y específica de ambos análisis, nunca una frase genérica que serviría para cualquier otro par.
@@ -1181,9 +1181,9 @@ copies o parafrasees la justificación de un análisis para el otro.
 
 3) Síntesis final: un párrafo breve que resume la comparación estructural (mismo problema o no, firmeza relativa
 de cada puente) en prosa ordinaria para el usuario final. Puede señalar que un puente es más firme que otro sin
-que eso se traduzca en ninguna afirmación sobre cuál texto describe mejor la realidad — si sentís la tentación de
+que eso se traduzca en ninguna afirmación sobre cuál texto describe mejor la realidad — si sientes la tentación de
 escribir algo como "por lo tanto X tiene razón" o "el argumento correcto es el de Y", es la señal de que te saliste
-del límite de esta tarea; reformulá en términos de estructura y rigor solamente.
+del límite de esta tarea; reformula en términos de estructura y rigor solamente.
 `.trim();
 
   const user = `Análisis A — "${analisisA.metaTitulo || "(sin título)"}" (${analisisA.metaAutor || "autor no especificado"}):
@@ -1207,10 +1207,20 @@ ${analisisB.tripletas}`;
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      mismoProblema: { type: "boolean" },
-      justificacionProblema: {
-        type: "string",
-        description: "Sustantiva y específica de ambos análisis — nunca una frase genérica.",
+      // Empaquetado junto con su justificación en un solo objeto (en vez de un booleano suelto seguido de un
+      // string suelto): un string suelto justo después de un booleano resultó ser el campo más fácil de
+      // rellenar con relleno bajo presión (llegó a salir literalmente "{\"description\":\"placeholder\"}") —
+      // misma forma que ya funciona en firmezaPuenteA/B, no una instrucción de prosa más fuerte.
+      analisisProblema: {
+        type: "object",
+        properties: {
+          mismoProblema: { type: "boolean" },
+          justificacion: {
+            type: "string",
+            description: "Sustantiva y específica de ambos análisis — nunca una frase genérica.",
+          },
+        },
+        required: ["mismoProblema", "justificacion"],
       },
       firmezaPuenteA: {
         type: "object",
@@ -1234,7 +1244,7 @@ ${analisisB.tripletas}`;
           "Solo estructura y rigor — nunca declara cuál descripción es más cercana a la realidad.",
       },
     },
-    required: ["mismoProblema", "justificacionProblema", "firmezaPuenteA", "firmezaPuenteB", "sintesis"],
+    required: ["analisisProblema", "firmezaPuenteA", "firmezaPuenteB", "sintesis"],
   };
 
   return {
