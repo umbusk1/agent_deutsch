@@ -563,11 +563,21 @@ Ejemplos de sustitución mínima VÁLIDA (ingrediente original → alternativa, 
 Antes de aceptar cada propuesta como válida, verifica que el valor alternativo sí pertenezca al dominio indicado
 y que la variante resultante mantenga intacto el elemento fijo. Si al proponer un valor notas que en realidad se
 sale del dominio, cambia el elemento fijo, o convierte esto en un tipo de explicación distinto, repórtalo en
-variantesDescartadas explicando cuál de estos tres errores cometió — sigue siendo información valiosa, aunque el
+variantesDescartadas explicando cuál de estos cuatro errores cometió — sigue siendo información valiosa, aunque el
 paso anterior ya haya fijado qué ingrediente sustituir:
 - Cambio de DOMINIO (la alternativa pertenece a una categoría distinta a la indicada).
 - Cambio de TIPO de explicación (convierte una cadena causal impersonal en un motivo de un actor, o viceversa).
 - Cambio de ELEMENTO FIJO (el sujeto, o la cadena/mecanismo, terminó siendo distinto al indicado).
+- Cambio de ELEMENTO FIJO por CONFLACIÓN CONCEPTUAL: el más difícil de notar, porque la alternativa suena del
+  mismo campo semántico que el original y por eso parece una sustitución mínima cuando en realidad cambió de
+  mecanismo. El test es de INDEPENDENCIA LÓGICA: pregúntate si la amenaza/motivo de la variante podría ser
+  verdadera mientras la amenaza/motivo ORIGINAL es falsa, o viceversa. Si la respuesta es sí, no es el mismo
+  elemento fijo, aunque ambos pertenezcan a la misma categoría general. Ejemplo real de este error: una
+  explicación dice que una élite bloquea la democratización porque teme que se escrutine la PROCEDENCIA/
+  legitimidad de su riqueza; una variante propone en cambio que la élite teme la EXPROPIACIÓN del activo. Ambos
+  son "autoprotección económica" (mismo campo semántico), pero son lógicamente independientes: se puede temer la
+  expropiación de una riqueza perfectamente legítima, y se puede temer el escrutinio del origen sin ningún riesgo
+  de expropiación. Eso no es sustitución mínima — es cambio de elemento fijo disfrazado.
 
 Si la explicación hace una afirmación sobre el futuro, o extrapola hacia adelante una tendencia actual, genera
 SIEMPRE una variante adicional (más allá de las 2 o 3 de tipo "sustitucion_minima") con tipo "conocimiento_nuevo":
@@ -615,8 +625,15 @@ Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descar
               enum: ["sustitucion_minima", "conocimiento_nuevo"],
               description: "'conocimiento_nuevo' solo para la variante especial de desarrollo futuro/imprevisto, si aplica — a lo sumo una por explicación",
             },
+            // Obligatorio para forzar el chequeo real, no solo declarado en prosa (ver el error de conflación
+            // conceptual arriba) — mismo tipo de scaffolding obligatorio que candidatosBrutos.
+            elementoFijoVerificado: {
+              type: "string",
+              description:
+                "En una frase: el elemento fijo PRECISO (no la categoría general) que esta variante preserva, y por qué el motivo/mecanismo original y el de esta variante no son lógicamente independientes entre sí — si uno podría ser verdadero sin el otro, esta variante no calificaba como sustitución mínima.",
+            },
           },
-          required: ["descripcion", "tipo"],
+          required: ["descripcion", "tipo", "elementoFijoVerificado"],
         },
       },
       variantesDescartadas: {
@@ -626,7 +643,7 @@ Reporta las variantes aceptadas (sustitutos genuinos) por separado de las descar
           type: "object",
           properties: {
             descripcion: { type: "string" },
-            motivo: { type: "string", description: "Por qué se descarta (ej. cambio de dominio, de tipo, o de elemento fijo)" },
+            motivo: { type: "string", description: "Por qué se descarta (ej. cambio de dominio, de tipo, de elemento fijo, o conflación conceptual — cita el test de independencia lógica si aplica)" },
           },
           required: ["descripcion", "motivo"],
         },

@@ -31,6 +31,9 @@ export type VarianteAceptada = {
   /** "conocimiento_nuevo" prueba algo distinto de una sustitución mínima de dominio — nunca cuenta para el
    * veredicto principal, se evalúa y reporta por separado (ver Veredicto.resisteConocimientoNuevo). */
   tipo: "sustitucion_minima" | "conocimiento_nuevo";
+  /** Chequeo obligatorio del modelo, por variante: qué elemento fijo preciso preserva y por qué no es una
+   * conflación conceptual (test de independencia lógica) — ver step3VariantesPrompt. */
+  elementoFijoVerificado: string;
 };
 
 export type VarianteDescartada = {

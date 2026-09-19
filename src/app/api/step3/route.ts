@@ -41,7 +41,11 @@ export async function POST(request: Request) {
         const variantesPrompt = step3VariantesPrompt(texto, explicacion, problema, identificacion);
         const result = await callTool<{
           candidatosBrutos: string[];
-          variantesAceptadas: { descripcion: string; tipo?: "sustitucion_minima" | "conocimiento_nuevo" }[];
+          variantesAceptadas: {
+            descripcion: string;
+            tipo?: "sustitucion_minima" | "conocimiento_nuevo";
+            elementoFijoVerificado?: string;
+          }[];
           variantesDescartadas: { descripcion: string; motivo: string }[];
         }>(variantesPrompt);
 
@@ -65,6 +69,7 @@ export async function POST(request: Request) {
           // Sin strict:true en esta tool, "required" no se aplica de verdad — si el modelo omite tipo,
           // asumimos el caso normal en vez de dejarlo sin marcar.
           tipo: v.tipo === "conocimiento_nuevo" ? "conocimiento_nuevo" : "sustitucion_minima",
+          elementoFijoVerificado: v.elementoFijoVerificado?.trim() ?? "",
         });
       }
       for (const v of asArray(item.result.variantesDescartadas)) {
