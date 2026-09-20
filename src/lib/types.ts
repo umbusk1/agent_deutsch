@@ -10,6 +10,19 @@ export type Explicacion = {
     laguna: boolean;
     justificacion: string;
   };
+  /** Si "resumen" (aplicación específica) le añade a "mecanismoGeneral" (versión despojada) una imagen o
+   * analogía concreta que carga peso connotativo (moral, emocional) que el mecanismo desnudo no sostiene. */
+  imagenCentral: {
+    presente: boolean;
+    imagen: string | null;
+    connotacionAñadida: string | null;
+  };
+  /** Si el mecanismo mezcla una afirmación estructural/causal con un juicio de valor no argumentado sobre
+   * cómo se experimentaría esa estructura (asumido como parte del hecho mismo, no defendido aparte). */
+  premisaValorOculta: {
+    presente: boolean;
+    justificacion: string | null;
+  };
 };
 
 export type Descartada = {

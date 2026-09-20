@@ -27,6 +27,8 @@ export async function POST(request: Request) {
         resumen: string;
         mecanismoGeneral: string;
         puente: { laguna: boolean; justificacion: string };
+        imagenCentral?: { presente: boolean; imagen: string | null; connotacionAñadida: string | null };
+        premisaValorOculta?: { presente: boolean; justificacion: string | null };
       }[];
       descartadas: Descartada[];
     }>({ ...prompt, effort: "medium" });
@@ -48,6 +50,17 @@ export async function POST(request: Request) {
         puente: {
           laguna: Boolean(c.puente?.laguna),
           justificacion: c.puente?.justificacion?.trim() ?? "",
+        },
+        // Sin strict:true, "required" no se aplica de verdad — si el modelo omite el campo, asumimos
+        // "no presente" en vez de dejarlo sin marcar.
+        imagenCentral: {
+          presente: Boolean(c.imagenCentral?.presente),
+          imagen: c.imagenCentral?.presente ? (c.imagenCentral?.imagen?.trim() ?? null) : null,
+          connotacionAñadida: c.imagenCentral?.presente ? (c.imagenCentral?.connotacionAñadida?.trim() ?? null) : null,
+        },
+        premisaValorOculta: {
+          presente: Boolean(c.premisaValorOculta?.presente),
+          justificacion: c.premisaValorOculta?.presente ? (c.premisaValorOculta?.justificacion?.trim() ?? null) : null,
         },
       }));
 

@@ -238,6 +238,26 @@ explícitamente DOS niveles de la misma explicación, sin fusionarlos y sin omit
 
 ${chequeoDePuente}
 
+CHEQUEO DE IMAGEN CENTRAL: compará mecanismoGeneral (la versión despojada, sin actores ni imágenes) contra resumen
+(la aplicación específica) que ya escribiste para esta misma explicación. Preguntate: ¿resumen le añade una imagen
+o analogía concreta (ej. "mascota", "guerra", "virus") que carga una connotación (moral, emocional, de indignidad,
+de peligro) que mecanismoGeneral, leído solo, no sostiene por su cuenta? Si sí, marcá imagenCentral.presente=true,
+nombrá la imagen en imagenCentral.imagen, y en connotacionAñadida decí en una frase qué carga añade la imagen que
+el mecanismo desnudo no aporta. Esto no es "esta explicación usa una metáfora" en general — es específicamente
+cuando esa imagen es el ARMAZÓN de la explicación (varias explicaciones dependen de ella), no un adorno de estilo
+aislado. Si resumen es simplemente la instancia concreta de mecanismoGeneral sin ninguna imagen que añada peso
+connotativo propio, marcá imagenCentral.presente=false con imagen y connotacionAñadida en null.
+
+CHEQUEO DE PREMISA DE VALOR OCULTA: distinto del chequeo de puente (que mira la conexión entre esta explicación y
+el problema maestro). Este mira hacia ADENTRO de la explicación misma: ¿el mecanismo mezcla una afirmación
+estructural/causal (algo que puede verificarse: existe tal dependencia, tal condición) con un juicio de valor no
+argumentado sobre CÓMO SE EXPERIMENTARÍA esa estructura (ej. "esa dependencia se vive como malestar", "esa
+condición es indigna"), presentado como si fuera parte del mismo hecho en vez de una afirmación aparte que
+necesita su propia defensa? Si sí, marcá premisaValorOculta.presente=true y en justificacion nombrá exactamente
+cuál es la afirmación estructural y cuál el juicio de valor que se le pegó sin argumentar. Si el mecanismo es
+puramente estructural, o si la parte evaluativa sí está argumentada con sus propias razones (no solo asumida),
+marcá premisaValorOculta.presente=false con justificacion en null.
+
 Para cada afirmación descartada por ser narración, descripción o juicio normativo puro, cita el fragmento y explica
 brevemente por qué no cuenta como explicación.
 
@@ -277,8 +297,29 @@ Sé exhaustivo pero no inventes explicaciones que el texto no contiene.
               },
               required: ["laguna", "justificacion"],
             },
+            imagenCentral: {
+              type: "object",
+              description:
+                "Compara mecanismoGeneral (despojado) contra resumen (aplicación específica): ¿resumen añade una imagen/analogía que carga peso connotativo que el mecanismo desnudo no sostiene?",
+              properties: {
+                presente: { type: "boolean" },
+                imagen: { type: ["string", "null"], description: "La imagen/analogía concreta, o null si presente=false" },
+                connotacionAñadida: { type: ["string", "null"], description: "Qué carga añade la imagen que el mecanismo desnudo no aporta, o null si presente=false" },
+              },
+              required: ["presente", "imagen", "connotacionAñadida"],
+            },
+            premisaValorOculta: {
+              type: "object",
+              description:
+                "¿El mecanismo mezcla una afirmación estructural con un juicio de valor no argumentado sobre cómo se experimentaría esa estructura?",
+              properties: {
+                presente: { type: "boolean" },
+                justificacion: { type: ["string", "null"], description: "Cuál es la afirmación estructural y cuál el juicio de valor pegado sin argumentar, o null si presente=false" },
+              },
+              required: ["presente", "justificacion"],
+            },
           },
-          required: ["problemaId", "cita", "mecanismoGeneral", "resumen", "puente"],
+          required: ["problemaId", "cita", "mecanismoGeneral", "resumen", "puente", "imagenCentral", "premisaValorOculta"],
         },
       },
       descartadas: {
@@ -1010,6 +1051,18 @@ Esta sección debe:
   justificación entregada para nombrar qué conexión se asume sin argumentar (ej. "el texto asume, sin explicarlo,
   que resolver esto también resuelve..."). Esto aplica incluso a explicaciones con veredicto fuerte: sobrevivir el
   cambio de sus propios detalles no repara un puente que nunca se argumentó.
+- Si una explicación tiene imagenCentral.presente=true Y su veredicto principal es "FacilDeVariar", agrega una nota
+  de contexto honesta (no una excusa): la fuerza persuasiva de esta explicación probablemente vive en la resonancia
+  de la imagen elegida (usa el dato de "imagen"), no en la necesidad lógica del detalle concreto — nombra el
+  mecanismo con precisión, como ya haces al distinguir ingenio de sarcasmo en la sección de persuasión, en vez de
+  quedarte solo con el veredicto seco. Usa el dato de "connotacionAñadida" para decir qué carga trae esa imagen que
+  el mecanismo, despojado de ella, no sostendría por sí solo.
+- Si una explicación tiene premisaValorOculta.presente=true, señálalo como su propia observación (puede convivir
+  con la nota de imagenCentral en la misma explicación — son dos hallazgos que se acumulan, nunca uno reemplaza al
+  otro): usa la justificación entregada para nombrar, en una frase, cuál es la afirmación estructural y cuál el
+  juicio de valor que se le pegó sin argumentar, en el espíritu de "esta explicación mezcla una afirmación sobre la
+  estructura con un juicio de valor no argumentado sobre cómo se experimentaría esa estructura — asume que [la
+  afirmación de valor], sin dar razones de por qué sería así y no de otra manera."
 - Si hay problemas que el texto plantea pero para los que no se ofrece ninguna explicación (ver
   "problemasSinExplicacion" en los datos), menciónalos en prosa como preguntas que el texto deja abiertas o sin
   resolver, en una sección o párrafo propio. Trátalo como un hallazgo legítimo sobre el texto, no como un defecto
@@ -1037,6 +1090,8 @@ relación entre explicaciones, sin resumir ni cerrar.
         problema: problemas.find((p) => p.id === e.problemaId)?.enunciado,
         puenteLaguna: e.puente?.laguna ?? false,
         puenteJustificacion: e.puente?.justificacion ?? "",
+        imagenCentral: e.imagenCentral ?? { presente: false, imagen: null, connotacionAñadida: null },
+        premisaValorOculta: e.premisaValorOculta ?? { presente: false, justificacion: null },
         veredicto: veredictos.find((v) => v.explicacionId === e.id),
         problemasNuevos: problemasNuevosPorExplicacion.get(e.id) ?? [],
         alcance: alcances.find((a) => a.explicacionId === e.id),
