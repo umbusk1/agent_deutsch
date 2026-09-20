@@ -238,22 +238,34 @@ explícitamente DOS niveles de la misma explicación, sin fusionarlos y sin omit
 
 ${chequeoDePuente}
 
-CHEQUEO DE IMAGEN CENTRAL: compará mecanismoGeneral (la versión despojada, sin actores ni imágenes) contra resumen
-(la aplicación específica) que ya escribiste para esta misma explicación. Preguntate: ¿resumen le añade una imagen
-o analogía concreta (ej. "mascota", "guerra", "virus") que carga una connotación (moral, emocional, de indignidad,
-de peligro) que mecanismoGeneral, leído solo, no sostiene por su cuenta? Si sí, marcá imagenCentral.presente=true,
-nombrá la imagen en imagenCentral.imagen, y en connotacionAñadida decí en una frase qué carga añade la imagen que
-el mecanismo desnudo no aporta. Esto no es "esta explicación usa una metáfora" en general — es específicamente
-cuando esa imagen es el ARMAZÓN de la explicación (varias explicaciones dependen de ella), no un adorno de estilo
-aislado. Si resumen es simplemente la instancia concreta de mecanismoGeneral sin ninguna imagen que añada peso
-connotativo propio, marcá imagenCentral.presente=false con imagen y connotacionAñadida en null.
+CHEQUEO DE IMAGEN CENTRAL: compara mecanismoGeneral (la versión despojada, sin actores ni imágenes) contra resumen
+(la aplicación específica) que ya escribiste para esta misma explicación. Pregúntate: ¿resumen le añade una imagen
+o analogía concreta que carga una connotación (moral, emocional, de indignidad, de peligro) que mecanismoGeneral,
+leído solo, no sostiene por su cuenta? Si sí, marca imagenCentral.presente=true, nombra la imagen en
+imagenCentral.imagen, y en connotacionAñadida di en una frase qué carga añade la imagen que el mecanismo desnudo
+no aporta. Esto no es "esta explicación usa una metáfora" en general — es específicamente cuando esa imagen es el
+ARMAZÓN de la explicación (varias explicaciones dependen de ella), no un adorno de estilo aislado.
+
+Distinción importante: una figura retórica o expresión idiomática vívida NO cuenta como imagen central por sí
+sola, aunque sea evocadora — solo cuenta cuando trae consigo un DOMINIO COMPLETO, con su propia lógica interna y
+connotaciones que el lector importa desde fuera del texto. "Mascota" trae el dominio entero de la relación
+dueño-mascota (dependencia, docilidad exigida, indignidad, cuidado condicionado). "Los oligarcas rusos" trae el
+dominio del colapso postsoviético (captura del Estado, fatalismo histórico, ilegitimidad moral). En cambio, "el
+elefante en la habitación" es una frase idiomática que señala algo obvio y no dicho, pero no importa un dominio
+propio con su propia lógica — es una forma vívida de decir "algo evidente que nadie menciona", no una analogía
+estructural. Si la imagen candidata es del segundo tipo (vívida pero sin dominio propio), marca
+imagenCentral.presente=false.
+
+Si resumen es simplemente la instancia concreta de mecanismoGeneral sin ninguna imagen que añada peso connotativo
+propio (o si lo único que hay es una expresión idiomática sin dominio propio, como en el ejemplo de arriba), marca
+imagenCentral.presente=false con imagen y connotacionAñadida en null.
 
 CHEQUEO DE PREMISA DE VALOR OCULTA: distinto del chequeo de puente (que mira la conexión entre esta explicación y
 el problema maestro). Este mira hacia ADENTRO de la explicación misma: ¿el mecanismo mezcla una afirmación
 estructural/causal (algo que puede verificarse: existe tal dependencia, tal condición) con un juicio de valor no
 argumentado sobre CÓMO SE EXPERIMENTARÍA esa estructura (ej. "esa dependencia se vive como malestar", "esa
 condición es indigna"), presentado como si fuera parte del mismo hecho en vez de una afirmación aparte que
-necesita su propia defensa? Si sí, marcá premisaValorOculta.presente=true y en justificacion nombrá exactamente
+necesita su propia defensa? Si sí, marca premisaValorOculta.presente=true y en justificacion nombra exactamente
 cuál es la afirmación estructural y cuál el juicio de valor que se le pegó sin argumentar. Si el mecanismo es
 puramente estructural, o si la parte evaluativa sí está argumentada con sus propias razones (no solo asumida),
 marcá premisaValorOculta.presente=false con justificacion en null.
