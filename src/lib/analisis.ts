@@ -56,7 +56,7 @@ export type AnalisisResumen = {
   editadoEn?: string;
 };
 
-function iniciales(nombreCompleto: string | undefined, fallback: string): string {
+export function iniciales(nombreCompleto: string | undefined, fallback: string): string {
   const fuente = nombreCompleto?.trim() || fallback;
   const partes = fuente.split(/\s+/).filter(Boolean);
   const primera = partes[0]?.[0] ?? "";

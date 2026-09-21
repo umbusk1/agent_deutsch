@@ -2,11 +2,24 @@ import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { comparacionPrompt } from "@/lib/prompts";
 import { obtenerAnalisis } from "@/lib/analisis";
-import { guardarComparacion } from "@/lib/comparaciones";
+import { guardarComparacion, listarComparaciones } from "@/lib/comparaciones";
 import { findUser } from "@/lib/users";
 import { currentWeekId, incrementUsage, peekUsage, COMPARACION_LIMIT_SEMANAL } from "@/lib/usage";
 
 export const maxDuration = 60;
+
+export async function GET() {
+  try {
+    const comparaciones = await listarComparaciones();
+    return NextResponse.json({ comparaciones });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Error desconocido al listar las comparaciones." },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

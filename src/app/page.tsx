@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AnalisisResumen } from "@/lib/analisis";
+import type { ComparacionResumen } from "@/lib/comparaciones";
 
 type Identidad = { username: string; fullName?: string; isAdmin: boolean };
 
@@ -14,11 +15,11 @@ type Quota = {
   remaining?: number;
 };
 
-type Grupo = { key: string; label: string; items: AnalisisResumen[] };
+type Grupo<T> = { key: string; label: string; items: T[] };
 
-function monthKeyDe(item: AnalisisResumen): string {
-  const fecha = item.metaFecha?.trim();
-  const parsed = fecha && !Number.isNaN(Date.parse(fecha)) ? new Date(fecha) : new Date(item.creadoEn);
+function monthKeyDe(fechaPreferida: string | undefined, fechaRespaldo: string): string {
+  const fecha = fechaPreferida?.trim();
+  const parsed = fecha && !Number.isNaN(Date.parse(fecha)) ? new Date(fecha) : new Date(fechaRespaldo);
   return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
@@ -29,10 +30,10 @@ function monthLabelDe(key: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function agruparPorMes(analisis: AnalisisResumen[]): Grupo[] {
-  const grupos = new Map<string, Grupo>();
-  for (const item of analisis) {
-    const key = monthKeyDe(item);
+function agruparPorMes<T>(items: T[], getKey: (item: T) => string): Grupo<T>[] {
+  const grupos = new Map<string, Grupo<T>>();
+  for (const item of items) {
+    const key = getKey(item);
     if (!grupos.has(key)) {
       grupos.set(key, { key, label: monthLabelDe(key), items: [] });
     }
@@ -44,7 +45,10 @@ function agruparPorMes(analisis: AnalisisResumen[]): Grupo[] {
 export default function Biblioteca() {
   const router = useRouter();
 
+  const [tab, setTab] = useState<"analisis" | "comparaciones">("analisis");
+
   const [analisis, setAnalisis] = useState<AnalisisResumen[] | null>(null);
+  const [comparaciones, setComparaciones] = useState<ComparacionResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [identidad, setIdentidad] = useState<Identidad | null>(null);
   const [cupoAnalisis, setCupoAnalisis] = useState<Quota | null>(null);
@@ -52,7 +56,8 @@ export default function Biblioteca() {
 
   const [expandedMonths, setExpandedMonths] = useState<Set<string> | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingAnalisisId, setDeletingAnalisisId] = useState<string | null>(null);
+  const [deletingComparacionId, setDeletingComparacionId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
@@ -72,8 +77,19 @@ export default function Biblioteca() {
       .catch(() => setError("No se pudo cargar la biblioteca."));
   }
 
+  function cargarComparaciones() {
+    return fetch("/api/comparacion")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) setError(data.error);
+        else setComparaciones(data.comparaciones);
+      })
+      .catch(() => setError("No se pudo cargar las comparaciones."));
+  }
+
   useEffect(() => {
     cargarAnalisis();
+    cargarComparaciones();
 
     fetch("/api/usage")
       .then((res) => res.json())
@@ -93,7 +109,15 @@ export default function Biblioteca() {
       .catch(() => {});
   }, []);
 
-  const grupos = useMemo(() => (analisis ? agruparPorMes(analisis) : []), [analisis]);
+  const gruposAnalisis = useMemo(
+    () => (analisis ? agruparPorMes(analisis, (item) => monthKeyDe(item.metaFecha, item.creadoEn)) : []),
+    [analisis]
+  );
+  const gruposComparaciones = useMemo(
+    () => (comparaciones ? agruparPorMes(comparaciones, (item) => monthKeyDe(undefined, item.creadoEn)) : []),
+    [comparaciones]
+  );
+  const grupos = tab === "analisis" ? gruposAnalisis : gruposComparaciones;
 
   function toggleMonth(key: string) {
     setExpandedMonths((prev) => {
@@ -119,7 +143,7 @@ export default function Biblioteca() {
     });
   }
 
-  async function confirmarEliminar(id: string) {
+  async function confirmarEliminarAnalisis(id: string) {
     setDeleteError(null);
     try {
       const res = await fetch(`/api/analisis/${id}`, { method: "DELETE" });
@@ -134,7 +158,21 @@ export default function Biblioteca() {
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : "No se pudo eliminar el análisis.");
     } finally {
-      setDeletingId(null);
+      setDeletingAnalisisId(null);
+    }
+  }
+
+  async function confirmarEliminarComparacion(id: string) {
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/comparacion/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error inesperado.");
+      setComparaciones((prev) => (prev ? prev.filter((c) => c.id !== id) : prev));
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "No se pudo eliminar la comparación.");
+    } finally {
+      setDeletingComparacionId(null);
     }
   }
 
@@ -200,6 +238,9 @@ export default function Biblioteca() {
     cupoComparaciones && !cupoComparaciones.unlimited && (cupoComparaciones.remaining ?? 0) <= 0;
   const analisisAgotado = cupoAnalisis && !cupoAnalisis.unlimited && (cupoAnalisis.remaining ?? 0) <= 0;
 
+  const cargando = tab === "analisis" ? analisis === null : comparaciones === null;
+  const vacio = tab === "analisis" ? analisis?.length === 0 : comparaciones?.length === 0;
+
   return (
     <div className="container" style={{ paddingTop: "0.75rem" }}>
       <p className="loading" style={{ marginBottom: "1.5rem" }}>Biblioteca: Análisis ya realizados.</p>
@@ -232,14 +273,31 @@ export default function Biblioteca() {
         </span>
       </div>
 
+      <div className="steps-indicator" style={{ marginBottom: "1.5rem" }}>
+        <button
+          type="button"
+          className={`step-dot ${tab === "analisis" ? "active" : "done"}`}
+          onClick={() => setTab("analisis")}
+        >
+          Análisis
+        </button>
+        <button
+          type="button"
+          className={`step-dot ${tab === "comparaciones" ? "active" : "done"}`}
+          onClick={() => setTab("comparaciones")}
+        >
+          Comparaciones
+        </button>
+      </div>
+
       {error && <div className="error-banner">{error}</div>}
       {deleteError && <div className="error-banner">{deleteError}</div>}
       {compareError && <div className="error-banner">{compareError}</div>}
 
-      {analisis === null && !error && <p className="loading">Cargando biblioteca...</p>}
-      {analisis !== null && analisis.length === 0 && (
+      {cargando && !error && <p className="loading">Cargando biblioteca...</p>}
+      {!cargando && vacio && (
         <div className="card">
-          <p>Todavía no hay análisis guardados.</p>
+          <p>{tab === "analisis" ? "Todavía no hay análisis guardados." : "Todavía no hay comparaciones guardadas."}</p>
         </div>
       )}
 
@@ -256,8 +314,8 @@ export default function Biblioteca() {
               <span className="badge">{grupo.items.length}</span>
             </button>
 
-            {expandido &&
-              grupo.items.map((item) =>
+            {expandido && tab === "analisis" &&
+              (grupo.items as AnalisisResumen[]).map((item) =>
                 editingId === item.id ? (
                   <div key={item.id} className="item">
                     <div
@@ -330,24 +388,52 @@ export default function Biblioteca() {
                     </Link>
                     {puedeEditar(item) && <button onClick={() => comenzarEdicion(item)}>Editar</button>}
                     {identidad?.isAdmin &&
-                      (deletingId === item.id ? (
+                      (deletingAnalisisId === item.id ? (
                         <span className="actions" style={{ margin: 0 }}>
-                          <button onClick={() => setDeletingId(null)}>Cancelar</button>
-                          <button onClick={() => confirmarEliminar(item.id)}>Confirmar</button>
+                          <button onClick={() => setDeletingAnalisisId(null)}>Cancelar</button>
+                          <button onClick={() => confirmarEliminarAnalisis(item.id)}>Confirmar</button>
                         </span>
                       ) : (
-                        <button onClick={() => setDeletingId(item.id)} aria-label="Eliminar">
+                        <button onClick={() => setDeletingAnalisisId(item.id)} aria-label="Eliminar">
                           🗑
                         </button>
                       ))}
                   </div>
                 )
               )}
+
+            {expandido && tab === "comparaciones" &&
+              (grupo.items as ComparacionResumen[]).map((item) => (
+                <div key={item.id} className="item biblioteca-fila">
+                  <span className="avatar" title={item.creadoPor}>{item.iniciales}</span>
+                  <div className="biblioteca-fila-info">
+                    <div>{item.tituloA} vs. {item.tituloB}</div>
+                    <div className="item-label" style={{ marginBottom: 0 }}>
+                      <span>{item.creadoPor} · {new Date(item.creadoEn).toLocaleString("es")}</span>
+                    </div>
+                  </div>
+                  <span className="badge">{item.mismoProblema ? "Mismo problema" : "Problemas distintos"}</span>
+                  <Link href={`/comparacion/${item.id}`}>
+                    <button>Ver comparación</button>
+                  </Link>
+                  {identidad?.isAdmin &&
+                    (deletingComparacionId === item.id ? (
+                      <span className="actions" style={{ margin: 0 }}>
+                        <button onClick={() => setDeletingComparacionId(null)}>Cancelar</button>
+                        <button onClick={() => confirmarEliminarComparacion(item.id)}>Confirmar</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => setDeletingComparacionId(item.id)} aria-label="Eliminar">
+                        🗑
+                      </button>
+                    ))}
+                </div>
+              ))}
           </div>
         );
       })}
 
-      {analisis !== null && analisis.length > 0 && (
+      {tab === "analisis" && analisis !== null && analisis.length > 0 && (
         <div className="actions">
           <button
             className="primary"
