@@ -57,14 +57,23 @@ export default function Biblioteca() {
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/analisis")
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ metaFecha: "", metaAutor: "", metaMedio: "", metaTitulo: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function cargarAnalisis() {
+    return fetch("/api/analisis")
       .then((res) => res.json())
       .then((data) => {
         if (data.error) setError(data.error);
         else setAnalisis(data.analisis);
       })
       .catch(() => setError("No se pudo cargar la biblioteca."));
+  }
+
+  useEffect(() => {
+    cargarAnalisis();
 
     fetch("/api/usage")
       .then((res) => res.json())
@@ -126,6 +135,45 @@ export default function Biblioteca() {
       setDeleteError(e instanceof Error ? e.message : "No se pudo eliminar el análisis.");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  function puedeEditar(item: AnalisisResumen): boolean {
+    return Boolean(identidad && (identidad.username === item.usuario || identidad.isAdmin));
+  }
+
+  function comenzarEdicion(item: AnalisisResumen) {
+    setEditingId(item.id);
+    setEditForm({
+      metaFecha: item.metaFecha,
+      metaAutor: item.metaAutor,
+      metaMedio: item.metaMedio,
+      metaTitulo: item.metaTitulo,
+    });
+    setEditError(null);
+  }
+
+  async function guardarEdicion(id: string) {
+    if (!editForm.metaTitulo.trim()) {
+      setEditError("El título es obligatorio.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/analisis/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error inesperado.");
+      await cargarAnalisis();
+      setEditingId(null);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "No se pudo guardar la edición.");
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -212,41 +260,92 @@ export default function Biblioteca() {
             </button>
 
             {expandido &&
-              grupo.items.map((item) => (
-                <div key={item.id} className="item biblioteca-fila">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(item.id)}
-                    disabled={!selected.has(item.id) && selected.size >= 2}
-                    onChange={() => toggleSelect(item.id)}
-                    aria-label={`Seleccionar ${item.metaTitulo || "análisis"} para comparar`}
-                  />
-                  <span className="avatar" title={item.usuario}>{item.iniciales}</span>
-                  <div className="biblioteca-fila-info">
-                    <div>{item.metaTitulo || "(sin título)"}</div>
-                    <div className="item-label" style={{ marginBottom: 0 }}>
-                      <span>
-                        {[item.metaAutor, item.metaMedio, item.metaFecha].filter(Boolean).join(" · ") || "Sin metadatos"}
-                      </span>
+              grupo.items.map((item) =>
+                editingId === item.id ? (
+                  <div key={item.id} className="item">
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                        gap: "0.5rem",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={editForm.metaTitulo}
+                        onChange={(e) => setEditForm((f) => ({ ...f, metaTitulo: e.target.value }))}
+                        placeholder="Título corto"
+                      />
+                      <input
+                        type="text"
+                        value={editForm.metaAutor}
+                        onChange={(e) => setEditForm((f) => ({ ...f, metaAutor: e.target.value }))}
+                        placeholder="Autor (opcional)"
+                      />
+                      <input
+                        type="text"
+                        value={editForm.metaMedio}
+                        onChange={(e) => setEditForm((f) => ({ ...f, metaMedio: e.target.value }))}
+                        placeholder="Medio (opcional)"
+                      />
+                      <input
+                        type="text"
+                        value={editForm.metaFecha}
+                        onChange={(e) => setEditForm((f) => ({ ...f, metaFecha: e.target.value }))}
+                        placeholder="Fecha (opcional)"
+                      />
+                    </div>
+                    {editError && <div className="error-banner">{editError}</div>}
+                    <div className="actions" style={{ marginTop: 0 }}>
+                      <button onClick={() => setEditingId(null)} disabled={editSaving}>Cancelar</button>
+                      <button className="primary" onClick={() => guardarEdicion(item.id)} disabled={editSaving}>
+                        {editSaving ? "Guardando..." : "Guardar"}
+                      </button>
                     </div>
                   </div>
-                  <span className="badge">{item.totalProblemas}P/{item.problemasConExplicacion}E</span>
-                  <Link href={`/analisis/${item.id}`}>
-                    <button>Ver reporte</button>
-                  </Link>
-                  {identidad?.isAdmin &&
-                    (deletingId === item.id ? (
-                      <span className="actions" style={{ margin: 0 }}>
-                        <button onClick={() => setDeletingId(null)}>Cancelar</button>
-                        <button onClick={() => confirmarEliminar(item.id)}>Confirmar</button>
-                      </span>
-                    ) : (
-                      <button onClick={() => setDeletingId(item.id)} aria-label="Eliminar">
-                        🗑
-                      </button>
-                    ))}
-                </div>
-              ))}
+                ) : (
+                  <div key={item.id} className="item biblioteca-fila">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      disabled={!selected.has(item.id) && selected.size >= 2}
+                      onChange={() => toggleSelect(item.id)}
+                      aria-label={`Seleccionar ${item.metaTitulo || "análisis"} para comparar`}
+                    />
+                    <span className="avatar" title={item.usuario}>{item.iniciales}</span>
+                    <div className="biblioteca-fila-info">
+                      <div>{item.metaTitulo || "(sin título)"}</div>
+                      <div className="item-label" style={{ marginBottom: 0 }}>
+                        <span>
+                          {[item.metaAutor, item.metaMedio, item.metaFecha].filter(Boolean).join(" · ") || "Sin metadatos"}
+                        </span>
+                      </div>
+                      {item.editadoPor && (
+                        <div className="item-label" style={{ marginBottom: 0 }}>
+                          <span>Editado por {item.editadoPor} · {new Date(item.editadoEn!).toLocaleString("es")}</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="badge">{item.totalProblemas}P/{item.problemasConExplicacion}E</span>
+                    <Link href={`/analisis/${item.id}`}>
+                      <button>Ver reporte</button>
+                    </Link>
+                    {puedeEditar(item) && <button onClick={() => comenzarEdicion(item)}>Editar</button>}
+                    {identidad?.isAdmin &&
+                      (deletingId === item.id ? (
+                        <span className="actions" style={{ margin: 0 }}>
+                          <button onClick={() => setDeletingId(null)}>Cancelar</button>
+                          <button onClick={() => confirmarEliminar(item.id)}>Confirmar</button>
+                        </span>
+                      ) : (
+                        <button onClick={() => setDeletingId(item.id)} aria-label="Eliminar">
+                          🗑
+                        </button>
+                      ))}
+                  </div>
+                )
+              )}
           </div>
         );
       })}

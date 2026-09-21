@@ -36,6 +36,9 @@ export type AnalisisGuardado = {
   totalProblemas: number;
   problemasConExplicacion: number;
   creadoEn: string;
+  /** Solo presentes si alguien editó la metadata después de guardar — sin historial, solo el último editor. */
+  editadoPor?: string;
+  editadoEn?: string;
 };
 
 export type AnalisisResumen = {
@@ -49,6 +52,8 @@ export type AnalisisResumen = {
   totalProblemas: number;
   problemasConExplicacion: number;
   creadoEn: string;
+  editadoPor?: string;
+  editadoEn?: string;
 };
 
 function iniciales(nombreCompleto: string | undefined, fallback: string): string {
@@ -130,6 +135,8 @@ export async function listarAnalisis(): Promise<AnalisisResumen[]> {
       totalProblemas: r.totalProblemas,
       problemasConExplicacion: r.problemasConExplicacion,
       creadoEn: r.creadoEn,
+      editadoPor: r.editadoPor,
+      editadoEn: r.editadoEn,
     }));
 }
 
@@ -140,4 +147,43 @@ export async function obtenerAnalisis(id: string): Promise<AnalisisGuardado | nu
 export async function eliminarAnalisis(id: string): Promise<void> {
   await getRedis().del(analisisKey(id));
   await getRedis().zrem(INDEX_KEY, id);
+}
+
+type ActualizarAnalisisInput = {
+  metaFecha: string;
+  metaAutor: string;
+  metaMedio: string;
+  metaTitulo: string;
+};
+
+/**
+ * Edita metadata de un análisis ya guardado (no el reporte ni las explicaciones). Si metaFecha cambia, el
+ * índice se reordena automáticamente: zadd con el mismo member actualiza su score en vez de duplicarlo, así
+ * que el acordeón de Biblioteca reubica el análisis en su nuevo grupo de mes sin ningún paso adicional.
+ */
+export async function actualizarAnalisis(
+  id: string,
+  input: ActualizarAnalisisInput,
+  editadoPor: string
+): Promise<AnalisisGuardado | null> {
+  const existente = await obtenerAnalisis(id);
+  if (!existente) return null;
+
+  const registro: AnalisisGuardado = {
+    ...existente,
+    metaFecha: input.metaFecha.trim(),
+    metaAutor: input.metaAutor.trim(),
+    metaMedio: input.metaMedio.trim(),
+    metaTitulo: input.metaTitulo.trim(),
+    editadoPor,
+    editadoEn: new Date().toISOString(),
+  };
+
+  await getRedis().set(analisisKey(id), registro);
+
+  const fechaPublicacion = Date.parse(registro.metaFecha);
+  const score = Number.isNaN(fechaPublicacion) ? Date.parse(registro.creadoEn) : fechaPublicacion;
+  await getRedis().zadd(INDEX_KEY, { score, member: id });
+
+  return registro;
 }
