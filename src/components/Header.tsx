@@ -14,10 +14,10 @@ export function Header() {
         <span className="app-header-title">Agente Deutsch: Análisis de la calidad explicativa de textos.</span>
         <nav className="app-header-nav">
           <Link href="/nuevo" aria-current={pathname === "/nuevo" ? "page" : undefined}>
-            Subir texto
+            + Nuevo análisis
           </Link>
           <Link href="/" aria-current={pathname === "/" ? "page" : undefined}>
-            Ver Biblioteca
+            Biblioteca
           </Link>
         </nav>
       </div>

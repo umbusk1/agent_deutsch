@@ -201,8 +201,8 @@ export default function Biblioteca() {
   const analisisAgotado = cupoAnalisis && !cupoAnalisis.unlimited && (cupoAnalisis.remaining ?? 0) <= 0;
 
   return (
-    <div className="container">
-      <p className="loading" style={{ marginBottom: "1.5rem" }}>Biblioteca de análisis críticos ya realizados.</p>
+    <div className="container" style={{ paddingTop: "0.75rem" }}>
+      <p className="loading" style={{ marginBottom: "1.5rem" }}>Biblioteca: Análisis ya realizados.</p>
 
       <div className="actions" style={{ justifyContent: "space-between", marginBottom: "1.5rem" }}>
         {analisisAgotado ? (
