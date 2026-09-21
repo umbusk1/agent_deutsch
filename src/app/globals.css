@@ -188,14 +188,34 @@ body.app-footer-fixed-activo {
   margin-bottom: 1.25rem;
 }
 
+.card h1 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+
 .card h2 {
   font-size: 1.1rem;
+  margin-top: 1.5rem;
   margin-bottom: 0.75rem;
 }
 
 .card h3 {
   font-size: 0.95rem;
   margin-bottom: 0.5rem;
+}
+
+.card p,
+.card ul {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.card ul {
+  padding-left: 1.25rem;
+}
+
+.card li {
+  margin-bottom: 0.75rem;
 }
 
 .item {

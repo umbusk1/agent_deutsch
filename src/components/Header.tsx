@@ -19,6 +19,9 @@ export function Header() {
           <Link href="/" aria-current={pathname === "/" ? "page" : undefined}>
             Biblioteca
           </Link>
+          <Link href="/acerca" aria-current={pathname === "/acerca" ? "page" : undefined}>
+            Acerca de
+          </Link>
         </nav>
       </div>
 
