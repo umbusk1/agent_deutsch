@@ -65,7 +65,7 @@ export async function POST(request: Request) {
         const persuasionPrompt = step7PersuasionPrompt(pasajesAntiRacionales);
 
         const [principalResult, persuasionResult] = await Promise.all([
-          callTool<{ seccionPrincipal: string }>({ ...principalPrompt, effort: "medium" }),
+          callTool<{ resumenInicial: string; seccionPrincipal: string }>({ ...principalPrompt, effort: "medium" }),
           callTool<{ seccionPersuasion: string }>({ ...persuasionPrompt, effort: "medium" }),
         ]);
 
@@ -79,6 +79,7 @@ export async function POST(request: Request) {
         });
 
         const reporte = [
+          principalResult.resumenInicial,
           ensamblajeResult.introduccion,
           principalResult.seccionPrincipal,
           ensamblajeResult.transicion?.trim() || null,

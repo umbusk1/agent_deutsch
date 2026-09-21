@@ -1009,12 +1009,23 @@ export function step7PrincipalPrompt(
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso: redactar la SECCIÓN PRINCIPAL de un reporte crítico más grande, dirigida al autor o a un
-lector interesado en la calidad argumentativa del texto. Esta sección cubre las explicaciones del texto. Otro
-paso, por separado, redacta la sección sobre persuasión (pasajes que apelan a lealtad, urgencia, autoridad,
-tabú o vergüenza en vez de invitar al escrutinio) — no la menciones ni la anticipes, es independiente de esta.
+Tu tarea en este paso tiene DOS partes, con propósitos completamente distintos:
 
-Esta sección debe:
+PARTE A — resumenInicial: un resumen NEUTRAL del texto original, de 300 a 400 palabras (orientativo, no un límite
+técnico exacto), describiendo la tesis y la estructura del artículo en los propios términos del autor — qué
+plantea, cómo organiza su argumento, a qué conclusión llega. Esto es puramente descriptivo: NUNCA evaluativo. No
+adelantes, insinúes ni prepares ninguna de las debilidades que la Parte B va a señalar — ni con el tono, ni
+seleccionando qué mencionar de forma que ya apunte al problema, ni con calificativos que dejen ver hacia dónde va
+la crítica. El propósito es que el lector pueda conectar por su cuenta lo que el texto planteó con la crítica que
+sigue después — no que se le entregue esa conexión ya hecha. Si te cuesta evitar el tono evaluativo, es señal de
+que estás describiendo el texto a través de la crítica que ya conoces en vez de a través de sus propios términos.
+
+PARTE B — la SECCIÓN PRINCIPAL de un reporte crítico más grande, dirigida al autor o a un lector interesado en la
+calidad argumentativa del texto. Esta sección cubre las explicaciones del texto. Otro paso, por separado, redacta
+la sección sobre persuasión (pasajes que apelan a lealtad, urgencia, autoridad, tabú o vergüenza en vez de invitar
+al escrutinio) — no la menciones ni la anticipes, es independiente de esta.
+
+La sección principal (Parte B) debe:
 
 - Estar completamente en español, en Markdown, organizada con encabezados por explicación relevante.
 - Mostrar el razonamiento de forma auditable: qué se probó (qué variantes se consideraron) y qué sobrevivió o se
@@ -1118,19 +1129,24 @@ relación entre explicaciones, sin resumir ni cerrar.
   const inputSchema: Schema = {
     type: "object",
     properties: {
+      resumenInicial: {
+        type: "string",
+        description:
+          "300-400 palabras (orientativo), resumen NEUTRAL de la tesis y estructura del texto en sus propios términos — nunca evaluativo, nunca insinúa las debilidades que la sección principal va a señalar.",
+      },
       seccionPrincipal: {
         type: "string",
         description: "Sección del reporte sobre las explicaciones, en prosa crítica, formato Markdown, sin cierre ni conclusión general",
       },
     },
-    required: ["seccionPrincipal"],
+    required: ["resumenInicial", "seccionPrincipal"],
   };
 
   return {
     system,
     user,
     toolName: "reportar_seccion_principal",
-    toolDescription: "Reporta la sección principal (explicaciones) del reporte crítico, sin conclusión general.",
+    toolDescription: "Reporta el resumen neutral inicial y la sección principal (explicaciones) del reporte crítico, sin conclusión general.",
     inputSchema,
   };
 }
