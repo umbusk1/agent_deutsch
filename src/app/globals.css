@@ -268,17 +268,18 @@ button:disabled {
   color: var(--muted);
 }
 
-/* Loader animado de Umbusk: gira y pulsa mientras una etapa procesa por dentro. */
+/* Loader animado de Umbusk: gira y pulsa mientras una etapa procesa por dentro. Logo a la izquierda, mensaje de
+   la etapa a la derecha, en la misma línea. */
 .umbusk-loader-block {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 0.75rem;
   padding: 1.5rem 0;
 }
 
 .umbusk-loader-wrap {
-  --umbusk-loader-size: 96px;
+  --umbusk-loader-size: 57.6px; /* 96px reducido 40% */
   --umbusk-loader-speed: 1.6s;
   --umbusk-pulse-min: 0.94;
   --umbusk-pulse-max: 1.04;
@@ -313,7 +314,7 @@ button:disabled {
 .umbusk-loader-message {
   color: var(--muted);
   font-size: 0.9rem;
-  text-align: center;
+  text-align: left;
 }
 
 .biblioteca-mes {
