@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import Link from "next/link";
 import type { Comparacion } from "@/lib/types";
 import type { AnalisisGuardado } from "@/lib/analisis";
 
@@ -34,11 +33,9 @@ export default function VerComparacion({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="container">
-      <div className="header">
-        <Link href="/">← Biblioteca</Link>
-        <h1>Agente Deutsch</h1>
-        <p>Comparación entre dos análisis — estructura y rigor, no cuál describe mejor la realidad.</p>
-      </div>
+      <p className="loading" style={{ marginBottom: "1.5rem" }}>
+        Comparación entre dos análisis — estructura y rigor, no cuál describe mejor la realidad.
+      </p>
 
       {error && <div className="error-banner">{error}</div>}
       {!comparacion && !error && <p className="loading">Cargando comparación...</p>}

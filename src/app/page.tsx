@@ -202,10 +202,7 @@ export default function Biblioteca() {
 
   return (
     <div className="container">
-      <div className="header">
-        <h1>Agente Deutsch</h1>
-        <p>Biblioteca de análisis críticos ya realizados.</p>
-      </div>
+      <p className="loading" style={{ marginBottom: "1.5rem" }}>Biblioteca de análisis críticos ya realizados.</p>
 
       <div className="actions" style={{ justifyContent: "space-between", marginBottom: "1.5rem" }}>
         {analisisAgotado ? (

@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import Link from "next/link";
 import type { AnalisisGuardado } from "@/lib/analisis";
 
 function download(filename: string, content: string) {
@@ -31,11 +30,6 @@ export default function VerAnalisis({ params }: { params: Promise<{ id: string }
 
   return (
     <div className="container">
-      <div className="header">
-        <Link href="/">← Biblioteca</Link>
-        <h1>Agente Deutsch</h1>
-      </div>
-
       {error && <div className="error-banner">{error}</div>}
       {!registro && !error && <p className="loading">Cargando análisis...</p>}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useSetAppChrome } from "@/lib/appChrome";
 import { Loader } from "@/components/Loader";
 import type {
   Explicacion,
@@ -397,9 +397,14 @@ export default function Home() {
         pasajesPersuasivos: pasajesActivos,
         alcances,
       });
+      // Título en negrita + demás metadata (si hay) antes del resumen neutral que ya trae el reporte —
+      // se hornea acá, una sola vez, para que se vea igual en la vista en vivo, en Biblioteca y al
+      // descargar, sin repetir esta lógica en cada lugar donde se muestra el reporte.
+      const metaLinea = [metaAutor, metaMedio, metaFecha].filter((v) => v.trim()).join(" · ");
+      const reporteConEncabezado = `**${metaTitulo.trim()}**${metaLinea ? `\n${metaLinea}` : ""}\n\n${data.reporte}`;
       setPasajesPersuasivos(pasajesActivos);
       setProblemasNuevos(problemasNuevosActivos);
-      setReporte(data.reporte);
+      setReporte(reporteConEncabezado);
       setStep(5);
       setFurthestStep(5);
 
@@ -412,7 +417,7 @@ export default function Home() {
           metaAutor,
           metaMedio,
           metaTitulo,
-          reporte: data.reporte,
+          reporte: reporteConEncabezado,
           tripletas: buildTripletas(),
           problemas,
           explicaciones,
@@ -510,13 +515,43 @@ export default function Home() {
 
   const wordCount = texto.trim() ? texto.trim().split(/\s+/).length : 0;
 
+  useSetAppChrome(
+    { steps: STEP_LABELS, activeIndex: step, furthestIndex: furthestStep, loading, onStepClick: (i) => { setError(null); setStep(i); } },
+    rejected
+      ? null
+      : loading
+      ? step === 0
+        ? { mode: "procesando", messages: MENSAJES_PROBLEMA }
+        : step === 1
+        ? { mode: "procesando", messages: MENSAJES_EXPLICACION }
+        : step === 2
+        ? { mode: "procesando", messages: MENSAJES_TEST_VARIANTES }
+        : step === 3 && veredictosCalculados
+        ? { mode: "procesando", messages: MENSAJES_CONSECUENCIA }
+        : step === 4
+        ? { mode: "procesando", messages: MENSAJES_REPORTE }
+        : null // step 3 antes de veredictosCalculados: ese loading queda inline, ver más abajo
+      : step === 0
+      ? {
+          mode: "esperando",
+          label: "Comenzar análisis",
+          onClick: () => setShowConfirm(true),
+          disabled: !texto.trim() || !metaTitulo.trim() || quota?.remaining === 0,
+        }
+      : step === 1
+      ? { mode: "esperando", label: "Continuar", onClick: runStep2 }
+      : step === 2
+      ? { mode: "esperando", label: "Continuar", onClick: runTest }
+      : step === 3 && veredictosCalculados
+      ? { mode: "esperando", label: "Continuar", onClick: runConsecuencia }
+      : step === 4
+      ? { mode: "esperando", label: "Generar reporte final", onClick: runStep7 }
+      : null
+  );
+
   if (rejected) {
     return (
       <div className="container">
-        <div className="header">
-          <Link href="/">← Biblioteca</Link>
-          <h1>Agente Deutsch</h1>
-        </div>
         <div className="card">
           <h2>Este texto no parece tener material para analizar</h2>
           <p>
@@ -567,33 +602,6 @@ export default function Home() {
 
   return (
     <div className="container">
-      <div className="header">
-        <Link href="/">← Biblioteca</Link>
-        <h1>Agente Deutsch</h1>
-        <p>Análisis crítico de la calidad explicativa de un texto de opinión.</p>
-      </div>
-
-      <div className="steps-indicator">
-        {STEP_LABELS.map((label, i) => {
-          const reached = i <= furthestStep;
-          const clickable = reached && i !== step && !loading;
-          return (
-            <button
-              key={label}
-              type="button"
-              className={`step-dot ${i === step ? "active" : reached ? "done" : ""}`}
-              disabled={!clickable}
-              onClick={() => {
-                setError(null);
-                setStep(i);
-              }}
-            >
-              {i}. {label}
-            </button>
-          );
-        })}
-      </div>
-
       {error && <div className="error-banner">{error}</div>}
 
       {step === 0 && (
@@ -672,20 +680,6 @@ export default function Home() {
                 : `Te quedan ${quota.remaining} de ${quota.limit} análisis esta semana.`}
             </p>
           )}
-          {loading ? (
-            <Loader messages={MENSAJES_PROBLEMA} />
-          ) : (
-            <div className="actions">
-              <button
-                className="primary"
-                disabled={loading || !texto.trim() || !metaTitulo.trim() || quota?.remaining === 0}
-                onClick={() => setShowConfirm(true)}
-              >
-                Comenzar análisis
-              </button>
-            </div>
-          )}
-
           {showConfirm && !loading && (
             <div className="card" style={{ marginTop: "1rem", borderColor: "var(--accent)" }}>
               <h3>Confirma antes de empezar</h3>
@@ -750,15 +744,6 @@ export default function Home() {
               />
             </div>
           ))}
-          {loading ? (
-            <Loader messages={MENSAJES_EXPLICACION} />
-          ) : (
-            <div className="actions">
-              <button className="primary" disabled={loading} onClick={runStep2}>
-                Continuar
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -829,15 +814,6 @@ export default function Home() {
             </div>
           )}
 
-          {loading ? (
-            <Loader messages={MENSAJES_TEST_VARIANTES} />
-          ) : (
-            <div className="actions">
-              <button className="primary" disabled={loading} onClick={runTest}>
-                Continuar
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -1049,15 +1025,6 @@ export default function Home() {
                 );
               })}
 
-              {loading ? (
-                <Loader messages={MENSAJES_CONSECUENCIA} />
-              ) : (
-                <div className="actions">
-                  <button className="primary" disabled={loading} onClick={runConsecuencia}>
-                    Continuar
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -1174,15 +1141,6 @@ export default function Home() {
             </div>
           ))}
 
-          {loading ? (
-            <Loader messages={MENSAJES_REPORTE} />
-          ) : (
-            <div className="actions">
-              <button className="primary" disabled={loading} onClick={runStep7}>
-                Generar reporte final
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -1205,7 +1163,7 @@ export default function Home() {
             </button>
             <button
               className="primary"
-              onClick={() => download(`reporte-${buildFilenameBase()}.md`, buildMetaHeader() + reporte)}
+              onClick={() => download(`reporte-${buildFilenameBase()}.md`, reporte)}
             >
               Descargar reporte.md
             </button>
