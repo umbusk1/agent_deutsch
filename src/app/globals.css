@@ -90,7 +90,7 @@ a {
 }
 
 .app-header-logo {
-  height: 34px;
+  height: 44px;
   width: auto;
   display: block;
 }
@@ -392,7 +392,7 @@ button:disabled {
 }
 
 .ad-loader-wrap {
-  --loader-width: 168px; /* 280px del fragmento original, reducido para la fila junto al mensaje */
+  --loader-width: 57.6px; /* mismo tamaño exacto que tenía el loader de Umbusk anterior */
   display: grid;
   place-items: center;
   overflow: visible;
