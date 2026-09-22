@@ -87,10 +87,12 @@ a {
 .app-header-title {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
 }
 
 .app-header-logo {
-  height: 44px;
+  height: 32px;
   width: auto;
   display: block;
 }
@@ -393,6 +395,8 @@ button:disabled {
 
 .ad-loader-wrap {
   --loader-width: 57.6px; /* mismo tamaño exacto que tenía el loader de Umbusk anterior */
+  width: var(--loader-width);
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   overflow: visible;
@@ -429,6 +433,8 @@ button:disabled {
 }
 
 .ad-loader-message {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--muted);
   font-size: 0.9rem;
   text-align: left;

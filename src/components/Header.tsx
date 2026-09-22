@@ -12,18 +12,19 @@ export function Header() {
     <header className="app-header">
       <div className="app-header-top">
         <span className="app-header-title">
-          {/* eslint-disable-next-line @next/next/no-img-element -- dos logos fijos, uno por esquema de color */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- dos íconos fijos, uno por esquema de color */}
           <img
-            src="/Logo_Fondo_Claro.png"
-            alt="Agente Deutsch: Análisis de la calidad explicativa de textos."
+            src="/Logo_Fondo_Claro_icono.png"
+            alt=""
             className="app-header-logo app-header-logo-claro"
           />
-          {/* eslint-disable-next-line @next/next/no-img-element -- dos logos fijos, uno por esquema de color */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- dos íconos fijos, uno por esquema de color */}
           <img
-            src="/Logo_Fondo_Oscuro.png"
-            alt="Agente Deutsch: Análisis de la calidad explicativa de textos."
+            src="/Logo_Fondo_Oscuro_icono.png"
+            alt=""
             className="app-header-logo app-header-logo-oscuro"
           />
+          <strong>Agente Deutsch</strong>
         </span>
         <nav className="app-header-nav">
           <Link href="/nuevo" aria-current={pathname === "/nuevo" ? "page" : undefined}>
