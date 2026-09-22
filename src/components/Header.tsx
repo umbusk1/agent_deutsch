@@ -11,7 +11,20 @@ export function Header() {
   return (
     <header className="app-header">
       <div className="app-header-top">
-        <span className="app-header-title">Agente Deutsch: Análisis de la calidad explicativa de textos.</span>
+        <span className="app-header-title">
+          {/* eslint-disable-next-line @next/next/no-img-element -- dos logos fijos, uno por esquema de color */}
+          <img
+            src="/Logo_Fondo_Claro.png"
+            alt="Agente Deutsch: Análisis de la calidad explicativa de textos."
+            className="app-header-logo app-header-logo-claro"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element -- dos logos fijos, uno por esquema de color */}
+          <img
+            src="/Logo_Fondo_Oscuro.png"
+            alt="Agente Deutsch: Análisis de la calidad explicativa de textos."
+            className="app-header-logo app-header-logo-oscuro"
+          />
+        </span>
         <nav className="app-header-nav">
           <Link href="/nuevo" aria-current={pathname === "/nuevo" ? "page" : undefined}>
             + Nuevo análisis

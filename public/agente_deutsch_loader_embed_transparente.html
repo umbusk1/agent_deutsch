@@ -1,49 +1,49 @@
-"use client";
+<!-- Agente Deutsch loader: fragmento embebible transparente -->
+<style>
 
-import { useEffect, useRef, useState } from "react";
+  :root {
+    --loader-width: 280px;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+  body {
+    display: inline-block;
+  }
+  .ad-loader {
+    width: var(--loader-width);
+    aspect-ratio: 440 / 380;
+    display: block;
+    background: transparent !important;
+    background-color: transparent !important;
+    isolation: isolate;
+  }
+  .ad-loader svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
 
-type LoaderProps = {
-  /** Frases efímeras que rotan mientras se procesa, dando sensación de actividad sin exponer el detalle interno. */
-  messages: string[];
-  intervalMs?: number;
-};
+  .ad-loader image,
+  .ad-loader g,
+  .ad-loader defs,
+  .ad-loader clipPath,
+  .ad-loader rect {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+  .pixel-perfect {
+    image-rendering: auto;
+  }
 
-// Cronología del ciclo de 7.5s (ver public/agente_deutsch_loader_embed_transparente.html, la fuente
-// original de este fragmento): 0-6s las tres barras se desplazan; 6-6.5s se convierten en dos; 6.5-7.5s
-// pausa completa; a los 7.5s el ciclo reinicia.
-const MOVE = 6000;
-const MORPH = 500;
-const PAUSE = 1000;
-const TOTAL = MOVE + MORPH + PAUSE;
+</style>
 
-const LEFT = {
-  top: { x: 40, y: 112, w: 158, h: 52 },
-  mid: { x: 40, y: 170, w: 158, h: 53 },
-  bot: { x: 40, y: 228, w: 158, h: 54 },
-};
-const TARGET = { x: 248, y: 128, w: 107, h: 100 };
-const DX_END = 183;
-const SOURCE_RIGHT = LEFT.top.x + LEFT.top.w;
-const DX_AT_CONTACT = TARGET.x - SOURCE_RIGHT;
-
-function clamp(v: number, a = 0, b = 1) {
-  return Math.max(a, Math.min(b, v));
-}
-function smooth(p: number) {
-  return p * p * (3 - 2 * p);
-}
-function setImage(el: SVGElement, x: number, y: number, w: number, h: number, opacity = 1) {
-  el.setAttribute("x", x.toFixed(3));
-  el.setAttribute("y", y.toFixed(3));
-  el.setAttribute("width", w.toFixed(3));
-  el.setAttribute("height", h.toFixed(3));
-  el.setAttribute("opacity", opacity.toFixed(3));
-}
-
-// Fragmento autocontenido (<style> + <svg>, con las imágenes del logo embebidas en base64) copiado tal
-// cual de public/agente_deutsch_loader_embed_transparente.html — no es CSS puro, por eso se inserta como
-// HTML y se manipula por id en el useEffect de AgenteDeutschAnimacion, en vez de reescribirlo como JSX.
-const LOADER_SVG_HTML = `
 <div class="ad-loader" role="img" aria-label="Cargando análisis de Agente Deutsch">
 <svg id="loaderSvg" viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg">
 
@@ -114,171 +114,168 @@ const LOADER_SVG_HTML = `
          opacity="0" />
 </svg>
 </div>
-`;
 
-/** La animación en sí: SVG manipulado a mano vía requestAnimationFrame (no CSS, ver LOADER_SVG_HTML arriba).
- * Cancela el loop al desmontar (cancelAnimationFrame) para no dejar bucles corriendo de fondo cada vez que
- * cambia el paso del pipeline que lo muestra. Si el usuario prefiere menos movimiento, muestra el estado
- * final estático sin animar — se resuelve acá, no con una media query CSS, porque la animación la controla
- * JavaScript, no CSS. */
-function AgenteDeutschAnimacion() {
-  const containerRef = useRef<HTMLDivElement>(null);
+<script>
+(() => {
+  const svg = document.getElementById("loaderSvg");
+  const curve = document.getElementById("curve");
+  const stem = document.getElementById("stem");
+  const rightInitial = document.getElementById("rightInitial");
+  const rightFinal = document.getElementById("rightFinal");
+  const wipeRect = document.getElementById("rightWipeRect");
+  const barTop = document.getElementById("barTop");
+  const barMid = document.getElementById("barMid");
+  const barBot = document.getElementById("barBot");
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  // Cronología solicitada:
+  // 0.0–6.0 s  : las 3 líneas avanzan lentamente a la derecha
+  // 6.0–6.5 s  : se convierten en 2 líneas y adoptan el color claro
+  // 6.5–7.5 s  : pausa completa
+  // 7.5 s      : reinicio del loop
+  const MOVE = 6000;
+  const MORPH = 500;
+  const PAUSE = 1000;
+  const TOTAL = MOVE + MORPH + PAUSE;
 
-    const curveRaw = container.querySelector<SVGElement>("#curve");
-    const stemRaw = container.querySelector<SVGElement>("#stem");
-    const rightInitialRaw = container.querySelector<SVGElement>("#rightInitial");
-    const rightFinalRaw = container.querySelector<SVGElement>("#rightFinal");
-    const wipeRectRaw = container.querySelector<SVGElement>("#rightWipeRect");
-    const barTopRaw = container.querySelector<SVGElement>("#barTop");
-    const barMidRaw = container.querySelector<SVGElement>("#barMid");
-    const barBotRaw = container.querySelector<SVGElement>("#barBot");
-    if (
-      !curveRaw || !stemRaw || !rightInitialRaw || !rightFinalRaw ||
-      !wipeRectRaw || !barTopRaw || !barMidRaw || !barBotRaw
-    ) {
-      return;
+  // Geometría exacta medida sobre el logo original.
+  const LEFT = {
+    top: { x:40, y:112, w:158, h:52 },
+    mid: { x:40, y:170, w:158, h:53 },
+    bot: { x:40, y:228, w:158, h:54 }
+  };
+  const TARGET = {
+    x:248, y:128, w:107, h:100
+  };
+
+  // Recorrido: centro de las barras izquierdas hacia la zona de las barras derechas.
+  const DX_END = 183;
+
+  // Momento real de "contacto": borde delantero de las barras viajeras
+  // alcanza el borde izquierdo de las dos barras derechas.
+  const sourceRight = LEFT.top.x + LEFT.top.w;
+  const dxAtContact = TARGET.x - sourceRight; // ~50 px
+
+  const clamp = (v,a=0,b=1) => Math.max(a, Math.min(b,v));
+  const smooth = p => p*p*(3 - 2*p);
+
+  function setImage(el, x, y, w, h, opacity=1) {
+    el.setAttribute("x", x.toFixed(3));
+    el.setAttribute("y", y.toFixed(3));
+    el.setAttribute("width", w.toFixed(3));
+    el.setAttribute("height", h.toFixed(3));
+    el.setAttribute("opacity", opacity.toFixed(3));
+  }
+
+  let start = performance.now();
+
+  function frame(now) {
+    const t = (now - start) % TOTAL;
+
+    // ---------- fase 1: desplazamiento ----------
+    const moveP = clamp(t / MOVE);
+    const dx = DX_END * smooth(moveP);
+
+    // Titileo más rápido que el desplazamiento.
+    // Durante la pausa final queda completamente encendido.
+    const activeBlink = t < (MOVE + MORPH);
+    const blinkPeriod = 360; // ms
+    const blinkOn = ((t % blinkPeriod) < (blinkPeriod * 0.56));
+    const blinkOpacity = activeBlink ? (blinkOn ? 1 : 0.16) : 1;
+
+    stem.setAttribute("opacity", blinkOpacity);
+
+    // Las dos líneas de la derecha titilan mientras todavía existen.
+    rightInitial.setAttribute("opacity", blinkOpacity);
+
+    // Desaparición por contacto, como un barrido de izquierda a derecha.
+    // La desaparición termina cuando el conjunto ha penetrado aprox.
+    // el ancho completo de las barras derechas.
+    const contactSpan = TARGET.w * 0.92;
+    const contactP = clamp((dx - dxAtContact) / contactSpan);
+    const wipe = smooth(contactP);
+    const visibleX = TARGET.x + TARGET.w * wipe;
+    const visibleW = TARGET.w * (1 - wipe);
+    wipeRect.setAttribute("x", visibleX.toFixed(3));
+    wipeRect.setAttribute("width", Math.max(0, visibleW).toFixed(3));
+
+    if (t < MOVE) {
+      // Las tres piezas se mueven sin alterar forma, tamaño ni color.
+      setImage(barTop, LEFT.top.x + dx, LEFT.top.y, LEFT.top.w, LEFT.top.h, 1);
+      setImage(barMid, LEFT.mid.x + dx, LEFT.mid.y, LEFT.mid.w, LEFT.mid.h, 1);
+      setImage(barBot, LEFT.bot.x + dx, LEFT.bot.y, LEFT.bot.w, LEFT.bot.h, 1);
+
+      rightFinal.setAttribute("opacity", "0");
+      curve.setAttribute("transform", "");
     }
-    // Reasignados a variables no-nulas: el chequeo de arriba ya garantiza que existen, pero TypeScript no
-    // propaga esa certeza dentro de las funciones anidadas de más abajo.
-    const curve = curveRaw;
-    const stem = stemRaw;
-    const rightInitial = rightInitialRaw;
-    const rightFinal = rightFinalRaw;
-    const wipeRect = wipeRectRaw;
-    const barTop = barTopRaw;
-    const barMid = barMidRaw;
-    const barBot = barBotRaw;
+    else if (t < MOVE + MORPH) {
+      // ---------- fase 2: conversión de 3 líneas a 2 ----------
+      const p = smooth((t - MOVE) / MORPH);
 
-    function mostrarEstadoFinalEstatico() {
+      // Arranque exacto de la fase desde la posición de detención.
+      const startXTop = LEFT.top.x + DX_END;
+      const startXMid = LEFT.mid.x + DX_END;
+      const startXBot = LEFT.bot.x + DX_END;
+
+      // Top -> barra superior derecha.
+      const topX = startXTop + (TARGET.x - startXTop) * p;
+      const topY = LEFT.top.y + (TARGET.y - LEFT.top.y) * p;
+      const topW = LEFT.top.w + (TARGET.w - LEFT.top.w) * p;
+      const topH = LEFT.top.h + (50 - LEFT.top.h) * p;
+
+      // Bottom -> barra inferior derecha.
+      const botTargetY = 176;
+      const botX = startXBot + (TARGET.x - startXBot) * p;
+      const botY = LEFT.bot.y + (botTargetY - LEFT.bot.y) * p;
+      const botW = LEFT.bot.w + (TARGET.w - LEFT.bot.w) * p;
+      const botH = LEFT.bot.h + (52 - LEFT.bot.h) * p;
+
+      // La barra central desaparece al completarse la conversión.
+      const midOpacity = 1 - p;
+      const midW = LEFT.mid.w * (1 - 0.18*p);
+      const midH = LEFT.mid.h * (1 - 0.18*p);
+
+      // Las piezas oscuras se desvanecen durante el último tramo
+      // mientras entra encima la pareja exacta clara del logo.
+      const darkFade = 1 - clamp((p - 0.42) / 0.58);
+
+      setImage(barTop, topX, topY, topW, topH, darkFade);
+      setImage(barMid, startXMid, LEFT.mid.y, midW, midH, midOpacity * darkFade);
+      setImage(barBot, botX, botY, botW, botH, darkFade);
+
+      // Color y geometría finales: provienen literalmente de las
+      // dos líneas originales del logo.
+      rightFinal.setAttribute("opacity", clamp((p - 0.35) / 0.65).toFixed(3));
+
+      // Apertura sutil del elemento curvo justo durante la conversión.
+      // Como se anima la imagen original, no cambia su trazado.
+      const pulse = Math.sin(Math.PI * p);
+      const sx = 1 + 0.004 * pulse;
+      const sy = 1 + 0.020 * pulse;
+      const cx = 228, cy = 194.5;
+      curve.setAttribute(
+        "transform",
+        `translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})`
+      );
+    }
+    else {
+      // ---------- fase 3: pausa completa de 1 segundo ----------
       setImage(barTop, TARGET.x, TARGET.y, TARGET.w, 50, 0);
       setImage(barMid, TARGET.x, 154, TARGET.w, 50, 0);
       setImage(barBot, TARGET.x, 176, TARGET.w, 52, 0);
+
       rightInitial.setAttribute("opacity", "0");
       rightFinal.setAttribute("opacity", "1");
       stem.setAttribute("opacity", "1");
       curve.setAttribute("transform", "");
-      wipeRect.setAttribute("x", String(TARGET.x + TARGET.w));
+
+      // el clip ya no importa durante esta pausa, pero se deja cerrado
+      wipeRect.setAttribute("x", (TARGET.x + TARGET.w).toString());
       wipeRect.setAttribute("width", "0");
     }
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      mostrarEstadoFinalEstatico();
-      return;
-    }
+    requestAnimationFrame(frame);
+  }
 
-    let frameId: number;
-    const start = performance.now();
-
-    function frame(now: number) {
-      const t = (now - start) % TOTAL;
-
-      const moveP = clamp(t / MOVE);
-      const dx = DX_END * smooth(moveP);
-
-      const activeBlink = t < MOVE + MORPH;
-      const blinkPeriod = 360;
-      const blinkOn = t % blinkPeriod < blinkPeriod * 0.56;
-      const blinkOpacity = activeBlink ? (blinkOn ? 1 : 0.16) : 1;
-
-      stem.setAttribute("opacity", String(blinkOpacity));
-      rightInitial.setAttribute("opacity", String(blinkOpacity));
-
-      const contactSpan = TARGET.w * 0.92;
-      const contactP = clamp((dx - DX_AT_CONTACT) / contactSpan);
-      const wipe = smooth(contactP);
-      const visibleX = TARGET.x + TARGET.w * wipe;
-      const visibleW = TARGET.w * (1 - wipe);
-      wipeRect.setAttribute("x", visibleX.toFixed(3));
-      wipeRect.setAttribute("width", Math.max(0, visibleW).toFixed(3));
-
-      if (t < MOVE) {
-        setImage(barTop, LEFT.top.x + dx, LEFT.top.y, LEFT.top.w, LEFT.top.h, 1);
-        setImage(barMid, LEFT.mid.x + dx, LEFT.mid.y, LEFT.mid.w, LEFT.mid.h, 1);
-        setImage(barBot, LEFT.bot.x + dx, LEFT.bot.y, LEFT.bot.w, LEFT.bot.h, 1);
-        rightFinal.setAttribute("opacity", "0");
-        curve.setAttribute("transform", "");
-      } else if (t < MOVE + MORPH) {
-        const p = smooth((t - MOVE) / MORPH);
-
-        const startXTop = LEFT.top.x + DX_END;
-        const startXMid = LEFT.mid.x + DX_END;
-        const startXBot = LEFT.bot.x + DX_END;
-
-        const topX = startXTop + (TARGET.x - startXTop) * p;
-        const topY = LEFT.top.y + (TARGET.y - LEFT.top.y) * p;
-        const topW = LEFT.top.w + (TARGET.w - LEFT.top.w) * p;
-        const topH = LEFT.top.h + (50 - LEFT.top.h) * p;
-
-        const botTargetY = 176;
-        const botX = startXBot + (TARGET.x - startXBot) * p;
-        const botY = LEFT.bot.y + (botTargetY - LEFT.bot.y) * p;
-        const botW = LEFT.bot.w + (TARGET.w - LEFT.bot.w) * p;
-        const botH = LEFT.bot.h + (52 - LEFT.bot.h) * p;
-
-        const midOpacity = 1 - p;
-        const midW = LEFT.mid.w * (1 - 0.18 * p);
-        const midH = LEFT.mid.h * (1 - 0.18 * p);
-
-        const darkFade = 1 - clamp((p - 0.42) / 0.58);
-
-        setImage(barTop, topX, topY, topW, topH, darkFade);
-        setImage(barMid, startXMid, LEFT.mid.y, midW, midH, midOpacity * darkFade);
-        setImage(barBot, botX, botY, botW, botH, darkFade);
-
-        rightFinal.setAttribute("opacity", clamp((p - 0.35) / 0.65).toFixed(3));
-
-        const pulse = Math.sin(Math.PI * p);
-        const sx = 1 + 0.004 * pulse;
-        const sy = 1 + 0.02 * pulse;
-        const cx = 228;
-        const cy = 194.5;
-        curve.setAttribute(
-          "transform",
-          `translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})`
-        );
-      } else {
-        setImage(barTop, TARGET.x, TARGET.y, TARGET.w, 50, 0);
-        setImage(barMid, TARGET.x, 154, TARGET.w, 50, 0);
-        setImage(barBot, TARGET.x, 176, TARGET.w, 52, 0);
-        rightInitial.setAttribute("opacity", "0");
-        rightFinal.setAttribute("opacity", "1");
-        stem.setAttribute("opacity", "1");
-        curve.setAttribute("transform", "");
-        wipeRect.setAttribute("x", String(TARGET.x + TARGET.w));
-        wipeRect.setAttribute("width", "0");
-      }
-
-      frameId = requestAnimationFrame(frame);
-    }
-
-    frameId = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(frameId);
-  }, []);
-
-  return <div ref={containerRef} dangerouslySetInnerHTML={{ __html: LOADER_SVG_HTML }} />;
-}
-
-export function Loader({ messages, intervalMs = 1800 }: LoaderProps) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (messages.length <= 1) return;
-    const id = setInterval(() => {
-      setIndex((i) => (i + 1) % messages.length);
-    }, intervalMs);
-    return () => clearInterval(id);
-  }, [messages, intervalMs]);
-
-  return (
-    <div className="ad-loader-block">
-      <div className="ad-loader-wrap" role="status" aria-label="Agente Deutsch está procesando">
-        <AgenteDeutschAnimacion />
-      </div>
-      {messages[index] && <p className="ad-loader-message">{messages[index]}</p>}
-    </div>
-  );
-}
+  requestAnimationFrame(frame);
+})();
+</script>

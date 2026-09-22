@@ -85,8 +85,29 @@ a {
 }
 
 .app-header-title {
-  font-size: 0.95rem;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.app-header-logo {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+/* Cambio de logo según prefers-color-scheme, resuelto solo en CSS (sin lógica en JS): cada <img> se
+   oculta en el esquema que no le corresponde. */
+.app-header-logo-oscuro {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-header-logo-claro {
+    display: none;
+  }
+  .app-header-logo-oscuro {
+    display: block;
+  }
 }
 
 .app-header-nav {
@@ -359,9 +380,10 @@ button:disabled {
   color: var(--muted);
 }
 
-/* Loader animado de Umbusk: gira y pulsa mientras una etapa procesa por dentro. Logo a la izquierda, mensaje de
-   la etapa a la derecha, en la misma línea. */
-.umbusk-loader-block {
+/* Loader animado de Agente Deutsch (reemplaza al de Umbusk): logo a la izquierda, mensaje de la etapa a la
+   derecha, en la misma línea. La animación en sí (SVG + <script>, no CSS) vive en Loader.tsx, ver el
+   fragmento fuente en public/agente_deutsch_loader_embed_transparente.html. */
+.ad-loader-block {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -369,40 +391,44 @@ button:disabled {
   padding: 1.5rem 0;
 }
 
-.umbusk-loader-wrap {
-  --umbusk-loader-size: 57.6px; /* 96px reducido 40% */
-  --umbusk-loader-speed: 1.6s;
-  --umbusk-pulse-min: 0.94;
-  --umbusk-pulse-max: 1.04;
-  width: var(--umbusk-loader-size);
-  height: var(--umbusk-loader-size);
+.ad-loader-wrap {
+  --loader-width: 168px; /* 280px del fragmento original, reducido para la fila junto al mensaje */
   display: grid;
   place-items: center;
   overflow: visible;
 }
 
-.umbusk-loader {
-  width: 100%;
-  height: auto;
+/* Reglas propias del fragmento (public/agente_deutsch_loader_embed_transparente.html) — se omiten
+   deliberadamente sus reglas "html, body" del embed independiente, que no aplican dentro de esta app. */
+.ad-loader {
+  width: var(--loader-width);
+  aspect-ratio: 440 / 380;
   display: block;
-  transform-origin: 50% 50%;
-  will-change: transform;
-  animation: umbusk-spin-pulse var(--umbusk-loader-speed) linear infinite;
+  background: transparent;
+  isolation: isolate;
 }
 
-@keyframes umbusk-spin-pulse {
-  0%   { transform: rotate(0deg) scale(var(--umbusk-pulse-min)); }
-  25%  { transform: rotate(-90deg) scale(1.00); }
-  50%  { transform: rotate(-180deg) scale(var(--umbusk-pulse-max)); }
-  75%  { transform: rotate(-270deg) scale(1.00); }
-  100% { transform: rotate(-360deg) scale(var(--umbusk-pulse-min)); }
+.ad-loader svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  background: transparent;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .umbusk-loader { animation: none; }
+.ad-loader image,
+.ad-loader g,
+.ad-loader defs,
+.ad-loader clipPath,
+.ad-loader rect {
+  background: transparent;
 }
 
-.umbusk-loader-message {
+.pixel-perfect {
+  image-rendering: auto;
+}
+
+.ad-loader-message {
   color: var(--muted);
   font-size: 0.9rem;
   text-align: left;
