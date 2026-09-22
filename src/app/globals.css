@@ -411,7 +411,8 @@ button:disabled {
 }
 
 .ad-loader-wrap {
-  --loader-width: 57.6px; /* mismo tamaño exacto que tenía el loader de Umbusk anterior */
+  /* Altura resultante = 32px, la misma que .app-header-logo (aspect-ratio 440/380 del propio loader). */
+  --loader-width: calc(32px * 440 / 380);
   width: var(--loader-width);
   flex-shrink: 0;
   display: grid;
