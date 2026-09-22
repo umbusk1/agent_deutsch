@@ -37,13 +37,15 @@ export function Footer() {
 
   return (
     <footer className="app-footer app-footer-fijo">
-      {footer.mode === "procesando" ? (
-        <Loader messages={footer.messages} />
-      ) : (
-        <button className="primary" onClick={footer.onClick} disabled={footer.disabled}>
-          {footer.label}
-        </button>
-      )}
+      <div className={`app-footer-fijo-inner app-footer-fijo-inner-${footer.mode}`}>
+        {footer.mode === "procesando" ? (
+          <Loader messages={footer.messages} />
+        ) : (
+          <button className="primary" onClick={footer.onClick} disabled={footer.disabled}>
+            {footer.label}
+          </button>
+        )}
+      </div>
     </footer>
   );
 }
