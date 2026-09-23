@@ -421,6 +421,12 @@ export default function Home() {
           tripletas: buildTripletas(),
           problemas,
           explicaciones,
+          texto,
+          veredictos,
+          problemasNuevos: problemasNuevosActivos,
+          relaciones,
+          alcances,
+          pasajesPersuasivos: pasajesActivos,
         });
         setGuardadoEstado("ok");
       } catch {

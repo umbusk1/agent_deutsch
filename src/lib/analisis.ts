@@ -1,6 +1,14 @@
 import { randomUUID } from "crypto";
 import { Redis } from "@upstash/redis";
-import type { Problema, Explicacion } from "./types";
+import type {
+  Problema,
+  Explicacion,
+  Veredicto,
+  ProblemaNuevo,
+  Relacion,
+  Alcance,
+  PasajePersuasivo,
+} from "./types";
 import { findUser } from "./users";
 
 let redis: Redis | null = null;
@@ -39,6 +47,21 @@ export type AnalisisGuardado = {
   /** Solo presentes si alguien editó la metadata después de guardar — sin historial, solo el último editor. */
   editadoPor?: string;
   editadoEn?: string;
+  /**
+   * Datos completos de la corrida, para poder regenerar el reporte (Paso 7) sin volver a correr todo el
+   * análisis. Opcionales y ausentes en los registros guardados antes de este campo (ej. corridas de Ronda 2) —
+   * cualquier lectura de estos campos debe asumir que pueden faltar, nunca que siempre están presentes. Se
+   * guardan los tipos completos ya existentes (no una forma recortada a lo que step7 usa hoy) para no quedar
+   * desincronizados si el consumo de estos datos cambia más adelante.
+   */
+  texto?: string;
+  problemas?: Problema[];
+  explicaciones?: Explicacion[];
+  veredictos?: Veredicto[];
+  problemasNuevos?: ProblemaNuevo[];
+  relaciones?: Relacion[];
+  alcances?: Alcance[];
+  pasajesPersuasivos?: PasajePersuasivo[];
 };
 
 export type AnalisisResumen = {
@@ -74,6 +97,14 @@ type GuardarAnalisisInput = {
   tripletas: string;
   problemas: Problema[];
   explicaciones: Explicacion[];
+  // Opcionales: el resto de los datos completos de la corrida (ver el comentario junto a estos mismos
+  // campos en AnalisisGuardado). Si no vienen, el registro queda igual que antes de este cambio.
+  texto?: string;
+  veredictos?: Veredicto[];
+  problemasNuevos?: ProblemaNuevo[];
+  relaciones?: Relacion[];
+  alcances?: Alcance[];
+  pasajesPersuasivos?: PasajePersuasivo[];
 };
 
 /**
@@ -99,6 +130,14 @@ export async function guardarAnalisis(input: GuardarAnalisisInput): Promise<Anal
     totalProblemas,
     problemasConExplicacion,
     creadoEn: new Date().toISOString(),
+    ...(input.texto !== undefined ? { texto: input.texto } : {}),
+    problemas: input.problemas,
+    explicaciones: input.explicaciones,
+    ...(input.veredictos !== undefined ? { veredictos: input.veredictos } : {}),
+    ...(input.problemasNuevos !== undefined ? { problemasNuevos: input.problemasNuevos } : {}),
+    ...(input.relaciones !== undefined ? { relaciones: input.relaciones } : {}),
+    ...(input.alcances !== undefined ? { alcances: input.alcances } : {}),
+    ...(input.pasajesPersuasivos !== undefined ? { pasajesPersuasivos: input.pasajesPersuasivos } : {}),
   };
 
   await getRedis().set(analisisKey(registro.id), registro);

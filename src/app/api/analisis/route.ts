@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { guardarAnalisis, listarAnalisis } from "@/lib/analisis";
 import { findUser } from "@/lib/users";
-import type { Problema, Explicacion } from "@/lib/types";
+import type { Problema, Explicacion, Veredicto, ProblemaNuevo, Relacion, Alcance, PasajePersuasivo } from "@/lib/types";
 
 export const maxDuration = 30;
 
@@ -36,6 +36,12 @@ export async function POST(request: Request) {
       tripletas?: string;
       problemas?: Problema[];
       explicaciones?: Explicacion[];
+      texto?: string;
+      veredictos?: Veredicto[];
+      problemasNuevos?: ProblemaNuevo[];
+      relaciones?: Relacion[];
+      alcances?: Alcance[];
+      pasajesPersuasivos?: PasajePersuasivo[];
     };
 
     if (!body.reporte?.trim()) {
@@ -57,6 +63,12 @@ export async function POST(request: Request) {
       tripletas: body.tripletas ?? "",
       problemas: body.problemas ?? [],
       explicaciones: body.explicaciones ?? [],
+      texto: body.texto,
+      veredictos: body.veredictos,
+      problemasNuevos: body.problemasNuevos,
+      relaciones: body.relaciones,
+      alcances: body.alcances,
+      pasajesPersuasivos: body.pasajesPersuasivos,
     });
 
     return NextResponse.json({ id: registro.id });
