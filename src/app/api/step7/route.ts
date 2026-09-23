@@ -65,21 +65,46 @@ export async function POST(request: Request) {
         const persuasionPrompt = step7PersuasionPrompt(pasajesAntiRacionales);
 
         const [principalResult, persuasionResult] = await Promise.all([
-          callTool<{ resumenInicial: string; seccionPrincipal: string }>({ ...principalPrompt, effort: "medium" }),
+          callTool<{ seccionPrincipal: string }>({ ...principalPrompt, effort: "medium" }),
           callTool<{ seccionPersuasion: string }>({ ...persuasionPrompt, effort: "medium" }),
         ]);
 
+        // resumenInicial vive acá, no en principalPrompt: depende solo del texto crudo, nunca de los datos
+        // estructurados (explicaciones/veredictos/etc.), así que es un trabajo independiente de
+        // seccionPrincipal — juntarlos en una sola llamada los hacía competir por el mismo presupuesto de
+        // generación y en al menos una corrida real (Redis: análisis "Liberalmente", 2026-09-22) el modelo
+        // completó resumenInicial y devolvió seccionPrincipal vacío, sin ningún error.
         const ensamblajePrompt = step7EnsamblajePrompt(
+          texto,
           principalResult.seccionPrincipal,
           persuasionResult.seccionPersuasion
         );
-        const ensamblajeResult = await callTool<{ introduccion: string; transicion: string; cierre: string }>({
-          ...ensamblajePrompt,
-          effort: "medium",
-        });
+        const ensamblajeResult = await callTool<{
+          resumenInicial: string;
+          introduccion: string;
+          transicion: string;
+          cierre: string;
+        }>({ ...ensamblajePrompt, effort: "medium" });
+
+        // Ninguna de estas partes debería venir vacía salvo "transicion" (opcional por diseño: el propio
+        // prompt permite dejarla en blanco si las secciones ya fluyen bien solas). Si alguna otra viene
+        // vacía, el filtro de abajo la descarta en silencio del reporte final sin que nadie se entere — se
+        // deja registro acá para que una falla así quede visible en los logs, no disfrazada de reporte normal.
+        const partesObligatorias: Record<string, string> = {
+          resumenInicial: ensamblajeResult.resumenInicial,
+          introduccion: ensamblajeResult.introduccion,
+          seccionPrincipal: principalResult.seccionPrincipal,
+          seccionPersuasion: persuasionResult.seccionPersuasion,
+          cierre: ensamblajeResult.cierre,
+        };
+        for (const [nombre, valor] of Object.entries(partesObligatorias)) {
+          if (!valor?.trim()) {
+            console.error(`[step7] parte del reporte vino vacía y se descartó en silencio del reporte final: ${nombre}`);
+          }
+        }
 
         const reporte = [
-          principalResult.resumenInicial,
+          ensamblajeResult.resumenInicial,
           ensamblajeResult.introduccion,
           principalResult.seccionPrincipal,
           ensamblajeResult.transicion?.trim() || null,

@@ -1009,23 +1009,12 @@ export function step7PrincipalPrompt(
   const system = `
 ${CRITERIO_CENTRAL}
 
-Tu tarea en este paso tiene DOS partes, con propósitos completamente distintos:
+Tu tarea en este paso: redactar la SECCIÓN PRINCIPAL de un reporte crítico más grande, dirigida al autor o a un
+lector interesado en la calidad argumentativa del texto. Esta sección cubre las explicaciones del texto. Otro
+paso, por separado, redacta la sección sobre persuasión (pasajes que apelan a lealtad, urgencia, autoridad, tabú
+o vergüenza en vez de invitar al escrutinio) — no la menciones ni la anticipes, es independiente de esta.
 
-PARTE A — resumenInicial: un resumen NEUTRAL del texto original, de 300 a 400 palabras (orientativo, no un límite
-técnico exacto), describiendo la tesis y la estructura del artículo en los propios términos del autor — qué
-plantea, cómo organiza su argumento, a qué conclusión llega. Esto es puramente descriptivo: NUNCA evaluativo. No
-adelantes, insinúes ni prepares ninguna de las debilidades que la Parte B va a señalar — ni con el tono, ni
-seleccionando qué mencionar de forma que ya apunte al problema, ni con calificativos que dejen ver hacia dónde va
-la crítica. El propósito es que el lector pueda conectar por su cuenta lo que el texto planteó con la crítica que
-sigue después — no que se le entregue esa conexión ya hecha. Si te cuesta evitar el tono evaluativo, es señal de
-que estás describiendo el texto a través de la crítica que ya conoces en vez de a través de sus propios términos.
-
-PARTE B — la SECCIÓN PRINCIPAL de un reporte crítico más grande, dirigida al autor o a un lector interesado en la
-calidad argumentativa del texto. Esta sección cubre las explicaciones del texto. Otro paso, por separado, redacta
-la sección sobre persuasión (pasajes que apelan a lealtad, urgencia, autoridad, tabú o vergüenza en vez de invitar
-al escrutinio) — no la menciones ni la anticipes, es independiente de esta.
-
-La sección principal (Parte B) debe:
+Esta sección debe:
 
 - Estar completamente en español, en Markdown, organizada con encabezados por explicación relevante.
 - Mostrar el razonamiento de forma auditable: qué se probó (qué variantes se consideraron) y qué sobrevivió o se
@@ -1129,24 +1118,19 @@ relación entre explicaciones, sin resumir ni cerrar.
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      resumenInicial: {
-        type: "string",
-        description:
-          "300-400 palabras (orientativo), resumen NEUTRAL de la tesis y estructura del texto en sus propios términos — nunca evaluativo, nunca insinúa las debilidades que la sección principal va a señalar.",
-      },
       seccionPrincipal: {
         type: "string",
         description: "Sección del reporte sobre las explicaciones, en prosa crítica, formato Markdown, sin cierre ni conclusión general",
       },
     },
-    required: ["resumenInicial", "seccionPrincipal"],
+    required: ["seccionPrincipal"],
   };
 
   return {
     system,
     user,
     toolName: "reportar_seccion_principal",
-    toolDescription: "Reporta el resumen neutral inicial y la sección principal (explicaciones) del reporte crítico, sin conclusión general.",
+    toolDescription: "Reporta la sección principal (explicaciones) del reporte crítico, sin conclusión general.",
     inputSchema,
   };
 }
@@ -1206,14 +1190,26 @@ paso por separado, que necesita ser la única conclusión del reporte final.
   };
 }
 
-export function step7EnsamblajePrompt(seccionPrincipal: string, seccionPersuasion: string) {
+export function step7EnsamblajePrompt(texto: string, seccionPrincipal: string, seccionPersuasion: string) {
   const system = `
-Vas a preparar solo las PIEZAS DE ENLACE de un reporte crítico ya redactado en dos secciones separadas (una
-sobre la calidad de las explicaciones del texto, otra sobre pasajes que apelan a lealtad, urgencia, autoridad,
-tabú o vergüenza en vez de invitar al escrutinio) — las vas a recibir completas más abajo, solo como referencia.
+Tu tarea en este paso tiene DOS partes, con propósitos completamente distintos — no dejes que una le quite
+espacio a la otra, son trabajos independientes:
 
-NO reescribas ni reproduzcas el contenido de esas dos secciones: van a insertarse tal cual, sin tocarlas. Tu
-única salida son tres piezas cortas y nuevas:
+PARTE A — resumenInicial: un resumen NEUTRAL del texto original (lo recibís completo más abajo), de 300 a 400
+palabras (orientativo, no un límite técnico exacto), describiendo la tesis y la estructura del artículo en los
+propios términos del autor — qué plantea, cómo organiza su argumento, a qué conclusión llega. Esto es puramente
+descriptivo: NUNCA evaluativo. No adelantes, insinúes ni prepares ninguna de las debilidades que las secciones ya
+redactadas (parte B, más abajo) señalan — ni con el tono, ni seleccionando qué mencionar de forma que ya apunte
+al problema, ni con calificativos que dejen ver hacia dónde va la crítica. El propósito es que el lector pueda
+conectar por su cuenta lo que el texto planteó con la crítica que sigue después — no que se le entregue esa
+conexión ya hecha. Si te cuesta evitar el tono evaluativo, es señal de que estás describiendo el texto a través
+de la crítica que ya conoces en vez de a través de sus propios términos.
+
+PARTE B — las PIEZAS DE ENLACE de un reporte crítico ya redactado en dos secciones separadas (una sobre la
+calidad de las explicaciones del texto, otra sobre pasajes que apelan a lealtad, urgencia, autoridad, tabú o
+vergüenza en vez de invitar al escrutinio) — las vas a recibir completas más abajo, solo como referencia. NO
+reescribas ni reproduzcas el contenido de esas dos secciones: van a insertarse tal cual, sin tocarlas. Tu salida
+acá son tres piezas cortas y nuevas:
 
 - introduccion: 1-3 frases que abran el reporte completo, mencionando de forma natural que se va a hablar tanto
   de la calidad de las explicaciones como de cómo el texto trata al lector.
@@ -1225,27 +1221,32 @@ NO reescribas ni reproduzcas el contenido de esas dos secciones: van a insertars
   estén dentro de las dos secciones.
 
 Todo en español, prosa llana, sin jerga. NUNCA menciones a David Deutsch, Karl Popper, "difícil de variar",
-"falsable", "conjetura", "meme", "racional" ni "anti-racional". No inventes hallazgos que no estén ya en las dos
-secciones — tu trabajo es puramente de enlace editorial, no de análisis nuevo.
+"falsable", "conjetura", "meme", "racional" ni "anti-racional". En la parte B no inventes hallazgos que no estén
+ya en las dos secciones — ese trabajo es puramente de enlace editorial, no de análisis nuevo.
 `.trim();
 
-  const user = `Sección principal (explicaciones), para contexto — no la reescribas:\n\n${seccionPrincipal}\n\nSección de persuasión, para contexto — no la reescribas:\n\n${seccionPersuasion}`;
+  const user = `Texto original (para el resumen neutral de la parte A):\n\n${texto}\n\nSección principal (explicaciones), para contexto de la parte B — no la reescribas:\n\n${seccionPrincipal}\n\nSección de persuasión, para contexto de la parte B — no la reescribas:\n\n${seccionPersuasion}`;
 
   const inputSchema: Schema = {
     type: "object",
     properties: {
+      resumenInicial: {
+        type: "string",
+        description:
+          "300-400 palabras (orientativo), resumen NEUTRAL de la tesis y estructura del texto original en sus propios términos — nunca evaluativo, nunca insinúa las debilidades que las otras secciones ya señalan.",
+      },
       introduccion: { type: "string", description: "1-3 frases de apertura del reporte completo" },
       transicion: { type: "string", description: "1-2 frases de enlace entre secciones, o cadena vacía si no hace falta" },
       cierre: { type: "string", description: "Única valoración general de cierre del reporte completo" },
     },
-    required: ["introduccion", "transicion", "cierre"],
+    required: ["resumenInicial", "introduccion", "transicion", "cierre"],
   };
 
   return {
     system,
     user,
     toolName: "reportar_piezas_de_enlace",
-    toolDescription: "Reporta solo la introducción, transición y cierre que enlazan las dos secciones ya redactadas.",
+    toolDescription: "Reporta el resumen neutral inicial y la introducción, transición y cierre que enlazan las dos secciones ya redactadas.",
     inputSchema,
   };
 }
