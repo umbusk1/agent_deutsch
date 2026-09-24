@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSetAppChrome } from "@/lib/appChrome";
 import { Loader } from "@/components/Loader";
+import { ETIQUETA_CAMPO_VEREDICTO, ETIQUETAS_VEREDICTO, ETIQUETAS_MECANISMO } from "@/lib/etiquetas";
 import type {
   Explicacion,
   Descartada,
@@ -40,11 +41,11 @@ const MENSAJES_TEST_VARIANTES = [
 const MENSAJES_TEST_VEREDICTOS = [
   "Poniendo a prueba cada variante...",
   "Viendo si el problema sobrevive el cambio de detalles...",
-  "Redactando los veredictos...",
+  "Redactando los resultados...",
 ];
 
 const MENSAJES_CONSECUENCIA = [
-  "Buscando qué preguntas nuevas abre cada explicación fuerte...",
+  "Buscando qué preguntas nuevas abre cada explicación firme...",
   "Evaluando si el alcance de la explicación es amplio o limitado...",
   "Comparando explicaciones entre sí...",
   "Buscando relaciones de competencia o complemento...",
@@ -799,7 +800,7 @@ export default function Home() {
                 />
                 {e.puente.laguna && (
                   <p className="warning-note" style={{ marginTop: "0.5rem" }}>
-                    Puente sin argumentar: {e.puente.justificacion}
+                    Conexión sin argumentar: {e.puente.justificacion}
                   </p>
                 )}
               </div>
@@ -825,7 +826,7 @@ export default function Home() {
 
       {step === 3 && (
         <div className="card">
-          <h2>Test: persuasión, variantes y veredictos</h2>
+          <h2>Test: persuasión, variantes y resultados</h2>
 
           <h3>Pasajes con mecanismo de persuasión</h3>
           <p className="loading" style={{ marginBottom: "1rem" }}>
@@ -850,6 +851,9 @@ export default function Home() {
                 </label>
               </div>
               <div className="quote">&ldquo;{m.cita}&rdquo;</div>
+              <div className="item-label" style={{ marginTop: "0.5rem" }}>
+                <span>Mecanismo de persuasión</span>
+              </div>
               <select
                 value={m.mecanismo}
                 disabled={pasajesExcluidos.has(m.id)}
@@ -863,8 +867,8 @@ export default function Home() {
                   )
                 }
               >
-                <option value="Racional">Racional</option>
-                <option value="AntiRacional">AntiRacional</option>
+                <option value="Racional">{ETIQUETAS_MECANISMO.Racional}</option>
+                <option value="AntiRacional">{ETIQUETAS_MECANISMO.AntiRacional}</option>
               </select>
               <div className="item-label" style={{ marginTop: "0.5rem" }}>
                 <span>Técnicas (una por línea)</span>
@@ -958,13 +962,13 @@ export default function Home() {
             ) : (
               <div className="actions">
                 <button className="primary" disabled={loading} onClick={runVeredictos}>
-                  Pedir veredictos de las variantes activas
+                  Pedir resultados de las variantes activas
                 </button>
               </div>
             )
           ) : (
             <>
-              <h3 style={{ marginTop: "1.5rem" }}>Veredictos</h3>
+              <h3 style={{ marginTop: "1.5rem" }}>Resultados</h3>
               {veredictos.map((ve) => {
                 const e = explicaciones.find((x) => x.id === ve.explicacionId);
                 return (
@@ -975,8 +979,8 @@ export default function Home() {
                     {ve.veredicto === "SinSustitutoGenuino" && (
                       <p className="warning-note">
                         El paso anterior no logró generar ninguna variante que compitiera genuinamente por
-                        el mismo problema — esta explicación no fue puesta a prueba. No es lo mismo que
-                        &ldquo;difícil de variar&rdquo;.
+                        el mismo problema — esta explicación no fue puesta a prueba. No es lo mismo que un
+                        resultado &ldquo;{ETIQUETAS_VEREDICTO.DificilDeVariar}&rdquo;.
                       </p>
                     )}
                     {ve.resultadosVariantes.map((r) => {
@@ -992,13 +996,13 @@ export default function Home() {
                     })}
                     {ve.resisteConocimientoNuevo && (
                       <p className="warning-note" style={{ marginTop: "0.5rem" }}>
-                        Conocimiento nuevo (aparte del veredicto principal):{" "}
+                        Conocimiento nuevo (aparte del {ETIQUETA_CAMPO_VEREDICTO.toLowerCase()} principal):{" "}
                         <span className="badge">{ve.resisteConocimientoNuevo.resultado}</span>{" "}
                         {ve.resisteConocimientoNuevo.justificacion}
                       </p>
                     )}
                     <div className="item-label" style={{ marginTop: "0.6rem" }}>
-                      <span>Veredicto principal</span>
+                      <span>{ETIQUETA_CAMPO_VEREDICTO} principal</span>
                     </div>
                     <select
                       value={ve.veredicto}
@@ -1012,10 +1016,10 @@ export default function Home() {
                         )
                       }
                     >
-                      <option value="DificilDeVariar">DificilDeVariar</option>
-                      <option value="FacilDeVariar">FacilDeVariar</option>
-                      <option value="Mixta">Mixta</option>
-                      <option value="SinSustitutoGenuino">SinSustitutoGenuino (no puesta a prueba)</option>
+                      <option value="DificilDeVariar">{ETIQUETAS_VEREDICTO.DificilDeVariar}</option>
+                      <option value="FacilDeVariar">{ETIQUETAS_VEREDICTO.FacilDeVariar}</option>
+                      <option value="Mixta">{ETIQUETAS_VEREDICTO.Mixta}</option>
+                      <option value="SinSustitutoGenuino">{ETIQUETAS_VEREDICTO.SinSustitutoGenuino}</option>
                     </select>
                     <textarea
                       value={ve.justificacion}
@@ -1040,7 +1044,7 @@ export default function Home() {
         <div className="card">
           <h2>Consecuencia: preguntas nuevas y relaciones</h2>
 
-          <h3>Preguntas nuevas que abren las explicaciones fuertes</h3>
+          <h3>Preguntas nuevas que abren las explicaciones firmes</h3>
           {problemasNuevos.length === 0 && <p className="loading">No se generaron preguntas nuevas.</p>}
           {problemasNuevos.map((n) => (
             <div className="item" key={n.id}>
@@ -1076,7 +1080,7 @@ export default function Home() {
 
           {alcances.length > 0 && (
             <div className="discarded-list">
-              <h3>Alcance de las explicaciones fuertes</h3>
+              <h3>Alcance de las explicaciones firmes</h3>
               {alcances.map((a) => (
                 <div className="item" key={a.explicacionId}>
                   <div className="item-label">

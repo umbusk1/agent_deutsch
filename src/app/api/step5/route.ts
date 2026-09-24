@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
     if (!veredictos?.length) {
       return NextResponse.json(
-        { error: "No hay veredictos (ninguna explicación llegó con variantes evaluadas)." },
+        { error: "No hay resultados (ninguna explicación llegó con variantes evaluadas)." },
         { status: 400 }
       );
     }

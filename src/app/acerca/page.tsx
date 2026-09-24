@@ -1,3 +1,5 @@
+import { ETIQUETA_CAMPO_VEREDICTO, ETIQUETAS_VEREDICTO } from "@/lib/etiquetas";
+
 export default function AcercaDe() {
   return (
     <div className="container">
@@ -60,12 +62,12 @@ export default function AcercaDe() {
           <li>
             <strong>Test:</strong> la etapa central. El agente genera variantes de cada explicación,
             sustituyendo un detalle a la vez, y observa si el argumento sigue funcionando igual de bien. De
-            ahí sale el veredicto: <strong>difícil de variar</strong> (resistió los intentos de sustituirla;
+            ahí sale el {ETIQUETA_CAMPO_VEREDICTO.toLowerCase()}: <strong>{ETIQUETAS_VEREDICTO.DificilDeVariar}</strong> (resistió los intentos de sustituirla;
             es evidencia real a favor, aunque nunca una prueba definitiva, ya que solo se probó un número
-            limitado de alternativas), <strong>fácil de variar</strong> (se encontró un sustituto que
+            limitado de alternativas), <strong>{ETIQUETAS_VEREDICTO.FacilDeVariar}</strong> (se encontró un sustituto que
             funciona igual, señal de que el detalle no estaba haciendo un trabajo necesario), o{" "}
-            <strong>sin sustituto genuino</strong> (no se logró generar ningún rival real para ponerla a
-            prueba, algo distinto de &ldquo;difícil de variar&rdquo;: simplemente no llegó a probarse). En
+            <strong>{ETIQUETAS_VEREDICTO.SinSustitutoGenuino}</strong> (no se logró generar ningún rival real para ponerla a
+            prueba, algo distinto de &ldquo;{ETIQUETAS_VEREDICTO.DificilDeVariar}&rdquo;: simplemente no llegó a probarse). En
             esta misma etapa, el agente revisa también si el texto usa recursos retóricos que le cierran el
             paso al lector (apelar a la vergüenza, a la lealtad, a un tabú) en vez de invitarlo a examinar
             el argumento por sus propios méritos, y si la analogía o imagen central de una explicación carga
@@ -105,7 +107,7 @@ export default function AcercaDe() {
           exigieran lealtad ideológica? ¿O que produjeras datos útiles para sus sistemas? ¿O que consumieras
           lo que ellos mismos producen? En los tres casos, la explicación siguió funcionando exactamente
           igual: el detalle concreto resultó intercambiable, señal de que no estaba haciendo un trabajo
-          necesario. Veredicto: fácil de variar.
+          necesario. {ETIQUETA_CAMPO_VEREDICTO}: {ETIQUETAS_VEREDICTO.FacilDeVariar}.
         </p>
 
         <p>
