@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Explicacion, Problema, VarianteAceptada, Veredicto, Relacion, PasajePersuasivo, Alcance } from "./types";
+import { ETIQUETAS_VEREDICTO } from "./etiquetas";
 
 type Schema = Anthropic.Tool["input_schema"];
 
@@ -1017,69 +1018,44 @@ o vergüenza en vez de invitar al escrutinio) — no la menciones ni la anticipe
 Esta sección debe:
 
 - Estar completamente en español, en Markdown, organizada con encabezados por explicación relevante.
-- Mostrar el razonamiento de forma auditable: qué se probó (qué variantes se consideraron) y qué sobrevivió o se
-  rompió, en prosa natural — sin tablas de veredictos crudos ni jerga técnica.
-- NUNCA mencionar a David Deutsch, Karl Popper, "difícil de variar", "falsable", "conjetura" ni ningún término
-  técnico del método. Usa lenguaje llano: "no encontramos, entre las variantes que consideramos, ninguna que
-  debilitara esta explicación...", "esta explicación podría reemplazar sus causas propuestas por otras y seguiría
-  sonando igual de convincente, lo cual sugiere que no está realmente conectada con lo que dice explicar...".
-- Señalar, para las explicaciones fuertes, qué preguntas nuevas abre y si el autor las reconoce o las deja de lado.
-- Para las explicaciones fuertes, señalar también su alcance: si la misma lógica explicaría igual de bien otros
-  casos no mencionados por el autor (alcance amplio, nombra esos casos usando la justificación entregada), o si
-  es específica al caso puntual del texto y no generalizaría a nada parecido (alcance limitado, explica por qué
-  con la justificación entregada). Trata ambos resultados como hallazgos legítimos sobre el texto, no como una
-  nota de calidad — un alcance limitado no es un defecto de la explicación.
-- El veredicto principal (DificilDeVariar/FacilDeVariar/Mixta) y la señal de resisteConocimientoNuevo son DOS
-  observaciones distintas sobre la misma explicación — nunca las fusiones en una sola frase de causa-efecto (ej.
-  nunca digas que la explicación "es Mixta porque no resistió el conocimiento nuevo": esa variante nunca cuenta
-  para el veredicto principal, así que no es su causa). Narra el veredicto principal primero, con su propia
-  justificación. Si además hay un dato en resisteConocimientoNuevo (puede no haberlo — la explicación no siempre
-  hace una afirmación sobre el futuro), añádelo como una observación aparte, con su propia justificación: si
-  resultado es "rompe", algo como "esta explicación, además, no deja espacio para que conocimiento futuro cambie
-  la trayectoria que asume"; si es "sobrevive", algo como "esta explicación sí deja espacio para que un desarrollo
-  futuro imprevisto altere lo que asume, sin que eso la debilite". Nunca uses las palabras "predicción" ni
-  "profecía" para ninguna de las dos.
-- Si hay explicaciones rivales o complementarias, explicar esa relación en prosa.
-- Si el veredicto principal es "DificilDeVariar", no lo presentes como una conclusión definitiva o cerrada: ancla
-  la afirmación al alcance real de lo que se puso a prueba. Dilo en términos de "no encontramos, entre las
-  variantes que consideramos, ninguna que la debilitara" en vez de "esta explicación resiste el cambio de sus
-  detalles" sin más — la segunda formulación suena a un hecho establecido, mientras que la primera refleja
-  honestamente que se trata de evidencia a favor tras un número limitado de intentos (2-3 sustituciones
-  probadas), no de una prueba exhaustiva. Esto no le resta valor al veredicto — sigue siendo la explicación más
-  sólida del texto frente a lo que sí se le puso a prueba — pero el lector debe entender que es evidencia
-  acumulada bajo un número acotado de intentos, no una certeza cerrada.
-- Si una explicación tiene veredicto "SinSustitutoGenuino", trátala aparte y con menos confianza que a las
-  explicaciones puestas a prueba: no se encontró ninguna alternativa genuina con la cual ponerla a competir, así
-  que su solidez sigue sin verificarse — no la describas con el mismo lenguaje de solidez que usarías para una
-  explicación que sí resistió el cambio de sus detalles ("resiste el cambio", "está realmente conectada con lo
-  que explica"), y no le atribuyas preguntas nuevas ni alcance (no los tiene, precisamente porque no fue puesta a
-  prueba). Dilo en prosa llana, por ejemplo: "esta explicación no llegó a enfrentarse a ninguna alternativa que
-  compitiera genuinamente por el mismo problema, así que no es posible afirmar todavía qué tan bien resistiría un
-  cambio en sus detalles." No la trates como un hallazgo negativo (no es lo mismo que "fácil de variar") ni como
-  positivo (no es lo mismo que "difícil de variar") — es, literalmente, una pregunta abierta sobre el texto.
-- Si una explicación tiene una laguna de puente (puenteLaguna=true), señálalo en prosa como su propio tipo de
-  debilidad, distinto de ser fácil de variar o de no tener sustituto genuino: esta explicación resuelve un
-  problema local dando por sentado, sin argumentarlo, cómo se conecta con el conflicto central del texto. Usa la
-  justificación entregada para nombrar qué conexión se asume sin argumentar (ej. "el texto asume, sin explicarlo,
-  que resolver esto también resuelve..."). Esto aplica incluso a explicaciones con veredicto fuerte: sobrevivir el
-  cambio de sus propios detalles no repara un puente que nunca se argumentó.
-- Si una explicación tiene imagenCentral.presente=true Y su veredicto principal es "FacilDeVariar", agrega una nota
-  de contexto honesta (no una excusa): la fuerza persuasiva de esta explicación probablemente vive en la resonancia
-  de la imagen elegida (usa el dato de "imagen"), no en la necesidad lógica del detalle concreto — nombra el
-  mecanismo con precisión, como ya haces al distinguir ingenio de sarcasmo en la sección de persuasión, en vez de
-  quedarte solo con el veredicto seco. Usa el dato de "connotacionAñadida" para decir qué carga trae esa imagen que
-  el mecanismo, despojado de ella, no sostendría por sí solo.
-- Si una explicación tiene premisaValorOculta.presente=true, señálalo como su propia observación (puede convivir
-  con la nota de imagenCentral en la misma explicación — son dos hallazgos que se acumulan, nunca uno reemplaza al
-  otro): usa la justificación entregada para nombrar, en una frase, cuál es la afirmación estructural y cuál el
-  juicio de valor que se le pegó sin argumentar, en el espíritu de "esta explicación mezcla una afirmación sobre la
-  estructura con un juicio de valor no argumentado sobre cómo se experimentaría esa estructura — asume que [la
-  afirmación de valor], sin dar razones de por qué sería así y no de otra manera."
+- Ser compacta: UN párrafo por explicación — dos como máximo, y el segundo solo cuando una de las señales de
+  abajo (resisteConocimientoNuevo, conexión sin argumentar, supuesto sin argumentar, imagen persuasiva, alcance)
+  sea genuinamente el hallazgo central de esa explicación, no un dato secundario que se agrega porque existe. El
+  detalle completo de cada sustitución intentada ya vive en otro lugar (tripletas.txt, y pronto el módulo de
+  Mejora) — este reporte no lo repite variante por variante: nombra el resultado y, en la misma frase, la razón
+  más clara que lo sostiene.
+- Nombra el resultado con su etiqueta tal como la ve el usuario en la app — "${ETIQUETAS_VEREDICTO.DificilDeVariar}",
+  "${ETIQUETAS_VEREDICTO.FacilDeVariar}", "${ETIQUETAS_VEREDICTO.Mixta}" o "${ETIQUETAS_VEREDICTO.SinSustitutoGenuino}"
+  según corresponda — esa etiqueta no es jerga, es el mismo vocabulario que el usuario ya ve en la app.
+- NUNCA mencionar a David Deutsch, Karl Popper, "difícil de variar", "fácil de variar", "falsable", "conjetura"
+  ni ningún otro término técnico del método.
+- Si el resultado es "${ETIQUETAS_VEREDICTO.DificilDeVariar}", ancla la afirmación con una cláusula breve (no un
+  párrafo aparte) a que es evidencia a favor tras un número limitado de intentos (2-3 sustituciones probadas),
+  no una prueba exhaustiva.
+- Si el resultado es "${ETIQUETAS_VEREDICTO.SinSustitutoGenuino}", trátala con menos confianza que a las
+  explicaciones puestas a prueba (no se encontró ninguna alternativa genuina con la cual competir, así que su
+  solidez sigue sin verificarse) y no le atribuyas preguntas nuevas ni alcance — en una sola frase, no en un
+  tratamiento extendido. Aclara que no es lo mismo que "${ETIQUETAS_VEREDICTO.FacilDeVariar}" ni que
+  "${ETIQUETAS_VEREDICTO.DificilDeVariar}": es, literalmente, una pregunta abierta sobre el texto.
+- resisteConocimientoNuevo es una observación DISTINTA del resultado principal — nunca la fusiones en una sola
+  frase de causa-efecto (nunca digas que la explicación "es ${ETIQUETAS_VEREDICTO.Mixta} porque no resistió el
+  conocimiento nuevo": esa variante nunca cuenta para el resultado principal). Cuando exista, súmala como una
+  cláusula corta en el mismo párrafo, no como observación aparte. Nunca uses las palabras "predicción" ni
+  "profecía".
+- Si una explicación tiene una conexión sin argumentar (puenteLaguna=true), o un supuesto sin argumentar
+  (premisaValorOculta.presente=true), o una imagen central que carga más peso persuasivo que el mecanismo lógico
+  (imagenCentral.presente=true, típicamente junto a un resultado "${ETIQUETAS_VEREDICTO.FacilDeVariar}"), súmalo
+  como una cláusula breve dentro del mismo párrafo, nombrando qué se asume sin argumentar o qué imagen carga esa
+  connotación (usa la justificación/imagen/connotación entregadas) — no como su propia nota aparte, salvo que sea
+  el hallazgo central de esa explicación. Estos hallazgos pueden convivir en la misma explicación: cada uno se
+  menciona, ninguno reemplaza a otro.
+- Para las explicaciones con resultado firme, si abren preguntas nuevas y/o tienen alcance amplio o limitado,
+  menciónalo también como una cláusula en el mismo párrafo (quién la reconoce, si generalizaría a otros casos) —
+  trata ambos alcances como hallazgos legítimos, no como una nota de calidad.
+- Si hay explicaciones rivales o complementarias, mencionarlo en una frase breve, no en un párrafo aparte.
 - Si hay problemas que el texto plantea pero para los que no se ofrece ninguna explicación (ver
-  "problemasSinExplicacion" en los datos), menciónalos en prosa como preguntas que el texto deja abiertas o sin
-  resolver, en una sección o párrafo propio. Trátalo como un hallazgo legítimo sobre el texto, no como un defecto
-  de este análisis — puede ser una omisión notable o una pregunta que el propio autor deja deliberadamente sin
-  responder.
+  "problemasSinExplicacion" en los datos), menciónalos brevemente como preguntas que el texto deja abiertas o
+  sin resolver — un hallazgo legítimo sobre el texto, no un defecto de este análisis.
 
 No incluyas los datos crudos (IDs, listas estructuradas) en el reporte: tradúcelos a prosa legible.
 
