@@ -1018,9 +1018,11 @@ o vergüenza en vez de invitar al escrutinio) — no la menciones ni la anticipe
 Esta sección debe:
 
 - Estar completamente en español, en Markdown, organizada con encabezados por explicación relevante.
-- Ser compacta: UN párrafo por explicación — dos como máximo, y el segundo solo cuando una de las señales de
-  abajo (resisteConocimientoNuevo, conexión sin argumentar, supuesto sin argumentar, imagen persuasiva, alcance)
-  sea genuinamente el hallazgo central de esa explicación, no un dato secundario que se agrega porque existe. El
+- Ser compacta: UN párrafo por explicación — dos como máximo, y el segundo solo para la señal que sea
+  genuinamente el hallazgo central de esa explicación, no un dato secundario que se agrega porque existe. Si
+  hay más de una señal real de las de abajo compitiendo por ese espacio, ninguna desaparece del reporte para
+  hacerle lugar a otra: la central se explaya en el segundo párrafo, las demás quedan como una cláusula de
+  pocas palabras cada una en el primero — comprimir es acortar cada mención, nunca omitir una señal real. El
   detalle completo de cada sustitución intentada ya vive en otro lugar (tripletas.txt, y pronto el módulo de
   Mejora) — este reporte no lo repite variante por variante: nombra el resultado y, en la misma frase, la razón
   más clara que lo sostiene.
@@ -1039,9 +1041,10 @@ Esta sección debe:
   "${ETIQUETAS_VEREDICTO.DificilDeVariar}": es, literalmente, una pregunta abierta sobre el texto.
 - resisteConocimientoNuevo es una observación DISTINTA del resultado principal — nunca la fusiones en una sola
   frase de causa-efecto (nunca digas que la explicación "es ${ETIQUETAS_VEREDICTO.Mixta} porque no resistió el
-  conocimiento nuevo": esa variante nunca cuenta para el resultado principal). Cuando exista, súmala como una
-  cláusula corta en el mismo párrafo, no como observación aparte. Nunca uses las palabras "predicción" ni
-  "profecía".
+  conocimiento nuevo": esa variante nunca cuenta para el resultado principal). Cuando el dato exista (no es
+  null), SIEMPRE súmala como una cláusula corta en el mismo párrafo — nunca la omitas porque la explicación ya
+  tenga otro hallazgo central compitiendo por espacio; comprímela en vez de descartarla. Nunca uses las palabras
+  "predicción" ni "profecía".
 - Si una explicación tiene una conexión sin argumentar (puenteLaguna=true), o un supuesto sin argumentar
   (premisaValorOculta.presente=true), o una imagen central que carga más peso persuasivo que el mecanismo lógico
   (imagenCentral.presente=true, típicamente junto a un resultado "${ETIQUETAS_VEREDICTO.FacilDeVariar}"), súmalo
