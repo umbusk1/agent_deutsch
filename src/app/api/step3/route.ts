@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
-import { step3IdentificarPrompt, step3VariantesPrompt, type IdentificacionVariante } from "@/lib/prompts";
+import { step3IdentificarPrompt, step3VariantesPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada } from "@/lib/types";
+import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada, IdentificacionVariante } from "@/lib/types";
 
 export const maxDuration = 120;
 

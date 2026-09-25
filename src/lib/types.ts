@@ -55,6 +55,15 @@ export type VarianteDescartada = {
   motivo: string;
 };
 
+/** Salida del paso 1 de 2 de generación de variantes (ver step3IdentificarPrompt) — separa identificar qué es
+ * fijo/variable de generar los sustitutos, para no mezclar ambas tareas en una sola llamada. */
+export type IdentificacionVariante = {
+  tipo: "actor_con_motivo" | "cadena_causal" | "hibrido";
+  elementoFijo: string;
+  ingredienteVariable: string;
+  dominio: string;
+};
+
 export type ResultadoVariante = {
   varianteId: string;
   resultado: "rompe" | "sobrevive";
@@ -114,4 +123,52 @@ export type Comparacion = {
   sintesis: string;
   creadoPor: string;
   creadoEn: string;
+};
+
+/**
+ * Un intento dentro de una sesión de Mejora: el fragmento editado por el usuario y la salida REAL del mismo
+ * mecanismo de Variantes/Resultado ya existente (step3Identificar → step3Variantes → step4), sin resumir ni
+ * inferir nada después. Se persiste completo (no solo el veredicto final) para no perder trazabilidad y para
+ * alimentar el ensamblaje de TextoV2 más adelante.
+ */
+export type IntentoMejora = {
+  /** "I1".."I5" — secuencial dentro de la sesión; también el número que se muestra ("intento 3 de 5"). */
+  id: string;
+  /** El fragmento tal como se envió a evaluar en ESTE intento (no la cita original de la explicación). */
+  texto: string;
+  creadoEn: string;
+  identificacion: IdentificacionVariante;
+  variantes: VarianteAceptada[];
+  resultadosVariantes: ResultadoVariante[];
+  /** Mismo cuarto estado que el veredicto principal del análisis: si step3Variantes no logró generar ningún
+   * sustituto genuino para este intento, el resultado es SinSustitutoGenuino, no FacilDeVariar ni DificilDeVariar
+   * — no fue puesto a prueba, así que no hay base para llamarlo firme ni frágil. */
+  veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta" | "SinSustitutoGenuino";
+  justificacion: string;
+  resisteConocimientoNuevo: { resultado: "rompe" | "sobrevive"; justificacion: string } | null;
+  /** Nota narrada con tono de mentor para ESTE intento — contrasta contra el intento anterior. */
+  notaMentor: string;
+};
+
+/**
+ * Sesión de Mejora para UNA explicación de UN análisis guardado. Cubre solo explicaciones con veredicto
+ * FacilDeVariar. `aplicadoIntentoId` es la única fuente de verdad de qué intento quedó aplicado — nunca se
+ * infiere si fue "confirmado Firme" o no por la sola presencia de este campo: siempre hay que mirar el
+ * `veredicto` del intento al que apunta (`intentos.find(i => i.id === aplicadoIntentoId)`), porque el usuario
+ * puede aplicar un intento que no llegó a DificilDeVariar.
+ */
+export type MejoraSesion = {
+  id: string;
+  analisisId: string;
+  explicacionId: string;
+  /** Snapshot fijo del mecanismoGeneral original — de solo lectura durante toda la sesión, nunca editable. */
+  mecanismoGeneral: string;
+  /** Snapshot de la justificación del veredicto original (por qué salió FacilDeVariar). */
+  razonFragil: string;
+  /** Máximo 5. */
+  intentos: IntentoMejora[];
+  aplicadoIntentoId: string | null;
+  usuario: string;
+  creadoEn: string;
+  actualizadoEn: string;
 };

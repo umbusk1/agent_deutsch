@@ -10,6 +10,7 @@ import type {
   PasajePersuasivo,
 } from "./types";
 import { findUser } from "./users";
+import { obtenerMejoraSesiones } from "./mejora";
 
 let redis: Redis | null = null;
 
@@ -74,6 +75,10 @@ export type AnalisisResumen = {
   iniciales: string;
   totalProblemas: number;
   problemasConExplicacion: number;
+  /** Explicaciones con veredicto FacilDeVariar de este análisis que todavía no tienen un intento de Mejora
+   * aplicado — calculado en cada lectura de la lista (no en el guardado, a diferencia de 3P/3E) porque depende
+   * de sesiones de Mejora que se crean después, potencialmente mucho después, de guardar el análisis. */
+  explicacionesMejorables: number;
   creadoEn: string;
   editadoPor?: string;
   editadoEn?: string;
@@ -160,23 +165,40 @@ export async function listarAnalisis(): Promise<AnalisisResumen[]> {
   if (ids.length === 0) return [];
 
   const registros = await redis.mget<AnalisisGuardado[]>(...ids.map(analisisKey));
+  const validos = registros.filter((r): r is AnalisisGuardado => r !== null);
 
-  return registros
-    .filter((r): r is AnalisisGuardado => r !== null)
-    .map((r) => ({
-      id: r.id,
-      metaFecha: r.metaFecha,
-      metaAutor: r.metaAutor,
-      metaMedio: r.metaMedio,
-      metaTitulo: r.metaTitulo,
-      usuario: r.usuario,
-      iniciales: iniciales(findUser(r.usuario)?.fullName, r.usuario),
-      totalProblemas: r.totalProblemas,
-      problemasConExplicacion: r.problemasConExplicacion,
-      creadoEn: r.creadoEn,
-      editadoPor: r.editadoPor,
-      editadoEn: r.editadoEn,
-    }));
+  return Promise.all(
+    validos.map(async (r) => {
+      const fragilIds = (r.veredictos ?? [])
+        .filter((v) => v.veredicto === "FacilDeVariar")
+        .map((v) => v.explicacionId);
+
+      let explicacionesMejorables = 0;
+      if (fragilIds.length > 0) {
+        const sesiones = await obtenerMejoraSesiones(r.id, fragilIds);
+        explicacionesMejorables = fragilIds.filter((id) => {
+          const sesion = sesiones.get(id);
+          return !sesion || sesion.aplicadoIntentoId === null;
+        }).length;
+      }
+
+      return {
+        id: r.id,
+        metaFecha: r.metaFecha,
+        metaAutor: r.metaAutor,
+        metaMedio: r.metaMedio,
+        metaTitulo: r.metaTitulo,
+        usuario: r.usuario,
+        iniciales: iniciales(findUser(r.usuario)?.fullName, r.usuario),
+        totalProblemas: r.totalProblemas,
+        problemasConExplicacion: r.problemasConExplicacion,
+        explicacionesMejorables,
+        creadoEn: r.creadoEn,
+        editadoPor: r.editadoPor,
+        editadoEn: r.editadoEn,
+      };
+    })
+  );
 }
 
 export async function obtenerAnalisis(id: string): Promise<AnalisisGuardado | null> {

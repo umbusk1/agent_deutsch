@@ -399,6 +399,69 @@ button:disabled {
   color: var(--muted);
 }
 
+/* Mismo look que .badge pero clickeable (ej. "3E mejorables" en Biblioteca) — color de acento en vez de
+   muted para que se note que es una acción, no solo información. */
+.badge-link {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.badge-link:hover {
+  text-decoration: underline;
+}
+
+.mejora-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.mejora-tab {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.85rem;
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.mejora-tab.activa {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.mejora-tab-marca {
+  margin-left: 0.35rem;
+}
+
+.mejora-tab-marca.confirmada {
+  color: var(--accent);
+}
+
+.mejora-tab-marca.sin-confirmar {
+  color: var(--warning);
+}
+
+.mejora-intento {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.mejora-intento.aplicado {
+  border-color: var(--accent);
+}
+
 /* Loader animado de Agente Deutsch (reemplaza al de Umbusk): logo a la izquierda, mensaje de la etapa a la
    derecha, en la misma línea. La animación en sí (SVG + <script>, no CSS) vive en Loader.tsx, ver el
    fragmento fuente en public/agente_deutsch_loader_embed_transparente.html. */

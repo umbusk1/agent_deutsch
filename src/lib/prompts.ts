@@ -1,5 +1,14 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { Explicacion, Problema, VarianteAceptada, Veredicto, Relacion, PasajePersuasivo, Alcance } from "./types";
+import type {
+  Explicacion,
+  Problema,
+  VarianteAceptada,
+  Veredicto,
+  Relacion,
+  PasajePersuasivo,
+  Alcance,
+  IdentificacionVariante,
+} from "./types";
 import { ETIQUETAS_VEREDICTO } from "./etiquetas";
 
 type Schema = Anthropic.Tool["input_schema"];
@@ -477,13 +486,6 @@ ningún AntiRacional que no encuentres.
   };
 }
 
-export type IdentificacionVariante = {
-  tipo: "actor_con_motivo" | "cadena_causal" | "hibrido";
-  elementoFijo: string;
-  ingredienteVariable: string;
-  dominio: string;
-};
-
 // Paso 1 de 2 en la generación de variantes: solo identifica qué es fijo y cuál es el "ingrediente variable" —
 // no genera ningún sustituto todavía. Mezclar "identificar qué varía" con "ya generar un reemplazo" en la misma
 // llamada producía sistemáticamente sustituciones que cambiaban de dominio, de tipo de explicación o de sujeto,
@@ -519,6 +521,12 @@ dominio es el límite que usará el paso siguiente — los sustitutos que propon
 Usa mecanismoGeneral (la versión abstracta que ya se extrajo en el Paso 2, sin actores ni hechos específicos de
 este texto) como ayuda para separar lo fijo de lo variable: resumen es la instancia concreta, mecanismoGeneral ya
 muestra el patrón general del que el ingrediente variable es un caso particular.
+
+A veces resumen no es una paráfrasis prolija sino una cita real editada por el usuario — más cruda, a veces con
+pronombres o referencias ("esto", "ellos", "esa medida") que dependen de una oración anterior que no viaja con el
+fragmento aislado. Resuélvelas usando el texto original de arriba antes de clasificar. Si algo sigue siendo
+ambiguo incluso con ese contexto completo, trátalo como parte del elemento fijo en vez de adivinar a qué se
+refiere — una identificación conservadora es mejor que una inventada.
 `.trim();
 
   const user = `Texto original (para contexto):\n\n${texto}\n\nExplicación:\n${JSON.stringify(
@@ -801,6 +809,102 @@ justificación. Si no recibiste ninguna variante de ese tipo, omite el campo res
     user,
     toolName: "reportar_veredicto",
     toolDescription: "Reporta el resultado de cada variante y el veredicto global de la explicación.",
+    inputSchema,
+  };
+}
+
+type ResultadoIntentoMejora = {
+  texto: string;
+  veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta" | "SinSustitutoGenuino";
+  justificacion: string;
+  resultadosVariantes: { descripcion: string; resultado: "rompe" | "sobrevive"; justificacion: string }[];
+};
+
+// Guardrail reforzado ACÁ (no solo en instrucciones generales) porque este es el único punto de todo el
+// producto donde el modelo escribe prosa dirigida al usuario en respuesta directa a un texto que el usuario
+// propuso — el lugar exacto donde "ayudar" se confunde más fácil con "escribir la frase por él".
+const REGLA_NUNCA_PROPONER_REDACCION = `
+NUNCA propongas una redacción alternativa, ni completa ni parcial — ni una frase, ni una palabra suelta a modo de
+sugerencia, ni siquiera envuelta en "por ejemplo, algo como...". Tu trabajo es poner a prueba lo que el usuario
+escribió, no escribir por él. Podés nombrar QUÉ TIPO de problema tumbó el intento (ej. "el sujeto que actúa
+sigue siendo intercambiable", "la cadena causal se rompe si cambia el actor concreto") — eso es diagnóstico, está
+permitido y es justamente tu función. Lo que no podés hacer es completar ese diagnóstico con una propuesta de
+texto concreto. Si en algún momento se te pide directamente "¿qué pondrías vos?" o equivalente, rehusate con
+calidez, recordando en una frase que tu función acá es poner a prueba lo que el usuario escribe, no escribir por
+él — nunca cedas ni "solo esta vez a modo de ejemplo".
+`.trim();
+
+export function mejoraNotaPrompt(
+  mecanismoGeneral: string,
+  razonFragil: string,
+  intentoActual: ResultadoIntentoMejora,
+  intentoAnterior: ResultadoIntentoMejora | null,
+  numeroIntento: number
+) {
+  const system = `
+${REGLA_JERGA}
+
+${REGLA_IDIOMA}
+
+Vas a redactar una nota breve, en tono de mentor cercano (nunca frío ni burocrático), para alguien que acaba de
+reescribir un fragmento real de su propio artículo e intentó ponerlo a prueba con el mismo mecanismo de
+sustitución mínima que ya conocés. Esta nota es lo único que va a leer después de este intento — tiene que
+decirle con precisión qué pasó y por qué, sin jerga técnica y sin desplegar cada sustitución probada en detalle
+(esas ya quedan visibles aparte, en la lista de resultados de este intento).
+
+${REGLA_NUNCA_PROPONER_REDACCION}
+
+Reglas de tono según el resultado de ESTE intento:
+- Si el resultado es "DificilDeVariar": celebralo genuinamente como un logro — el fragmento reescrito ahora
+  resiste el mismo tipo de sustitución que antes lo tumbaba. Nombra, en una frase, qué cambió que ahora sostiene
+  el peso (sin decir "difícil de variar" ni "veredicto"; usá lenguaje llano).
+- Si el resultado sigue siendo "FacilDeVariar" o "Mixta": no es un fracaso, es información — decí con precisión
+  qué lo tumbó (cuál sustitución sobrevivió y por qué eso revela que un detalle seguía siendo intercambiable) y
+  hacia qué tipo de ajuste apunta esa señal, en términos de qué debilidad de ESTRUCTURA hay que resolver, nunca
+  de qué palabras usar.
+- Si el resultado es "SinSustitutoGenuino": explicá que esta vez no se logró generar ningún sustituto genuino
+  para ponerlo a prueba — no es ni un logro ni un fracaso, es una pregunta que queda abierta sobre este intento
+  puntual.
+
+Contraste obligatorio: ${
+    intentoAnterior
+      ? `este es el intento número ${numeroIntento}, y HAY un intento anterior — contrastalo explícitamente
+contra ese intento anterior (qué cambió, si mejoró, empeoró, o se movió el problema a otro lugar del fragmento),
+no lo trates como si fuera el primero.`
+      : `este es el primer intento de esta sesión — no hay nada previo contra qué contrastar, así que no
+inventes una comparación.`
+  }
+
+Usa mecanismoGeneral (fijo, nunca cambia entre intentos) y la razón original por la que esta explicación salió
+frágil como contexto de fondo, pero la nota es sobre ESTE intento, no una reevaluación de todo el historial.
+`.trim();
+
+  const user = `Mecanismo general (fijo):\n${mecanismoGeneral}\n\nPor qué salió frágil originalmente:\n${razonFragil}\n\nIntento actual (número ${numeroIntento}):\n${JSON.stringify(
+    intentoActual,
+    null,
+    2
+  )}${
+    intentoAnterior
+      ? `\n\nIntento anterior, para contraste:\n${JSON.stringify(intentoAnterior, null, 2)}`
+      : "\n\n(No hay intento anterior — es el primero de la sesión.)"
+  }`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      notaMentor: {
+        type: "string",
+        description: "Nota breve en tono de mentor sobre este intento, con contraste explícito contra el anterior si lo hay. Nunca incluye una redacción alternativa propuesta.",
+      },
+    },
+    required: ["notaMentor"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_nota_mentor",
+    toolDescription: "Reporta una nota breve en tono de mentor sobre el resultado de este intento de Mejora, sin proponer redacción alternativa.",
     inputSchema,
   };
 }
