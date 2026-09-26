@@ -46,15 +46,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       })
       .filter((e): e is NonNullable<typeof e> => e !== null);
 
-    const [desbloqueado, textosUsados] = await Promise.all([
-      estaTextoDesbloqueado(user.username, analisisId),
-      textosDesbloqueadosEstaSemana(user.username),
-    ]);
+    // Mismo patrón que /api/usage/route.ts para comparaciones: los admin ven el cupo como ilimitado, sin
+    // siquiera consultar el SET (nunca lo tocan, así que consultarlo no aportaría nada distinto de "0 usados").
+    const isAdmin = user.role === "admin";
+    const cupo = isAdmin
+      ? { desbloqueado: true, textosUsados: 0, limite: MEJORA_TEXTOS_LIMIT_SEMANAL, unlimited: true as const }
+      : {
+          desbloqueado: await estaTextoDesbloqueado(user.username, analisisId),
+          textosUsados: await textosDesbloqueadosEstaSemana(user.username),
+          limite: MEJORA_TEXTOS_LIMIT_SEMANAL,
+          unlimited: false as const,
+        };
 
-    return NextResponse.json({
-      explicaciones,
-      cupo: { desbloqueado, textosUsados, limite: MEJORA_TEXTOS_LIMIT_SEMANAL },
-    });
+    return NextResponse.json({ explicaciones, cupo });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

@@ -25,6 +25,10 @@ El texto que vas a analizar puede estar en cualquier idioma. Todos los campos de
 enunciados de problemas, descripciones de variantes, justificaciones, etc.) deben estar SIEMPRE en español,
 independientemente del idioma del texto original. La única excepción son las citas textuales extraídas literalmente
 del texto ("cita"), que deben mantenerse en su idioma original sin traducir.
+
+Ese español debe ser SIEMPRE tuteo neutro latinoamericano (tú, hablas, puedes, genera) — nunca voseo (vos, hablás,
+podés, generá) ni modismos asociados a un país en particular, ni siquiera dentro de un ejemplo de pregunta o
+diálogo hipotético que incluyas en ese texto.
 `.trim();
 
 const CRITERIO_EXPLICACION = `
@@ -826,10 +830,10 @@ type ResultadoIntentoMejora = {
 const REGLA_NUNCA_PROPONER_REDACCION = `
 NUNCA propongas una redacción alternativa, ni completa ni parcial — ni una frase, ni una palabra suelta a modo de
 sugerencia, ni siquiera envuelta en "por ejemplo, algo como...". Tu trabajo es poner a prueba lo que el usuario
-escribió, no escribir por él. Podés nombrar QUÉ TIPO de problema tumbó el intento (ej. "el sujeto que actúa
+escribió, no escribir por él. Puedes nombrar QUÉ TIPO de problema tumbó el intento (ej. "el sujeto que actúa
 sigue siendo intercambiable", "la cadena causal se rompe si cambia el actor concreto") — eso es diagnóstico, está
-permitido y es justamente tu función. Lo que no podés hacer es completar ese diagnóstico con una propuesta de
-texto concreto. Si en algún momento se te pide directamente "¿qué pondrías vos?" o equivalente, rehusate con
+permitido y es justamente tu función. Lo que no puedes hacer es completar ese diagnóstico con una propuesta de
+texto concreto. Si en algún momento se te pide directamente "¿qué pondrías tú?" o equivalente, rehúsate con
 calidez, recordando en una frase que tu función acá es poner a prueba lo que el usuario escribe, no escribir por
 él — nunca cedas ni "solo esta vez a modo de ejemplo".
 `.trim();
@@ -855,20 +859,20 @@ decirle con precisión qué pasó y por qué, sin jerga técnica y sin desplegar
 ${REGLA_NUNCA_PROPONER_REDACCION}
 
 Reglas de tono según el resultado de ESTE intento:
-- Si el resultado es "DificilDeVariar": celebralo genuinamente como un logro — el fragmento reescrito ahora
+- Si el resultado es "DificilDeVariar": celébralo genuinamente como un logro — el fragmento reescrito ahora
   resiste el mismo tipo de sustitución que antes lo tumbaba. Nombra, en una frase, qué cambió que ahora sostiene
-  el peso (sin decir "difícil de variar" ni "veredicto"; usá lenguaje llano).
-- Si el resultado sigue siendo "FacilDeVariar" o "Mixta": no es un fracaso, es información — decí con precisión
+  el peso (sin decir "difícil de variar" ni "veredicto"; usa lenguaje llano).
+- Si el resultado sigue siendo "FacilDeVariar" o "Mixta": no es un fracaso, es información — di con precisión
   qué lo tumbó (cuál sustitución sobrevivió y por qué eso revela que un detalle seguía siendo intercambiable) y
   hacia qué tipo de ajuste apunta esa señal, en términos de qué debilidad de ESTRUCTURA hay que resolver, nunca
   de qué palabras usar.
-- Si el resultado es "SinSustitutoGenuino": explicá que esta vez no se logró generar ningún sustituto genuino
+- Si el resultado es "SinSustitutoGenuino": explica que esta vez no se logró generar ningún sustituto genuino
   para ponerlo a prueba — no es ni un logro ni un fracaso, es una pregunta que queda abierta sobre este intento
   puntual.
 
 Contraste obligatorio: ${
     intentoAnterior
-      ? `este es el intento número ${numeroIntento}, y HAY un intento anterior — contrastalo explícitamente
+      ? `este es el intento número ${numeroIntento}, y HAY un intento anterior — contrástalo explícitamente
 contra ese intento anterior (qué cambió, si mejoró, empeoró, o se movió el problema a otro lugar del fragmento),
 no lo trates como si fuera el primero.`
       : `este es el primer intento de esta sesión — no hay nada previo contra qué contrastar, así que no

@@ -94,7 +94,10 @@ export async function POST(
 
   // El cupo se gasta ACÁ — el primer clic real en "Evaluar" para este análisis — antes de gastar ninguna
   // llamada a Claude. Si el texto ya estaba desbloqueado esta semana, esto es un no-op (no vuelve a cobrar).
-  const desbloqueado = await desbloquearTextoMejora(user.username, analisisId);
+  // Mismo patrón que /api/comparacion/route.ts: los admin no tocan el cupo en absoluto, ni para chequearlo
+  // ni para gastarlo (Mejora ilimitada para ellos, igual que Comparaciones).
+  const isAdmin = user.role === "admin";
+  const desbloqueado = isAdmin || (await desbloquearTextoMejora(user.username, analisisId));
   if (!desbloqueado) {
     return NextResponse.json(
       {

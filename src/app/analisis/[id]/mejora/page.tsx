@@ -13,7 +13,7 @@ type ExplicacionMejorable = {
   sesion: MejoraSesion | null;
 };
 
-type Cupo = { desbloqueado: boolean; textosUsados: number; limite: number } | null;
+type Cupo = { desbloqueado: boolean; textosUsados: number; limite: number; unlimited: boolean } | null;
 
 const MAX_INTENTOS = 5;
 
@@ -127,7 +127,9 @@ export default function MejoraPage({ params }: { params: Promise<{ id: string }>
 
   const activa = explicaciones?.find((e) => e.id === activeId) ?? null;
   const intentosActivos = activa?.sesion?.intentos.length ?? 0;
-  const cupoAgotadoParaTextoNuevo = Boolean(cupo && !cupo.desbloqueado && cupo.textosUsados >= cupo.limite);
+  const cupoAgotadoParaTextoNuevo = Boolean(
+    cupo && !cupo.unlimited && !cupo.desbloqueado && cupo.textosUsados >= cupo.limite
+  );
 
   async function evaluar() {
     if (!activa) return;
@@ -192,8 +194,11 @@ export default function MejoraPage({ params }: { params: Promise<{ id: string }>
           {cupo && (
             <p className="item-label" style={{ marginBottom: "1rem" }}>
               <span>
-                Cupo semanal de Mejora: {cupo.textosUsados}/{cupo.limite} textos usados
-                {cupo.desbloqueado ? " (este texto ya está desbloqueado)" : ""}.
+                {cupo.unlimited
+                  ? "Mejora ilimitada (admin)"
+                  : `Cupo semanal de Mejora: ${cupo.textosUsados}/${cupo.limite} textos usados${
+                      cupo.desbloqueado ? " (este texto ya está desbloqueado)" : ""
+                    }.`}
               </span>
             </p>
           )}
