@@ -913,6 +913,170 @@ frágil como contexto de fondo, pero la nota es sobre ESTE intento, no una reeva
   };
 }
 
+type ResultadoIntentoMejoraPasaje = {
+  texto: string;
+  mecanismo: "Racional" | "AntiRacional";
+  tecnicas: string[];
+  justificacion: string;
+};
+
+/**
+ * Re-aplica el mismo test de despojo de step1BPrompt (aislar → despojar → evaluar, con las mismas
+ * distinciones de neutralidad e ingenio-vs-sarcasmo) a UN fragmento ya aislado y editado por el usuario — no
+ * busca pasajes en todo el artículo, ya viene elegido. Sin mecanismo de sustitución acá (a diferencia de
+ * Explicación): la pregunta no es "qué sustituto sobrevive", es "esta redacción concreta sobrevive el
+ * despojo o no".
+ */
+export function mejoraDespojoPasajePrompt(
+  texto: string,
+  citaEditada: string,
+  tecnicasOriginales: string[]
+) {
+  const system = `
+${REGLA_JERGA}
+
+${REGLA_IDIOMA}
+
+Vas a aplicar el mismo test de despojo que ya se usa para identificar pasajes persuasivos en todo un artículo,
+pero acá el fragmento ya viene aislado y editado por el usuario — tu única tarea es re-clasificarlo, no
+buscarlo ni decidir si es "la unidad natural" de análisis.
+
+El fragmento puede ser una cita real editada, con pronombres o referencias ("esto", "ellos", "esa medida") que
+dependen de una oración anterior que no viaja con el fragmento aislado — resuélvelas usando el texto original de
+abajo antes de clasificar. Si algo sigue siendo ambiguo incluso con ese contexto, trátalo conservadoramente en
+vez de adivinar a qué se refiere.
+
+EL TEST OPERATIVO (tres pasos)
+
+1. Aísla el fragmento (ya viene aislado — este paso ya está hecho).
+2. Despójalo de la carga de lealtad/urgencia/tabú/autoridad, y quédate solo con la afirmación desnuda que hace.
+3. Evalúa: ¿un lector crítico seguiría considerando esa afirmación desnuda por sus propios méritos? Si sí, el
+   envoltorio era decoración — mecanismo racional, aunque el tono sea apasionado. Si no —si sin el envoltorio la
+   afirmación se cae— el envoltorio era el argumento real: mecanismo anti-racional.
+
+SALVAGUARDA DE NEUTRALIDAD (aplícala siempre, sin excepción)
+
+Lenguaje vívido, indignación moral, metáfora, o apelación al miedo proporcionada al riesgo real, NO son
+automáticamente anti-racionales. Solo cuenta cuando, al quitar el envoltorio, el argumento se cae — es decir,
+cuando el envoltorio reemplaza al argumento en vez de acompañarlo.
+
+INGENIO/IRONÍA vs. SARCASMO/DESCALIFICACIÓN (aplica esto cuando el envoltorio sea humor, ironía o burla)
+
+- Ingenio o ironía que COMPRIME un argumento real: despojado de su gracia, deja una afirmación sustantiva y
+  verificable en pie por sus propios méritos. Esto es Racional.
+- Sarcasmo o burla que SUSTITUYE el argumento: al despojarlo de su tono burlón o desdeñoso, no queda ninguna
+  afirmación verificable — solo desprecio hacia la postura o persona contraria. Esto es AntiRacional.
+
+La pregunta que separa a los dos casos: después de quitar el tono, ¿queda una afirmación que un lector crítico
+podría investigar o refutar por sus propios méritos (ingenio), o queda solo una actitud hacia el otro lado
+(sarcasmo sustitutivo)?
+
+QUÉ REGISTRAR
+
+- mecanismo: "Racional" o "AntiRacional" (binario, sin tercer estado).
+- tecnicas: una entrada por cada técnica de presión que sigue detectándose en la redacción editada (puede ser
+  ninguna, si el fragmento ahora es enteramente racional). Nómbralas en términos de lo que aportan si el
+  fragmento pasó a Racional (ej. "tensión real expuesta con ironía"), no con el vocabulario de presión que
+  usarías si siguiera siendo AntiRacional.
+- justificacion: en español, por qué la afirmación desnuda se sostiene o se cae al quitarle el envoltorio EN
+  ESTA VERSIÓN EDITADA específicamente.
+`.trim();
+
+  const user = `Texto original (para contexto, resolver pronombres/referencias):\n\n${texto}\n\nTécnicas identificadas originalmente en la versión sin editar (solo referencia, no vinculante):\n${tecnicasOriginales.join(", ") || "(ninguna registrada)"}\n\nFragmento editado a clasificar:\n${citaEditada}`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      mecanismo: { type: "string", enum: ["Racional", "AntiRacional"] },
+      tecnicas: { type: "array", items: { type: "string" } },
+      justificacion: { type: "string" },
+    },
+    required: ["mecanismo", "tecnicas", "justificacion"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_reclasificacion_pasaje",
+    toolDescription: "Reporta si el fragmento editado sobrevive el test de despojo (Racional) o no (AntiRacional).",
+    inputSchema,
+  };
+}
+
+export function mejoraNotaPasajePrompt(
+  tecnicasOriginales: string[],
+  razonDespojo: string,
+  intentoActual: ResultadoIntentoMejoraPasaje,
+  intentoAnterior: ResultadoIntentoMejoraPasaje | null,
+  numeroIntento: number
+) {
+  const system = `
+${REGLA_JERGA}
+
+${REGLA_IDIOMA}
+
+Vas a redactar una nota breve, en tono de mentor cercano (nunca frío ni burocrático), para alguien que acaba de
+reescribir un pasaje persuasivo real de su propio artículo e intentó que sobreviviera el mismo test de despojo
+que ya conocés. Esta nota es lo único que va a leer después de este intento.
+
+${REGLA_NUNCA_PROPONER_REDACCION}
+
+GUARDRAIL ESPECÍFICO DE ESTE TIPO DE HALLAZGO (además del de arriba): premia que aparezca una razón sustantiva
+real detrás del envoltorio retirado — NUNCA que simplemente hayan desaparecido las palabras cargadas. Si el
+usuario quitó una frase como "chantaje grosero" pero no puso ningún argumento sustantivo en su lugar, el
+fragmento SIGUE cerrando el argumento (AntiRacional) aunque suene más moderado — decilo con esa claridad. No
+confundas "más suave de tono" con "sobrevive el despojo": son preguntas distintas, y solo la segunda es la que
+importa acá. El maquillaje retórico no es una mejora, es la misma falla con otro envoltorio.
+
+Reglas de tono según el resultado de ESTE intento:
+- Si el resultado es "Racional": celébralo genuinamente como un logro — el fragmento reescrito ahora deja una
+  afirmación sustantiva en pie por sus propios méritos, sin depender de la presión del envoltorio. Nombra, en
+  una frase, cuál es esa afirmación que ahora sostiene el peso.
+- Si el resultado sigue siendo "AntiRacional": no es un fracaso, es información — di con precisión qué seguía
+  faltando (¿desapareció la carga pero no llegó ningún argumento en su lugar? ¿el argumento nuevo tampoco
+  sostiene la afirmación?) y hacia qué tipo de ajuste apunta, en términos de qué le falta a la SUSTANCIA, nunca
+  de qué palabras usar.
+
+Contraste obligatorio: ${
+    intentoAnterior
+      ? `este es el intento número ${numeroIntento}, y HAY un intento anterior — contrástalo explícitamente
+contra ese intento anterior (qué cambió, si mejoró, empeoró, o si solo cambió el tono sin cambiar la sustancia),
+no lo trates como si fuera el primero.`
+      : `este es el primer intento de esta sesión — no hay nada previo contra qué contrastar, así que no
+inventes una comparación.`
+  }
+`.trim();
+
+  const user = `Técnicas identificadas originalmente:\n${tecnicasOriginales.join(", ") || "(ninguna registrada)"}\n\nPor qué no sobrevivió el despojo originalmente:\n${razonDespojo}\n\nIntento actual (número ${numeroIntento}):\n${JSON.stringify(
+    intentoActual,
+    null,
+    2
+  )}${
+    intentoAnterior
+      ? `\n\nIntento anterior, para contraste:\n${JSON.stringify(intentoAnterior, null, 2)}`
+      : "\n\n(No hay intento anterior — es el primero de la sesión.)"
+  }`;
+
+  const inputSchema: Schema = {
+    type: "object",
+    properties: {
+      notaMentor: {
+        type: "string",
+        description: "Nota breve en tono de mentor sobre este intento, con contraste explícito contra el anterior si lo hay. Nunca incluye una redacción alternativa propuesta ni premia el solo cambio de tono sin sustancia.",
+      },
+    },
+    required: ["notaMentor"],
+  };
+
+  return {
+    system,
+    user,
+    toolName: "reportar_nota_mentor_pasaje",
+    toolDescription: "Reporta una nota breve en tono de mentor sobre el resultado de este intento de Mejora de pasaje persuasivo.",
+    inputSchema,
+  };
+}
+
 export function step5Prompt(
   texto: string,
   explicacion: Explicacion,

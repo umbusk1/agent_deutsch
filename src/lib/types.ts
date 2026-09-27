@@ -126,12 +126,12 @@ export type Comparacion = {
 };
 
 /**
- * Un intento dentro de una sesión de Mejora: el fragmento editado por el usuario y la salida REAL del mismo
- * mecanismo de Variantes/Resultado ya existente (step3Identificar → step3Variantes → step4), sin resumir ni
- * inferir nada después. Se persiste completo (no solo el veredicto final) para no perder trazabilidad y para
- * alimentar el ensamblaje de TextoV2 más adelante.
+ * Un intento dentro de una sesión de Mejora de EXPLICACIÓN: el fragmento editado por el usuario y la salida
+ * REAL del mismo mecanismo de Variantes/Resultado ya existente (step3Identificar → step3Variantes → step4),
+ * sin resumir ni inferir nada después. Se persiste completo (no solo el veredicto final) para no perder
+ * trazabilidad y para alimentar el ensamblaje de TextoV2 más adelante.
  */
-export type IntentoMejora = {
+export type IntentoMejoraExplicacion = {
   /** "I1".."I5" — secuencial dentro de la sesión; también el número que se muestra ("intento 3 de 5"). */
   id: string;
   /** El fragmento tal como se envió a evaluar en ESTE intento (no la cita original de la explicación). */
@@ -151,13 +151,30 @@ export type IntentoMejora = {
 };
 
 /**
+ * Un intento dentro de una sesión de Mejora de PASAJE PERSUASIVO: el fragmento editado y la salida real del
+ * mismo test de despojo ya existente (ver step1BPrompt/mejoraDespojoPasajePrompt) — no hay mecanismo de
+ * sustitución acá, solo re-clasificación (Racional/AntiRacional) del fragmento editado.
+ */
+export type IntentoMejoraPasaje = {
+  /** "I1".."I3" — secuencial dentro de la sesión (tope de 3, no 5 — ver MAX_INTENTOS_PASAJE en mejora.ts). */
+  id: string;
+  texto: string;
+  creadoEn: string;
+  mecanismo: "Racional" | "AntiRacional";
+  tecnicas: string[];
+  justificacion: string;
+  notaMentor: string;
+};
+
+/**
  * Sesión de Mejora para UNA explicación de UN análisis guardado. Cubre solo explicaciones con veredicto
  * FacilDeVariar. `aplicadoIntentoId` es la única fuente de verdad de qué intento quedó aplicado — nunca se
  * infiere si fue "confirmado Firme" o no por la sola presencia de este campo: siempre hay que mirar el
  * `veredicto` del intento al que apunta (`intentos.find(i => i.id === aplicadoIntentoId)`), porque el usuario
  * puede aplicar un intento que no llegó a DificilDeVariar.
  */
-export type MejoraSesion = {
+export type MejoraSesionExplicacion = {
+  tipo: "explicacion";
   id: string;
   analisisId: string;
   explicacionId: string;
@@ -165,10 +182,34 @@ export type MejoraSesion = {
   mecanismoGeneral: string;
   /** Snapshot de la justificación del veredicto original (por qué salió FacilDeVariar). */
   razonFragil: string;
-  /** Máximo 5. */
-  intentos: IntentoMejora[];
+  /** Máximo MAX_INTENTOS_EXPLICACION (5). */
+  intentos: IntentoMejoraExplicacion[];
   aplicadoIntentoId: string | null;
   usuario: string;
   creadoEn: string;
   actualizadoEn: string;
 };
+
+/**
+ * Sesión de Mejora para UN pasaje persuasivo de UN análisis guardado. Cubre solo pasajes con mecanismo
+ * AntiRacional ("cierra el argumento"). Misma regla de "nunca inferido" que MejoraSesionExplicacion: mirar
+ * siempre el `mecanismo` del intento al que apunta `aplicadoIntentoId`, nunca asumir que aplicado == Racional.
+ */
+export type MejoraSesionPasaje = {
+  tipo: "pasaje";
+  id: string;
+  analisisId: string;
+  pasajeId: string;
+  /** Snapshot de las técnicas ya identificadas en el análisis original — de solo lectura. */
+  tecnicasOriginales: string[];
+  /** Snapshot de la justificación original de por qué no sobrevivió el despojo. */
+  razonDespojo: string;
+  /** Máximo MAX_INTENTOS_PASAJE (3). */
+  intentos: IntentoMejoraPasaje[];
+  aplicadoIntentoId: string | null;
+  usuario: string;
+  creadoEn: string;
+  actualizadoEn: string;
+};
+
+export type MejoraSesion = MejoraSesionExplicacion | MejoraSesionPasaje;

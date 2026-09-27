@@ -1,9 +1,10 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { ETIQUETAS_VEREDICTO } from "@/lib/etiquetas";
+import { ETIQUETAS_VEREDICTO, ETIQUETAS_MECANISMO } from "@/lib/etiquetas";
 
-type Cambio = {
+type CambioExplicacion = {
+  tipoHallazgo: "explicacion";
   explicacionId: string;
   intentoId: string;
   veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta" | "SinSustitutoGenuino";
@@ -13,9 +14,23 @@ type Cambio = {
   fin: number;
 };
 
+type CambioPasaje = {
+  tipoHallazgo: "pasaje";
+  pasajeId: string;
+  intentoId: string;
+  mecanismo: "Racional" | "AntiRacional";
+  citaOriginal: string;
+  textoAplicado: string;
+  inicio: number;
+  fin: number;
+};
+
+type Cambio = CambioExplicacion | CambioPasaje;
+
 type ErrorTextoV2 = {
-  explicacionId: string;
-  tipo: "cita_no_encontrada" | "cita_duplicada" | "citas_solapadas" | "intento_no_encontrado";
+  tipoHallazgo: "explicacion" | "pasaje";
+  hallazgoId: string;
+  tipoError: "cita_no_encontrada" | "cita_duplicada" | "citas_solapadas" | "intento_no_encontrado";
   detalle: string;
 };
 
@@ -53,7 +68,7 @@ export default function TextoV2Page({ params }: { params: Promise<{ id: string }
           </div>
           {resultado.errores.map((e, i) => (
             <p key={i} className="warning-note">
-              <strong>{e.explicacionId}</strong> ({e.tipo}): {e.detalle}
+              <strong>{e.hallazgoId}</strong> ({e.tipoError}): {e.detalle}
             </p>
           ))}
         </div>
@@ -69,10 +84,14 @@ export default function TextoV2Page({ params }: { params: Promise<{ id: string }
             <>
               <h3 style={{ marginTop: "1.5rem" }}>Cambios aplicados ({resultado.cambios.length})</h3>
               {resultado.cambios.map((c) => (
-                <div className="item" key={c.explicacionId}>
+                <div className="item" key={c.tipoHallazgo === "explicacion" ? c.explicacionId : c.pasajeId}>
                   <div className="item-label">
-                    <span className="badge">{c.explicacionId}</span>
-                    <span className="badge">{ETIQUETAS_VEREDICTO[c.veredicto] ?? c.veredicto}</span>
+                    <span className="badge">{c.tipoHallazgo === "explicacion" ? c.explicacionId : c.pasajeId}</span>
+                    <span className="badge">
+                      {c.tipoHallazgo === "explicacion"
+                        ? ETIQUETAS_VEREDICTO[c.veredicto] ?? c.veredicto
+                        : ETIQUETAS_MECANISMO[c.mecanismo] ?? c.mecanismo}
+                    </span>
                   </div>
                   <div className="item-label">
                     <span>Antes</span>

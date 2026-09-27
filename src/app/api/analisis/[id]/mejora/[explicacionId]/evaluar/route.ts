@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { obtenerAnalisis } from "@/lib/analisis";
-import { obtenerMejoraSesion, guardarMejoraSesion } from "@/lib/mejora";
+import { obtenerMejoraSesionExplicacion, guardarMejoraSesionExplicacion, MAX_INTENTOS_EXPLICACION } from "@/lib/mejora";
 import { desbloquearTextoMejora, MEJORA_TEXTOS_LIMIT_SEMANAL } from "@/lib/usage";
 import { findUser } from "@/lib/users";
 import { crearRespuestaSse } from "@/lib/sse-stream";
@@ -12,8 +12,8 @@ import type {
   IdentificacionVariante,
   VarianteAceptada,
   ResultadoVariante,
-  IntentoMejora,
-  MejoraSesion,
+  IntentoMejoraExplicacion,
+  MejoraSesionExplicacion,
 } from "@/lib/types";
 
 // 180s: hasta 4 llamadas SECUENCIALES por intento (step3Identificar → step3Variantes → step4 →
@@ -22,11 +22,9 @@ import type {
 // sin recibir ningún byte mientras corren las cuatro llamadas.
 export const maxDuration = 180;
 
-const MAX_INTENTOS = 5;
-
 function comoResultadoParaNota(intento: {
   texto: string;
-  veredicto: IntentoMejora["veredicto"];
+  veredicto: IntentoMejoraExplicacion["veredicto"];
   justificacion: string;
   variantes: VarianteAceptada[];
   resultadosVariantes: ResultadoVariante[];
@@ -84,10 +82,10 @@ export async function POST(
     );
   }
 
-  const sesionExistente = await obtenerMejoraSesion(analisisId, explicacionId);
-  if (sesionExistente && sesionExistente.intentos.length >= MAX_INTENTOS) {
+  const sesionExistente = await obtenerMejoraSesionExplicacion(analisisId, explicacionId);
+  if (sesionExistente && sesionExistente.intentos.length >= MAX_INTENTOS_EXPLICACION) {
     return NextResponse.json(
-      { error: `Ya alcanzaste el máximo de ${MAX_INTENTOS} intentos para esta explicación.` },
+      { error: `Ya alcanzaste el máximo de ${MAX_INTENTOS_EXPLICACION} intentos para esta explicación.` },
       { status: 400 }
     );
   }
@@ -148,9 +146,9 @@ export async function POST(
       });
 
     let resultadosVariantes: ResultadoVariante[] = [];
-    let veredicto: IntentoMejora["veredicto"];
+    let veredicto: IntentoMejoraExplicacion["veredicto"];
     let justificacion: string;
-    let resisteConocimientoNuevo: IntentoMejora["resisteConocimientoNuevo"] = null;
+    let resisteConocimientoNuevo: IntentoMejoraExplicacion["resisteConocimientoNuevo"] = null;
 
     if (variantes.length === 0) {
       // Mismo caso y mismo mensaje que step4/route.ts: no se pudo poner a prueba, no es evidencia de nada.
@@ -195,7 +193,7 @@ export async function POST(
     );
     const resultNota = await callTool<{ notaMentor: string }>(notaPrompt);
 
-    const nuevoIntento: IntentoMejora = {
+    const nuevoIntento: IntentoMejoraExplicacion = {
       id: `I${numeroIntento}`,
       texto: textoEditado,
       creadoEn: new Date().toISOString(),
@@ -209,9 +207,10 @@ export async function POST(
     };
 
     const ahora = new Date().toISOString();
-    const sesion: MejoraSesion = sesionExistente
+    const sesion: MejoraSesionExplicacion = sesionExistente
       ? { ...sesionExistente, intentos: [...sesionExistente.intentos, nuevoIntento], actualizadoEn: ahora }
       : {
+          tipo: "explicacion",
           id: `${analisisId}:${explicacionId}`,
           analisisId,
           explicacionId,
@@ -224,7 +223,7 @@ export async function POST(
           actualizadoEn: ahora,
         };
 
-    await guardarMejoraSesion(sesion);
+    await guardarMejoraSesionExplicacion(sesion);
 
     enviar({ sesion });
   });

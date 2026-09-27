@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { obtenerAnalisis } from "@/lib/analisis";
-import { obtenerMejoraSesiones } from "@/lib/mejora";
+import { obtenerMejoraSesionesExplicacion, obtenerMejoraSesionesPasaje } from "@/lib/mejora";
 import { ensamblarTextoV2 } from "@/lib/textoV2";
 import { findUser } from "@/lib/users";
 
@@ -31,9 +31,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const explicacionIds = analisis.explicaciones.map((e) => e.id);
-    const sesiones = await obtenerMejoraSesiones(analisisId, explicacionIds);
+    const pasajeIds = (analisis.pasajesPersuasivos ?? []).map((p) => p.id);
+    const [sesionesExplicacion, sesionesPasaje] = await Promise.all([
+      obtenerMejoraSesionesExplicacion(analisisId, explicacionIds),
+      obtenerMejoraSesionesPasaje(analisisId, pasajeIds),
+    ]);
 
-    const resultado = ensamblarTextoV2(analisis.texto, analisis.explicaciones, sesiones);
+    const resultado = ensamblarTextoV2(
+      analisis.texto,
+      analisis.explicaciones,
+      sesionesExplicacion,
+      analisis.pasajesPersuasivos ?? [],
+      sesionesPasaje
+    );
     if (resultado.texto === null && resultado.errores.length === 0) {
       // Ensamblaje "exitoso" en el sentido de que no hubo ningún error — simplemente no hay ningún cambio
       // aplicado todavía. Ver el comentario en ensamblarTextoV2: esto es distinto de un error de ensamblaje.

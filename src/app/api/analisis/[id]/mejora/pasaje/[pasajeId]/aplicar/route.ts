@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { obtenerMejoraSesionExplicacion, guardarMejoraSesionExplicacion } from "@/lib/mejora";
+import { obtenerMejoraSesionPasaje, guardarMejoraSesionPasaje } from "@/lib/mejora";
 import { findUser } from "@/lib/users";
 
 export const maxDuration = 15;
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string; explicacionId: string }> }
+  { params }: { params: Promise<{ id: string; pasajeId: string }> }
 ) {
   try {
     const rawUsername = request.headers.get("x-au-user");
@@ -16,22 +16,22 @@ export async function POST(
       return NextResponse.json({ error: "No se pudo identificar al usuario." }, { status: 401 });
     }
 
-    const { id: analisisId, explicacionId } = await params;
+    const { id: analisisId, pasajeId } = await params;
     const { intentoId } = (await request.json()) as { intentoId: string };
     if (!intentoId) {
       return NextResponse.json({ error: "Falta el intento a aplicar." }, { status: 400 });
     }
 
-    const sesion = await obtenerMejoraSesionExplicacion(analisisId, explicacionId);
+    const sesion = await obtenerMejoraSesionPasaje(analisisId, pasajeId);
     if (!sesion) {
-      return NextResponse.json({ error: "No hay ninguna sesión de Mejora para esta explicación todavía." }, { status: 404 });
+      return NextResponse.json({ error: "No hay ninguna sesión de Mejora para este pasaje todavía." }, { status: 404 });
     }
-    if (!sesion.intentos.some((i: { id: string }) => i.id === intentoId)) {
+    if (!sesion.intentos.some((i) => i.id === intentoId)) {
       return NextResponse.json({ error: "Ese intento no existe en esta sesión." }, { status: 400 });
     }
 
     const actualizada = { ...sesion, aplicadoIntentoId: intentoId, actualizadoEn: new Date().toISOString() };
-    await guardarMejoraSesionExplicacion(actualizada);
+    await guardarMejoraSesionPasaje(actualizada);
 
     return NextResponse.json({ sesion: actualizada });
   } catch (error) {

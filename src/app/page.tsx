@@ -383,13 +383,13 @@ export default function Biblioteca() {
                       )}
                     </div>
                     <span className="badge">{item.totalProblemas}P/{item.problemasConExplicacion}E</span>
-                    {item.explicacionesMejorables > 0 && (
+                    {item.hayAlgoMejorable && (
                       <Link
                         href={`/analisis/${item.id}/mejora`}
                         className="badge-link"
-                        title="Poner a prueba una reformulación de estas explicaciones"
+                        title="Poner a prueba una reformulación de estas explicaciones o pasajes"
                       >
-                        {item.explicacionesMejorables}E mejorables
+                        {item.totalMejorable} {item.totalMejorable === 1 ? "Mejora" : "Mejoras"}
                       </Link>
                     )}
                     <Link href={`/analisis/${item.id}`}>

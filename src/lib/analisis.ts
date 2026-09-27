@@ -10,7 +10,7 @@ import type {
   PasajePersuasivo,
 } from "./types";
 import { findUser } from "./users";
-import { obtenerMejoraSesiones } from "./mejora";
+import { obtenerMejoraSesionesExplicacion, obtenerMejoraSesionesPasaje } from "./mejora";
 import { tieneCambioAplicado } from "./textoV2";
 
 let redis: Redis | null = null;
@@ -76,13 +76,17 @@ export type AnalisisResumen = {
   iniciales: string;
   totalProblemas: number;
   problemasConExplicacion: number;
-  /** Explicaciones con veredicto FacilDeVariar de este análisis que todavía no tienen un intento de Mejora
-   * aplicado — calculado en cada lectura de la lista (no en el guardado, a diferencia de 3P/3E) porque depende
-   * de sesiones de Mejora que se crean después, potencialmente mucho después, de guardar el análisis. */
-  explicacionesMejorables: number;
-  /** Si al menos una explicación tiene un intento de Mejora aplicado — es decir, si TextoV2 existe para este
-   * análisis. Nunca se persiste aparte: se deriva de las mismas sesiones de Mejora que ya se consultan para
-   * explicacionesMejorables (ver ensamblarTextoV2/tieneCambioAplicado en textoV2.ts). */
+  /** Explicaciones FacilDeVariar + pasajes AntiRacional de este análisis que todavía no tienen un intento de
+   * Mejora aplicado — calculado en cada lectura de la lista (no en el guardado, a diferencia de 3P/3E) porque
+   * depende de sesiones de Mejora que se crean después, potencialmente mucho después, de guardar el análisis.
+   * No se muestra como número en Biblioteca por ahora, pero se mantiene calculado — ya está resuelto de camino
+   * a hayAlgoMejorable, y es dato legítimo aunque la UI actual no lo use directamente. */
+  totalMejorable: number;
+  /** Atajo de totalMejorable > 0 — para el filtro `> 0` en Biblioteca sin repetirlo en cada sitio. */
+  hayAlgoMejorable: boolean;
+  /** Si al menos un hallazgo (explicación o pasaje) tiene un intento de Mejora aplicado — es decir, si TextoV2
+   * existe para este análisis. Nunca se persiste aparte: se deriva de las mismas sesiones de Mejora que ya se
+   * consultan para totalMejorable (ver ensamblarTextoV2/tieneCambioAplicado en textoV2.ts). */
   tieneTextoV2: boolean;
   creadoEn: string;
   editadoPor?: string;
@@ -177,19 +181,27 @@ export async function listarAnalisis(): Promise<AnalisisResumen[]> {
       const fragilIds = (r.veredictos ?? [])
         .filter((v) => v.veredicto === "FacilDeVariar")
         .map((v) => v.explicacionId);
+      const cierranArgumentoIds = (r.pasajesPersuasivos ?? [])
+        .filter((p) => p.mecanismo === "AntiRacional")
+        .map((p) => p.id);
 
-      // Solo las explicaciones Frágiles pueden tener alguna vez una sesión de Mejora (la ruta de evaluar
-      // rechaza cualquier otro veredicto), así que consultar solo fragilIds ya cubre TODAS las sesiones
-      // posibles de este análisis — no hace falta una segunda consulta aparte para tieneTextoV2.
-      let explicacionesMejorables = 0;
+      // Solo las explicaciones Frágiles / pasajes que cierran el argumento pueden tener alguna vez una sesión
+      // de Mejora (las rutas de evaluar rechazan cualquier otro veredicto/mecanismo), así que consultar solo
+      // estos IDs ya cubre TODAS las sesiones posibles de este análisis — no hace falta una consulta aparte
+      // para tieneTextoV2. La consulta de pasajes es nueva y distinta de la de explicaciones (viven bajo
+      // claves separadas) — no es una duplicación de la misma consulta, es una consulta legítima adicional
+      // por el nuevo origen de datos, hecha en un solo mget batched igual que la de explicaciones.
+      let totalMejorable = 0;
       let tieneTextoV2 = false;
       if (fragilIds.length > 0) {
-        const sesiones = await obtenerMejoraSesiones(r.id, fragilIds);
-        explicacionesMejorables = fragilIds.filter((id) => {
-          const sesion = sesiones.get(id);
-          return !sesion || sesion.aplicadoIntentoId === null;
-        }).length;
-        tieneTextoV2 = tieneCambioAplicado(sesiones.values());
+        const sesiones = await obtenerMejoraSesionesExplicacion(r.id, fragilIds);
+        totalMejorable += fragilIds.filter((id) => !sesiones.get(id)?.aplicadoIntentoId).length;
+        tieneTextoV2 ||= tieneCambioAplicado(sesiones.values());
+      }
+      if (cierranArgumentoIds.length > 0) {
+        const sesionesPasaje = await obtenerMejoraSesionesPasaje(r.id, cierranArgumentoIds);
+        totalMejorable += cierranArgumentoIds.filter((id) => !sesionesPasaje.get(id)?.aplicadoIntentoId).length;
+        tieneTextoV2 ||= tieneCambioAplicado(sesionesPasaje.values());
       }
 
       return {
@@ -202,7 +214,8 @@ export async function listarAnalisis(): Promise<AnalisisResumen[]> {
         iniciales: iniciales(findUser(r.usuario)?.fullName, r.usuario),
         totalProblemas: r.totalProblemas,
         problemasConExplicacion: r.problemasConExplicacion,
-        explicacionesMejorables,
+        totalMejorable,
+        hayAlgoMejorable: totalMejorable > 0,
         tieneTextoV2,
         creadoEn: r.creadoEn,
         editadoPor: r.editadoPor,
