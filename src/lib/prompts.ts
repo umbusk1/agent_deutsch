@@ -930,7 +930,8 @@ type ResultadoIntentoMejoraPasaje = {
 export function mejoraDespojoPasajePrompt(
   texto: string,
   citaEditada: string,
-  tecnicasOriginales: string[]
+  tecnicasOriginales: string[],
+  versionAnterior: string | null
 ) {
   const system = `
 ${REGLA_JERGA}
@@ -945,6 +946,17 @@ El fragmento puede ser una cita real editada, con pronombres o referencias ("est
 dependen de una oración anterior que no viaja con el fragmento aislado — resuélvelas usando el texto original de
 abajo antes de clasificar. Si algo sigue siendo ambiguo incluso con ese contexto, trátalo conservadoramente en
 vez de adivinar a qué se refiere.
+
+${
+  versionAnterior
+    ? `Más abajo también tenés la VERSIÓN ANTERIOR de este mismo fragmento (la inmediatamente previa a este
+intento — la cita original si es el primer intento, o el intento anterior si ya hubo alguno). Comparalas
+explícitamente, frase por frase: ¿qué cambió? ¿el cambio hizo que alguna cláusula perdiera un sostén concreto
+que antes tenía, aunque el resto del fragmento se vea bien? Mirar la diferencia puntual contra la versión
+anterior suele revelar una cláusula que quedó floja cuando una impresión global del fragmento actual no lo
+haría — no te quedes solo con esa impresión global.`
+    : ""
+}
 
 EL TEST OPERATIVO (tres pasos)
 
@@ -993,7 +1005,11 @@ QUÉ REGISTRAR
   concreto (cita la frase exacta) es el que todavía no sostiene nada por mérito propio.
 `.trim();
 
-  const user = `Texto original (para contexto, resolver pronombres/referencias):\n\n${texto}\n\nTécnicas identificadas originalmente en la versión sin editar (solo referencia, no vinculante):\n${tecnicasOriginales.join(", ") || "(ninguna registrada)"}\n\nFragmento editado a clasificar:\n${citaEditada}`;
+  const user = `Texto original (para contexto, resolver pronombres/referencias):\n\n${texto}\n\nTécnicas identificadas originalmente en la versión sin editar (solo referencia, no vinculante):\n${tecnicasOriginales.join(", ") || "(ninguna registrada)"}${
+    versionAnterior
+      ? `\n\nVersión anterior de este mismo fragmento (para contraste directo, frase por frase):\n${versionAnterior}`
+      : ""
+  }\n\nFragmento editado a clasificar:\n${citaEditada}`;
 
   const inputSchema: Schema = {
     type: "object",

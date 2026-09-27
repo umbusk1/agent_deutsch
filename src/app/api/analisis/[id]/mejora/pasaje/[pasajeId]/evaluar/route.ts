@@ -83,15 +83,19 @@ export async function POST(
   const texto = analisis.texto;
 
   return crearRespuestaSse(request, "mejora-pasaje-evaluar", async (enviar) => {
-    const despojoPrompt = mejoraDespojoPasajePrompt(texto, textoEditado, pasajeOriginal.tecnicas);
+    const numeroIntento = (sesionExistente?.intentos.length ?? 0) + 1;
+    const intentoAnteriorRegistro = sesionExistente?.intentos[sesionExistente.intentos.length - 1] ?? null;
+    // La versión inmediatamente anterior de ESTE fragmento puntual — el intento previo si ya hubo alguno, o
+    // la cita original sin editar si este es el primer intento. Nunca null en la práctica: siempre hay algo
+    // contra qué contrastar, incluso en el primer intento.
+    const versionAnterior = intentoAnteriorRegistro?.texto ?? pasajeOriginal.cita;
+
+    const despojoPrompt = mejoraDespojoPasajePrompt(texto, textoEditado, pasajeOriginal.tecnicas, versionAnterior);
     const resultDespojo = await callTool<{
       mecanismo: "Racional" | "AntiRacional" | "Mixto";
       tecnicas: string[];
       justificacion: string;
     }>(despojoPrompt);
-
-    const numeroIntento = (sesionExistente?.intentos.length ?? 0) + 1;
-    const intentoAnteriorRegistro = sesionExistente?.intentos[sesionExistente.intentos.length - 1] ?? null;
 
     const intentoActualParaNota = comoResultadoParaNota({
       texto: textoEditado,
