@@ -395,6 +395,11 @@ export default function Biblioteca() {
                     <Link href={`/analisis/${item.id}`}>
                       <button>Ver reporte</button>
                     </Link>
+                    {item.tieneTextoV2 && (
+                      <Link href={`/analisis/${item.id}/texto-v2`}>
+                        <button>Ver TextoV2</button>
+                      </Link>
+                    )}
                     {puedeEditar(item) && <button onClick={() => comenzarEdicion(item)}>Editar</button>}
                     {identidad?.isAdmin &&
                       (deletingAnalisisId === item.id ? (
