@@ -382,6 +382,8 @@ export default function MejoraPage({ params }: { params: Promise<{ id: string }>
                                 <span className="badge">
                                   {intento.mecanismo === "Racional"
                                     ? "Aplicado — confirmado: abre el argumento"
+                                    : intento.mecanismo === "Mixto"
+                                    ? "Aplicado — parcial: todavía no abre del todo el argumento"
                                     : "Aplicado — sin confirmar: sigue cerrando el argumento"}
                                 </span>
                               )}

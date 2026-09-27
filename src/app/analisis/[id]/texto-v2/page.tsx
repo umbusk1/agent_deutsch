@@ -18,7 +18,7 @@ type CambioPasaje = {
   tipoHallazgo: "pasaje";
   pasajeId: string;
   intentoId: string;
-  mecanismo: "Racional" | "AntiRacional";
+  mecanismo: "Racional" | "AntiRacional" | "Mixto";
   citaOriginal: string;
   textoAplicado: string;
   inicio: number;

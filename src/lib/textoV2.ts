@@ -16,7 +16,7 @@ export type CambioTextoV2Pasaje = {
   tipoHallazgo: "pasaje";
   pasajeId: string;
   intentoId: string;
-  mecanismo: "Racional" | "AntiRacional";
+  mecanismo: "Racional" | "AntiRacional" | "Mixto";
   citaOriginal: string;
   textoAplicado: string;
   inicio: number;

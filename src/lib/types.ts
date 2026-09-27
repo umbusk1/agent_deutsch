@@ -160,7 +160,12 @@ export type IntentoMejoraPasaje = {
   id: string;
   texto: string;
   creadoEn: string;
-  mecanismo: "Racional" | "AntiRacional";
+  /** "Mixto": una parte del fragmento sostiene algo sustantivo y otra parte todavía se apoya en carga
+   * emocional sin argumento — igual que Veredicto.veredicto tiene "Mixta" para el mismo motivo (no forzar un
+   * binario a promediar en silencio cuando la evidencia real está dividida). Confirmado con un caso real
+   * (2026-09-28): sin este estado, la nota de mentor describía correctamente un resultado mixto mientras el
+   * campo mecanismo quedaba forzado a "Racional". */
+  mecanismo: "Racional" | "AntiRacional" | "Mixto";
   tecnicas: string[];
   justificacion: string;
   notaMentor: string;

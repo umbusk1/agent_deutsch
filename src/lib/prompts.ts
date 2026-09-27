@@ -915,7 +915,7 @@ frágil como contexto de fondo, pero la nota es sobre ESTE intento, no una reeva
 
 type ResultadoIntentoMejoraPasaje = {
   texto: string;
-  mecanismo: "Racional" | "AntiRacional";
+  mecanismo: "Racional" | "AntiRacional" | "Mixto";
   tecnicas: string[];
   justificacion: string;
 };
@@ -954,6 +954,13 @@ EL TEST OPERATIVO (tres pasos)
    envoltorio era decoración — mecanismo racional, aunque el tono sea apasionado. Si no —si sin el envoltorio la
    afirmación se cae— el envoltorio era el argumento real: mecanismo anti-racional.
 
+Un fragmento editado no siempre es uniforme: puede tener una parte que ya sostiene una afirmación sustantiva
+por mérito propio y otra parte que todavía se apoya en carga emocional sin ningún argumento detrás. Cuando eso
+pase de verdad —no "el tono bajó de intensidad pero la sustancia sigue sin llegar" (eso sigue siendo
+AntiRacional: bajar el volumen del envoltorio no es lo mismo que reemplazarlo por una razón), sino que HAY al
+menos una parte del fragmento que genuinamente sobrevive el despojo y OTRA parte que genuinamente no— repórtalo
+como "Mixto", no fuerces el fragmento entero hacia uno de los dos extremos ni promedies en silencio.
+
 SALVAGUARDA DE NEUTRALIDAD (aplícala siempre, sin excepción)
 
 Lenguaje vívido, indignación moral, metáfora, o apelación al miedo proporcionada al riesgo real, NO son
@@ -973,13 +980,17 @@ podría investigar o refutar por sus propios méritos (ingenio), o queda solo un
 
 QUÉ REGISTRAR
 
-- mecanismo: "Racional" o "AntiRacional" (binario, sin tercer estado).
+- mecanismo: "Racional", "AntiRacional", o "Mixto" (ver arriba cuándo aplica cada uno — Mixto exige que
+  identifiques, en justificacion, cuál parte concreta sobrevive y cuál no; no es un cajón de sastre para "no
+  estoy seguro").
 - tecnicas: una entrada por cada técnica de presión que sigue detectándose en la redacción editada (puede ser
   ninguna, si el fragmento ahora es enteramente racional). Nómbralas en términos de lo que aportan si el
   fragmento pasó a Racional (ej. "tensión real expuesta con ironía"), no con el vocabulario de presión que
-  usarías si siguiera siendo AntiRacional.
+  usarías si siguiera siendo AntiRacional. Si el resultado es Mixto, registra las técnicas que siguen presentes
+  SOLO en la parte que no sobrevivió el despojo.
 - justificacion: en español, por qué la afirmación desnuda se sostiene o se cae al quitarle el envoltorio EN
-  ESTA VERSIÓN EDITADA específicamente.
+  ESTA VERSIÓN EDITADA específicamente. Si el resultado es Mixto, sé explícito sobre CUÁL fragmento textual
+  concreto (cita la frase exacta) es el que todavía no sostiene nada por mérito propio.
 `.trim();
 
   const user = `Texto original (para contexto, resolver pronombres/referencias):\n\n${texto}\n\nTécnicas identificadas originalmente en la versión sin editar (solo referencia, no vinculante):\n${tecnicasOriginales.join(", ") || "(ninguna registrada)"}\n\nFragmento editado a clasificar:\n${citaEditada}`;
@@ -987,7 +998,7 @@ QUÉ REGISTRAR
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      mecanismo: { type: "string", enum: ["Racional", "AntiRacional"] },
+      mecanismo: { type: "string", enum: ["Racional", "AntiRacional", "Mixto"] },
       tecnicas: { type: "array", items: { type: "string" } },
       justificacion: { type: "string" },
     },
@@ -998,7 +1009,7 @@ QUÉ REGISTRAR
     system,
     user,
     toolName: "reportar_reclasificacion_pasaje",
-    toolDescription: "Reporta si el fragmento editado sobrevive el test de despojo (Racional) o no (AntiRacional).",
+    toolDescription: "Reporta si el fragmento editado sobrevive el test de despojo (Racional), no (AntiRacional), o solo en parte (Mixto).",
     inputSchema,
   };
 }
@@ -1036,6 +1047,11 @@ Reglas de tono según el resultado de ESTE intento:
   faltando (¿desapareció la carga pero no llegó ningún argumento en su lugar? ¿el argumento nuevo tampoco
   sostiene la afirmación?) y hacia qué tipo de ajuste apunta, en términos de qué le falta a la SUSTANCIA, nunca
   de qué palabras usar.
+- Si el resultado es "Mixto": no lo trates como logro completo ni como fracaso — es un avance real y parcial,
+  dilo así. Sé tan específico como el diagnóstico lo permita: nombra, citando la frase exacta, cuál parte del
+  fragmento ya sostiene algo por mérito propio (celebra ESA parte puntual) y cuál frase o cláusula concreta
+  todavía pide ser aceptada por su peso emocional sin argumento detrás — la nota no cumple su función si dice
+  "en parte funciona" sin señalar textualmente cuál parte es la que sigue floja.
 
 Contraste obligatorio: ${
     intentoAnterior

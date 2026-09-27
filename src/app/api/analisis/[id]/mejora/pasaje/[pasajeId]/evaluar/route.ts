@@ -15,7 +15,7 @@ export const maxDuration = 90;
 
 function comoResultadoParaNota(intento: {
   texto: string;
-  mecanismo: "Racional" | "AntiRacional";
+  mecanismo: "Racional" | "AntiRacional" | "Mixto";
   tecnicas: string[];
   justificacion: string;
 }) {
@@ -85,7 +85,7 @@ export async function POST(
   return crearRespuestaSse(request, "mejora-pasaje-evaluar", async (enviar) => {
     const despojoPrompt = mejoraDespojoPasajePrompt(texto, textoEditado, pasajeOriginal.tecnicas);
     const resultDespojo = await callTool<{
-      mecanismo: "Racional" | "AntiRacional";
+      mecanismo: "Racional" | "AntiRacional" | "Mixto";
       tecnicas: string[];
       justificacion: string;
     }>(despojoPrompt);
