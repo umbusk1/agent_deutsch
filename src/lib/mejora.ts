@@ -17,7 +17,11 @@ function getRedis(): Redis {
 }
 
 export const MAX_INTENTOS_EXPLICACION = 5;
-export const MAX_INTENTOS_PASAJE = 3;
+// TEMPORAL (2026-09-28): subido de 3 a 4 para darle una chance más a la sesión de pasaje de
+// "Liberalmente.app" que agotó sus 3 intentos con el bug de Mixto todavía activo, sin ningún intento
+// aplicado. Revertir a 3 apenas se corra ese intento 4 con las dos correcciones ya desplegadas — no es un
+// cambio de producto permanente.
+export const MAX_INTENTOS_PASAJE = 4;
 
 // Clave compuesta (análisis + hallazgo) en vez de un índice aparte: la lista de explicaciones Frágiles/pasajes
 // que cierran el argumento de un análisis ya vive en su propio registro (AnalisisGuardado.veredictos/
