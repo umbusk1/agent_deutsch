@@ -156,7 +156,7 @@ export type IntentoMejoraExplicacion = {
  * sustitución acá, solo re-clasificación (Racional/AntiRacional) del fragmento editado.
  */
 export type IntentoMejoraPasaje = {
-  /** "I1".."I3" — secuencial dentro de la sesión (tope de 3, no 5 — ver MAX_INTENTOS_PASAJE en mejora.ts). */
+  /** "I1".."IN" — secuencial dentro de la sesión (tope MAX_INTENTOS_PASAJE en mejora.ts). */
   id: string;
   texto: string;
   creadoEn: string;
@@ -164,8 +164,13 @@ export type IntentoMejoraPasaje = {
    * emocional sin argumento — igual que Veredicto.veredicto tiene "Mixta" para el mismo motivo (no forzar un
    * binario a promediar en silencio cuando la evidencia real está dividida). Confirmado con un caso real
    * (2026-09-28): sin este estado, la nota de mentor describía correctamente un resultado mixto mientras el
-   * campo mecanismo quedaba forzado a "Racional". */
+   * campo mecanismo quedaba forzado a "Racional". mecanismo se CALCULA de analisisPorOracion (ver
+   * calcularMecanismo en la ruta evaluar) — nunca lo reporta el modelo directamente. */
   mecanismo: "Racional" | "AntiRacional" | "Mixto";
+  /** El desglose oración-por-oración del que se deriva mecanismo — persistido (no solo usado en el momento del
+   * cálculo) para que la nota de mentor y cualquier vista de historial puedan citar la oración puntual que no
+   * sobrevivió el despojo, en vez de depender solo de la síntesis en prosa de justificacion. */
+  analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
   tecnicas: string[];
   justificacion: string;
   notaMentor: string;

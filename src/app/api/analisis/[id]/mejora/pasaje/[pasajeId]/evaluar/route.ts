@@ -5,8 +5,46 @@ import { obtenerMejoraSesionPasaje, guardarMejoraSesionPasaje, MAX_INTENTOS_PASA
 import { desbloquearTextoMejora, MEJORA_TEXTOS_LIMIT_SEMANAL } from "@/lib/usage";
 import { findUser } from "@/lib/users";
 import { crearRespuestaSse } from "@/lib/sse-stream";
+import { asArray } from "@/lib/safe-array";
 import { mejoraDespojoPasajePrompt, mejoraNotaPasajePrompt } from "@/lib/prompts";
 import type { IntentoMejoraPasaje, MejoraSesionPasaje } from "@/lib/types";
+
+/** El mecanismo NUNCA lo decide el modelo directamente (ver mejoraDespojoPasajePrompt) — se calcula acá, a
+ * partir del desglose oración por oración que sí tuvo que hacer. Todas sobreviven -> Racional; ninguna
+ * sobrevive -> AntiRacional; mezcla -> Mixto. Confirmado con un caso real: pidiéndole un "mecanismo" directo
+ * para el fragmento completo, el modelo lo declaraba "Racional" de forma holística aunque una sola oración
+ * (identificada correctamente en una llamada aparte, la de la nota de mentor) no sobreviviera el despojo por
+ * sí sola — forzar el desglose y calcular el agregado acá, en vez de confiar en que el modelo lo agregue bien
+ * por su cuenta, es lo que cierra esa brecha.
+ */
+function calcularMecanismo(
+  analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[]
+): "Racional" | "AntiRacional" | "Mixto" {
+  if (analisisPorOracion.length === 0) return "AntiRacional"; // no debería pasar; conservador si pasa
+  const todasSobreviven = analisisPorOracion.every((o) => o.sobreviveDespojo);
+  if (todasSobreviven) return "Racional";
+  const ningunaSobrevive = analisisPorOracion.every((o) => !o.sobreviveDespojo);
+  if (ningunaSobrevive) return "AntiRacional";
+  return "Mixto";
+}
+
+function sinEspacios(s: string): string {
+  return s.replace(/\s+/g, "");
+}
+
+/** El modelo podría, en teoría, devolver un desglose que "suene" completo sin cubrir realmente todo el
+ * fragmento (una oración de más, una de menos, una parafraseada en vez de citada) — eso invalidaría
+ * calcularMecanismo en silencio, porque el agregado se calcula sobre oraciones que ya no representan el
+ * fragmento real. Se verifica concatenando (ignorando espacios, nunca puntuación exacta de por medio porque el
+ * modelo puede normalizar comillas/guiones al citar) contra el texto editado — si no reconstruye, es un error
+ * explícito, nunca una clasificación silenciosa sobre datos que no se pudieron verificar. */
+function oracionesReconstruyenTexto(
+  analisisPorOracion: { oracion: string }[],
+  textoEditado: string
+): boolean {
+  const reconstruido = analisisPorOracion.map((o) => o.oracion).join("");
+  return sinEspacios(reconstruido) === sinEspacios(textoEditado);
+}
 
 // 90s: dos llamadas SECUENCIALES por intento (despojo → nota de mentor) — menos que Explicación, que además
 // del despojo tiene el mecanismo de sustitución completo. Streaming SSE con heartbeat por la misma razón de
@@ -16,6 +54,7 @@ export const maxDuration = 90;
 function comoResultadoParaNota(intento: {
   texto: string;
   mecanismo: "Racional" | "AntiRacional" | "Mixto";
+  analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
   tecnicas: string[];
   justificacion: string;
 }) {
@@ -91,15 +130,35 @@ export async function POST(
     const versionAnterior = intentoAnteriorRegistro?.texto ?? pasajeOriginal.cita;
 
     const despojoPrompt = mejoraDespojoPasajePrompt(texto, textoEditado, pasajeOriginal.tecnicas, versionAnterior);
+    // strict:true (con additionalProperties:false en cada nivel del schema, ver mejoraDespojoPasajePrompt) para
+    // que "required" se aplique de verdad — analisisPorOracion es exactamente el campo que necesita forzarse,
+    // no vale la pena repetir acá el hueco ya documentado en anthropic.ts de confiar en required sin strict.
     const resultDespojo = await callTool<{
-      mecanismo: "Racional" | "AntiRacional" | "Mixto";
+      analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
       tecnicas: string[];
       justificacion: string;
-    }>(despojoPrompt);
+    }>({ ...despojoPrompt, strict: true });
+
+    const analisisPorOracion = asArray(resultDespojo.analisisPorOracion);
+
+    // Error explícito, no clasificación: si el desglose no reconstruye el fragmento editado, el agregado de
+    // calcularMecanismo estaría calculado sobre oraciones que no representan con fidelidad lo que el usuario
+    // realmente escribió — no hay clasificación confiable posible a partir de acá. Nada se guarda (ni el
+    // intento, ni el cupo semanal ya se gastó antes de esta llamada — ver el comentario sobre eso más abajo).
+    if (!oracionesReconstruyenTexto(analisisPorOracion, textoEditado)) {
+      enviar({
+        error:
+          "El desglose oración por oración que devolvió el modelo no reconstruye el fragmento editado — no se puede confiar en la clasificación resultante. Probá de nuevo.",
+      });
+      return;
+    }
+
+    const mecanismo = calcularMecanismo(analisisPorOracion);
 
     const intentoActualParaNota = comoResultadoParaNota({
       texto: textoEditado,
-      mecanismo: resultDespojo.mecanismo,
+      mecanismo,
+      analisisPorOracion,
       tecnicas: resultDespojo.tecnicas,
       justificacion: resultDespojo.justificacion,
     });
@@ -120,7 +179,8 @@ export async function POST(
       id: `I${numeroIntento}`,
       texto: textoEditado,
       creadoEn: new Date().toISOString(),
-      mecanismo: resultDespojo.mecanismo,
+      mecanismo,
+      analisisPorOracion,
       tecnicas: resultDespojo.tecnicas,
       justificacion: resultDespojo.justificacion,
       notaMentor: resultNota.notaMentor,

@@ -17,11 +17,14 @@ function getRedis(): Redis {
 }
 
 export const MAX_INTENTOS_EXPLICACION = 5;
-// TEMPORAL (2026-09-28): subido de 3 a 4 para darle una chance más a la sesión de pasaje de
-// "Liberalmente.app" que agotó sus 3 intentos con el bug de Mixto todavía activo, sin ningún intento
-// aplicado. Revertir a 3 apenas se corra ese intento 4 con las dos correcciones ya desplegadas — no es un
-// cambio de producto permanente.
-export const MAX_INTENTOS_PASAJE = 4;
+// TEMPORAL (2026-09-28): subido de 3 a 4, y ahora a 5 — la sesión de pasaje de "Liberalmente.app" agotó los 3
+// originales con el bug de Mixto activo (fix de solo contraste, sin analisisPorOracion, ningún intento
+// aplicado); el intento 4, ya con contraste, TAMPOCO corrigió el caso, así que ese intento extra quedó
+// "gastado" probando un fix insuficiente, no el actual. El intento 5 es el primero que corre con el desglose
+// forzado (analisisPorOracion + cálculo en código). Revertir a 3 apenas se confirme que el intento 5 clasifica
+// bien este caso — no es un cambio de producto permanente (ver mejora/page.tsx, MAX_INTENTOS, duplicado a
+// mano ahí por la razón ya documentada en ese archivo).
+export const MAX_INTENTOS_PASAJE = 5;
 
 // Clave compuesta (análisis + hallazgo) en vez de un índice aparte: la lista de explicaciones Frágiles/pasajes
 // que cierran el argumento de un análisis ya vive en su propio registro (AnalisisGuardado.veredictos/
@@ -81,11 +84,26 @@ export async function guardarMejoraSesionExplicacion(sesion: MejoraSesionExplica
   await getRedis().set(sesionExplicacionKey(sesion.analisisId, sesion.explicacionId), sesion);
 }
 
+/** Los intentos guardados antes de que existiera analisisPorOracion (2026-09-28) no lo tienen — se normaliza
+ * acá en la lectura, en vez de migrar, mismo patrón que conTipoExplicacion arriba: un intento viejo real
+ * simplemente no tiene desglose que mostrar, así que `[]` es el valor correcto, no un parche que oculte un
+ * dato ausente. */
+function conAnalisisPorOracion(sesion: MejoraSesionPasaje): MejoraSesionPasaje {
+  return {
+    ...sesion,
+    intentos: sesion.intentos.map((intento) => ({
+      ...intento,
+      analisisPorOracion: intento.analisisPorOracion ?? [],
+    })),
+  };
+}
+
 export async function obtenerMejoraSesionPasaje(
   analisisId: string,
   pasajeId: string
 ): Promise<MejoraSesionPasaje | null> {
-  return getRedis().get<MejoraSesionPasaje>(sesionPasajeKey(analisisId, pasajeId));
+  const sesion = await getRedis().get<MejoraSesionPasaje>(sesionPasajeKey(analisisId, pasajeId));
+  return sesion ? conAnalisisPorOracion(sesion) : null;
 }
 
 export async function obtenerMejoraSesionesPasaje(
@@ -99,7 +117,7 @@ export async function obtenerMejoraSesionesPasaje(
   const mapa = new Map<string, MejoraSesionPasaje>();
   pasajeIds.forEach((id, i) => {
     const registro = registros[i];
-    if (registro) mapa.set(id, registro);
+    if (registro) mapa.set(id, conAnalisisPorOracion(registro));
   });
   return mapa;
 }

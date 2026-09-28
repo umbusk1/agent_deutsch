@@ -916,6 +916,7 @@ frágil como contexto de fondo, pero la nota es sobre ESTE intento, no una reeva
 type ResultadoIntentoMejoraPasaje = {
   texto: string;
   mecanismo: "Racional" | "AntiRacional" | "Mixto";
+  analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
   tecnicas: string[];
   justificacion: string;
 };
@@ -958,20 +959,24 @@ haría — no te quedes solo con esa impresión global.`
     : ""
 }
 
-EL TEST OPERATIVO (tres pasos)
+EL TEST OPERATIVO (tres pasos) — SE APLICA POR SEPARADO A CADA ORACIÓN, NUNCA AL FRAGMENTO COMPLETO DE UNA SOLA
+VEZ. Un fragmento de varias oraciones donde la mayoría sostiene algo real puede "sentirse" racional en una
+lectura global aunque una sola cláusula todavía dependa por completo de la carga retórica — esa lectura global
+es exactamente el error que este desglose existe para prevenir. No emitas ningún juicio de conjunto antes de
+haber pasado cada oración por los tres pasos:
 
-1. Aísla el fragmento (ya viene aislado — este paso ya está hecho).
-2. Despójalo de la carga de lealtad/urgencia/tabú/autoridad, y quédate solo con la afirmación desnuda que hace.
-3. Evalúa: ¿un lector crítico seguiría considerando esa afirmación desnuda por sus propios méritos? Si sí, el
-   envoltorio era decoración — mecanismo racional, aunque el tono sea apasionado. Si no —si sin el envoltorio la
-   afirmación se cae— el envoltorio era el argumento real: mecanismo anti-racional.
+1. Aísla la oración o cláusula independiente (dentro del fragmento ya aislado, que puede tener varias).
+2. Despójala de la carga de lealtad/urgencia/tabú/autoridad, y quédate solo con la afirmación desnuda que hace.
+3. Evalúa ESA ORACIÓN SOLA: ¿un lector crítico seguiría considerándola por sus propios méritos? Si sí,
+   sobrevive el despojo. Si no —si sin el envoltorio la afirmación se cae— no sobrevive.
 
-Un fragmento editado no siempre es uniforme: puede tener una parte que ya sostiene una afirmación sustantiva
-por mérito propio y otra parte que todavía se apoya en carga emocional sin ningún argumento detrás. Cuando eso
-pase de verdad —no "el tono bajó de intensidad pero la sustancia sigue sin llegar" (eso sigue siendo
-AntiRacional: bajar el volumen del envoltorio no es lo mismo que reemplazarlo por una razón), sino que HAY al
-menos una parte del fragmento que genuinamente sobrevive el despojo y OTRA parte que genuinamente no— repórtalo
-como "Mixto", no fuerces el fragmento entero hacia uno de los dos extremos ni promedies en silencio.
+Repórtalo en analisisPorOracion, una entrada por oración, ANTES de nada más. Recién con esas oraciones ya
+juzgadas una por una tenés el fragmento clasificado: no hay un mecanismo "de conjunto" separado que decidas
+después — nombra en justificacion, en prosa, lo que ese desglose ya estableció.
+
+Nota importante: "el tono bajó de intensidad pero la sustancia sigue sin llegar" NO es sobrevivir el despojo —
+bajar el volumen del envoltorio no es lo mismo que reemplazarlo por una razón. Juzga si cada oración por sí
+misma sostiene algo verificable, no si suena más moderada que antes.
 
 SALVAGUARDA DE NEUTRALIDAD (aplícala siempre, sin excepción)
 
@@ -992,40 +997,56 @@ podría investigar o refutar por sus propios méritos (ingenio), o queda solo un
 
 QUÉ REGISTRAR
 
-- mecanismo: "Racional", "AntiRacional", o "Mixto" (ver arriba cuándo aplica cada uno — Mixto exige que
-  identifiques, en justificacion, cuál parte concreta sobrevive y cuál no; no es un cajón de sastre para "no
-  estoy seguro").
-- tecnicas: una entrada por cada técnica de presión que sigue detectándose en la redacción editada (puede ser
-  ninguna, si el fragmento ahora es enteramente racional). Nómbralas en términos de lo que aportan si el
-  fragmento pasó a Racional (ej. "tensión real expuesta con ironía"), no con el vocabulario de presión que
-  usarías si siguiera siendo AntiRacional. Si el resultado es Mixto, registra las técnicas que siguen presentes
-  SOLO en la parte que no sobrevivió el despojo.
-- justificacion: en español, por qué la afirmación desnuda se sostiene o se cae al quitarle el envoltorio EN
-  ESTA VERSIÓN EDITADA específicamente. Si el resultado es Mixto, sé explícito sobre CUÁL fragmento textual
-  concreto (cita la frase exacta) es el que todavía no sostiene nada por mérito propio.
+- analisisPorOracion: OBLIGATORIO, una entrada por cada oración o cláusula independiente del fragmento
+  editado, en el orden en que aparecen — este es el trabajo real, no un resumen posterior. Por cada una:
+  oracion (cítala exacta), sobreviveDespojo (true/false, resultado del test de arriba aplicado a ESA oración
+  sola), y razon (por qué, en una frase). El mecanismo final NUNCA lo decidís vos directamente — se calcula
+  automáticamente a partir de este desglose (todas sobreviven → Racional; ninguna sobrevive → AntiRacional;
+  mezcla → Mixto), así que la precisión de este campo es lo único que importa.
+- tecnicas: una entrada por cada técnica de presión que sigue detectándose en las oraciones que NO
+  sobrevivieron el despojo (ninguna, si todas sobrevivieron). Si alguna oración pasó a ser racional, no le
+  asignes vocabulario de presión — nombra en cambio, para esas, qué aporta si corresponde (ej. "tensión real
+  expuesta con ironía").
+- justificacion: en español, una síntesis en prosa de lo que el desglose por oración ya estableció — nunca un
+  juicio nuevo que no se derive de analisisPorOracion. Si el resultado terminará siendo Mixto, sé explícito
+  sobre CUÁL oración concreta (cítala) es la que no sostiene nada por mérito propio.
 `.trim();
 
   const user = `Texto original (para contexto, resolver pronombres/referencias):\n\n${texto}\n\nTécnicas identificadas originalmente en la versión sin editar (solo referencia, no vinculante):\n${tecnicasOriginales.join(", ") || "(ninguna registrada)"}${
     versionAnterior
-      ? `\n\nVersión anterior de este mismo fragmento (para contraste directo, frase por frase):\n${versionAnterior}`
+      ? `\n\nVersión anterior de este mismo fragmento (para contexto de qué cambió, no para el desglose por oración en sí, que se aplica a la versión editada de abajo):\n${versionAnterior}`
       : ""
   }\n\nFragmento editado a clasificar:\n${citaEditada}`;
 
   const inputSchema: Schema = {
     type: "object",
     properties: {
-      mecanismo: { type: "string", enum: ["Racional", "AntiRacional", "Mixto"] },
+      analisisPorOracion: {
+        type: "array",
+        description: "Una entrada por cada oración/cláusula independiente del fragmento, en orden — el desglose obligatorio del que se deriva el mecanismo final.",
+        items: {
+          type: "object",
+          properties: {
+            oracion: { type: "string" },
+            sobreviveDespojo: { type: "boolean" },
+            razon: { type: "string" },
+          },
+          required: ["oracion", "sobreviveDespojo", "razon"],
+          additionalProperties: false,
+        },
+      },
       tecnicas: { type: "array", items: { type: "string" } },
       justificacion: { type: "string" },
     },
-    required: ["mecanismo", "tecnicas", "justificacion"],
+    required: ["analisisPorOracion", "tecnicas", "justificacion"],
+    additionalProperties: false,
   };
 
   return {
     system,
     user,
     toolName: "reportar_reclasificacion_pasaje",
-    toolDescription: "Reporta si el fragmento editado sobrevive el test de despojo (Racional), no (AntiRacional), o solo en parte (Mixto).",
+    toolDescription: "Reporta el desglose por oración del test de despojo; el mecanismo (Racional/AntiRacional/Mixto) se calcula a partir de ese desglose, no lo decide el modelo directamente.",
     inputSchema,
   };
 }
@@ -1067,7 +1088,10 @@ Reglas de tono según el resultado de ESTE intento:
   dilo así. Sé tan específico como el diagnóstico lo permita: nombra, citando la frase exacta, cuál parte del
   fragmento ya sostiene algo por mérito propio (celebra ESA parte puntual) y cuál frase o cláusula concreta
   todavía pide ser aceptada por su peso emocional sin argumento detrás — la nota no cumple su función si dice
-  "en parte funciona" sin señalar textualmente cuál parte es la que sigue floja.
+  "en parte funciona" sin señalar textualmente cuál parte es la que sigue floja. Para esto tenés
+  analisisPorOracion en el intento actual (y en el anterior, si lo hay): son las oraciones exactas que ya se
+  evaluaron una por una, con sobreviveDespojo y su razón — usalo como fuente de las citas textuales en vez de
+  re-derivarlas de la síntesis en prosa de justificacion.
 
 Contraste obligatorio: ${
     intentoAnterior

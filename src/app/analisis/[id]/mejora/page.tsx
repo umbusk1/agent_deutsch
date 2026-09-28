@@ -32,7 +32,7 @@ type Cupo = { desbloqueado: boolean; textosUsados: number; limite: number; unlim
 // @/lib/mejora) para no arrastrar el cliente de Redis a un bundle de cliente — MANTENER EN SINCRONÍA A MANO
 // con MAX_INTENTOS_EXPLICACION/MAX_INTENTOS_PASAJE en mejora.ts; no hay ninguna otra alarma si se desincroniza
 // (ya pasó una vez: el server subió a 4 y esta copia se quedó en 3, bloqueando la UI de más).
-const MAX_INTENTOS: Record<Hallazgo["tipoHallazgo"], number> = { explicacion: 5, pasaje: 4 };
+const MAX_INTENTOS: Record<Hallazgo["tipoHallazgo"], number> = { explicacion: 5, pasaje: 5 };
 
 const MENSAJES_EVALUAR_EXPLICACION = [
   "Identificando qué es fijo y qué es variable en tu redacción...",
