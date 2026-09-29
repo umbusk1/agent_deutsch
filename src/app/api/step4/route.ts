@@ -6,6 +6,25 @@ import type { Explicacion, Problema, VarianteAceptada, Veredicto } from "@/lib/t
 
 export const maxDuration = 120;
 
+/** El modelo reporta "veredicto" como un agregado autoreportado, en paralelo a resultadosVariantes — nada
+ * verificaba hasta ahora que ese agregado fuera consistente con el patrón real de las variantes de tipo
+ * sustitucion_minima (que son las únicas que cuentan, por instrucción del prompt). Solo LOG por ahora, sin
+ * corregir nada — ver fila 4 de la auditoría de schemas (2026-09-29): primero medir si esto ocurre de
+ * verdad en producción antes de invertir en forzarlo con un cálculo en código como ya se hizo para el
+ * mecanismo de despojo de pasaje. */
+function veredictoEsperadoPorMayoria(
+  resultadosVariantes: { varianteId: string; resultado: "rompe" | "sobrevive" }[],
+  idsSustitucionMinima: Set<string>
+): "DificilDeVariar" | "FacilDeVariar" | "Mixta" | null {
+  const relevantes = resultadosVariantes.filter((r) => idsSustitucionMinima.has(r.varianteId));
+  if (relevantes.length === 0) return null;
+  const rompe = relevantes.filter((r) => r.resultado === "rompe").length;
+  const sobrevive = relevantes.length - rompe;
+  if (rompe > sobrevive) return "DificilDeVariar";
+  if (sobrevive > rompe) return "FacilDeVariar";
+  return "Mixta";
+}
+
 export async function POST(request: Request) {
   try {
     const { texto, explicaciones, problemas, variantesAceptadas } = (await request.json()) as {
@@ -54,9 +73,20 @@ export async function POST(request: Request) {
           resisteConocimientoNuevo?: { resultado: "rompe" | "sobrevive"; justificacion: string };
         }>(prompt);
 
+        const resultadosVariantes = asArray(result.resultadosVariantes);
+        const idsSustitucionMinima = new Set(
+          variantes.filter((v) => v.tipo === "sustitucion_minima").map((v) => v.id)
+        );
+        const veredictoEsperado = veredictoEsperadoPorMayoria(resultadosVariantes, idsSustitucionMinima);
+        if (veredictoEsperado && veredictoEsperado !== result.veredicto) {
+          console.error(
+            `[step4] veredicto autoreportado ("${result.veredicto}") diverge del patrón real de resultadosVariantes (mayoría sugiere "${veredictoEsperado}") — explicación ${explicacion.id}. Solo registro, no se corrige.`
+          );
+        }
+
         return {
           explicacionId: explicacion.id,
-          resultadosVariantes: asArray(result.resultadosVariantes),
+          resultadosVariantes,
           veredicto: result.veredicto,
           justificacion: result.justificacion,
           resisteConocimientoNuevo: result.resisteConocimientoNuevo ?? null,
