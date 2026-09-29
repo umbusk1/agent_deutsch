@@ -46,7 +46,38 @@ type ToolCallParams = {
 // problemaId; se resolvió reemplazando el array libre por una clave obligatoria por par, ver step6Prompt en
 // prompts.ts). Vale la pena revisar los pasos restantes (2, 4, 5, 7) con esta misma pregunta antes de que aparezca
 // un cuarto caso sin que lo hayamos anticipado.
-export async function callTool<T>(params: ToolCallParams): Promise<T> {
+// Confirmado en un registro real de producción (2026-09-29, análisis "Así no, Mister Trump", explicación E3):
+// un fragmento de la sintaxis interna de tool-call ("<parameter name=\"resultado\">rompe") se filtró crudo a
+// un campo de texto y se persistió sin que nada lo detectara. Estos tres marcadores son el síntoma de esa
+// clase de falla (una respuesta que no terminó de resolverse como tool_use limpio) — si aparecen en CUALQUIER
+// string del input parseado, el input no es confiable, sin importar qué campo puntual sea.
+const MARCADORES_TOOL_CALL_MAL_FORMADO = ["<parameter", "</invoke", "antml"];
+
+function marcadorMalFormadoEn(valor: unknown): string | null {
+  if (typeof valor === "string") {
+    for (const marcador of MARCADORES_TOOL_CALL_MAL_FORMADO) {
+      if (valor.includes(marcador)) return marcador;
+    }
+    return null;
+  }
+  if (Array.isArray(valor)) {
+    for (const item of valor) {
+      const hallado = marcadorMalFormadoEn(item);
+      if (hallado) return hallado;
+    }
+    return null;
+  }
+  if (valor && typeof valor === "object") {
+    for (const v of Object.values(valor)) {
+      const hallado = marcadorMalFormadoEn(v);
+      if (hallado) return hallado;
+    }
+    return null;
+  }
+  return null;
+}
+
+async function unaLlamada<T>(params: ToolCallParams): Promise<T> {
   let response;
   try {
     response = await getClient().messages.create(
@@ -81,6 +112,28 @@ export async function callTool<T>(params: ToolCallParams): Promise<T> {
   }
 
   return toolUse.input as T;
+}
+
+// Capa de validación de forma, aplicada a TODAS las llamadas con schema (no solo a Paso 4, que además tiene
+// su propia validación de invariantes de negocio encima de esta — ver step4/route.ts): un solo reintento si
+// aparece alguno de los marcadores de arriba, y si el reintento también sale mal formado, un error explícito
+// en vez de devolver — y dejar persistir — contenido no confiable.
+export async function callTool<T>(params: ToolCallParams): Promise<T> {
+  const primerIntento = await unaLlamada<T>(params);
+  const marcador = marcadorMalFormadoEn(primerIntento);
+  if (!marcador) return primerIntento;
+
+  console.error(
+    `[callTool] "${params.toolName}" devolvió un marcador de tool-call mal formado ("${marcador}") filtrado en el contenido — reintentando una vez.`
+  );
+  const segundoIntento = await unaLlamada<T>(params);
+  const marcador2 = marcadorMalFormadoEn(segundoIntento);
+  if (marcador2) {
+    throw new Error(
+      `Claude devolvió una respuesta mal formada para este paso (marcador "${marcador2}" filtrado en el contenido), incluso después de reintentar. No se guardó nada — intenta de nuevo.`
+    );
+  }
+  return segundoIntento;
 }
 
 type FreeformCallParams = {

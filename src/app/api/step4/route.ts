@@ -4,7 +4,10 @@ import { step4Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import type { Explicacion, Problema, VarianteAceptada, Veredicto } from "@/lib/types";
 
-export const maxDuration = 120;
+// 200s: además de las 2 llamadas ya contempladas (esta y la posible de callTool), la validación de forma de
+// abajo puede pedir un reintento propio, sumando hasta una llamada extra en el peor caso — mismo motivo que
+// el margen ampliado de Paso 7 (ver ese route.ts) ante un reintento poco frecuente pero real.
+export const maxDuration = 200;
 
 /** El modelo reporta "veredicto" como un agregado autoreportado, en paralelo a resultadosVariantes — nada
  * verificaba hasta ahora que ese agregado fuera consistente con el patrón real de las variantes de tipo
@@ -23,6 +26,37 @@ function veredictoEsperadoPorMayoria(
   if (rompe > sobrevive) return "DificilDeVariar";
   if (sobrevive > rompe) return "FacilDeVariar";
   return "Mixta";
+}
+
+type ResultadoVeredictoBruto = {
+  resultadosVariantes: { varianteId: string; resultado: "rompe" | "sobrevive"; justificacion: string }[];
+  veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta";
+  justificacion: string;
+  resisteConocimientoNuevo?: { resultado: "rompe" | "sobrevive"; justificacion: string };
+};
+
+/** Confirmado en un registro real de producción (análisis "Así no, Mister Trump", explicación E3,
+ * 2026-09-29): resultadosVariantes venía vacío pese a un veredicto que no es SinSustitutoGenuino (ese valor
+ * ni siquiera es una salida posible del modelo acá — solo lo asigna esta ruta cuando variantes.length es 0,
+ * ANTES de llamar a callTool — así que si llegamos hasta acá, resultadosVariantes vacío es siempre inválido),
+ * y resisteConocimientoNuevo era un string suelto con sintaxis de tool-call filtrada, no el objeto esperado.
+ * callTool ya filtra los tres marcadores de tool-call mal formado en cualquier string (ver anthropic.ts) —
+ * esto valida además la FORMA específica de este paso, que esa capa genérica no puede conocer. */
+function formaInvalidaDe(result: ResultadoVeredictoBruto): string | null {
+  if (asArray(result.resultadosVariantes).length === 0) {
+    return "resultadosVariantes vacío con un veredicto que no es SinSustitutoGenuino";
+  }
+  if (result.resisteConocimientoNuevo != null) {
+    const r = result.resisteConocimientoNuevo;
+    const formaValida =
+      typeof r === "object" &&
+      r !== null &&
+      (r.resultado === "rompe" || r.resultado === "sobrevive") &&
+      typeof r.justificacion === "string" &&
+      r.justificacion.trim().length > 0;
+    if (!formaValida) return "resisteConocimientoNuevo con forma inválida";
+  }
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -66,12 +100,20 @@ export async function POST(request: Request) {
         }
 
         const prompt = step4Prompt(texto, explicacion, problema, variantes);
-        const result = await callTool<{
-          resultadosVariantes: { varianteId: string; resultado: "rompe" | "sobrevive"; justificacion: string }[];
-          veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta";
-          justificacion: string;
-          resisteConocimientoNuevo?: { resultado: "rompe" | "sobrevive"; justificacion: string };
-        }>(prompt);
+        let result = await callTool<ResultadoVeredictoBruto>(prompt);
+        let problemaForma = formaInvalidaDe(result);
+        if (problemaForma) {
+          console.error(
+            `[step4] respuesta con forma inválida (${problemaForma}) para la explicación ${explicacion.id} — reintentando una vez.`
+          );
+          result = await callTool<ResultadoVeredictoBruto>(prompt);
+          problemaForma = formaInvalidaDe(result);
+          if (problemaForma) {
+            throw new Error(
+              `No se pudo generar un veredicto con forma válida para la explicación ${explicacion.id} (${problemaForma}), incluso después de reintentar. No se guardó nada — intenta de nuevo.`
+            );
+          }
+        }
 
         const resultadosVariantes = asArray(result.resultadosVariantes);
         const idsSustitucionMinima = new Set(
