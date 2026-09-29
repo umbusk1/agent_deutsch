@@ -1,4 +1,4 @@
-import { ETIQUETA_CAMPO_VEREDICTO, ETIQUETAS_VEREDICTO } from "@/lib/etiquetas";
+import { ETIQUETA_CAMPO_VEREDICTO, ETIQUETAS_VEREDICTO, ETIQUETAS_MECANISMO } from "@/lib/etiquetas";
 
 export default function AcercaDe() {
   return (
@@ -130,6 +130,26 @@ export default function AcercaDe() {
           compartida entre los usuarios de la aplicación. Desde ahí puedes elegir dos análisis y
           compararlos: el agente evalúa cuál de los dos textos argumenta con más rigor, sin declarar nunca
           cuál tiene razón sobre el fondo del asunto.
+        </p>
+
+        <p>
+          <strong>Mejora.</strong> Cuando un análisis encuentra algo que se puede reforzar (una explicación{" "}
+          {ETIQUETAS_VEREDICTO.FacilDeVariar} o un pasaje que {ETIQUETAS_MECANISMO.AntiRacional.toLowerCase()}
+          ), Biblioteca muestra un botón &ldquo;X Mejoras&rdquo; junto a ese análisis, disponible solo para
+          quien lo subió. Ahí editas el fragmento real de tu texto y el agente lo pone a prueba con el mismo
+          mecanismo del Test. El agente nunca escribe por ti ni propone redacciones: evalúa lo que tú
+          escribes, te dice qué sigue flojo y hacia dónde apuntar el siguiente intento. Cada explicación
+          admite hasta 5 intentos y cada pasaje hasta 3, dentro de un cupo semanal de textos. Puedes aplicar
+          cualquier intento, llegue o no a {ETIQUETAS_VEREDICTO.DificilDeVariar}, y el registro guarda
+          siempre el resultado real de esa prueba, nunca uno supuesto.
+        </p>
+
+        <p>
+          <strong>TextoV2.</strong> Los cambios que aplicas se ensamblan de forma mecánica sobre tu texto
+          original: tu redacción reemplaza el fragmento exacto que trabajaste y todo lo demás queda igual.
+          El agente no reescribe nada. Debajo del texto, la lista &ldquo;Cambios aplicados&rdquo; muestra el
+          antes, el después y el resultado real de cada cambio, para que quede claro qué quedó{" "}
+          {ETIQUETAS_VEREDICTO.DificilDeVariar} y qué no.
         </p>
       </div>
     </div>
