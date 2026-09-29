@@ -21,6 +21,9 @@ type HallazgoPasaje = {
   cita: string;
   tecnicasOriginales: string[];
   razonDespojo: string;
+  // Opcional: registros guardados antes de este campo no lo tienen. Sirve para mostrar, sobre todo en un
+  // pasaje Mixto, cuál oración puntual es la que no sobrevivió — no "todo el pasaje" cierra el argumento.
+  analisisPorOracion?: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
   sesion: MejoraSesionPasaje | null;
 };
 
@@ -293,6 +296,21 @@ export default function MejoraPage({ params }: { params: Promise<{ id: string }>
                     <span>Por qué no sobrevivió el despojo</span>
                   </div>
                   <p className="quote">{activa.razonDespojo}</p>
+
+                  {activa.analisisPorOracion && activa.analisisPorOracion.some((o) => !o.sobreviveDespojo) && (
+                    <>
+                      <div className="item-label" style={{ marginTop: "0.75rem" }}>
+                        <span>Oración que no sostiene nada por mérito propio</span>
+                      </div>
+                      {activa.analisisPorOracion
+                        .filter((o) => !o.sobreviveDespojo)
+                        .map((o, i) => (
+                          <p className="quote" key={i}>
+                            &ldquo;{o.oracion}&rdquo; — {o.razon}
+                          </p>
+                        ))}
+                    </>
+                  )}
                 </>
               )}
 

@@ -868,6 +868,7 @@ export default function Home() {
                 }
               >
                 <option value="Racional">{ETIQUETAS_MECANISMO.Racional}</option>
+                <option value="Mixto">{ETIQUETAS_MECANISMO.Mixto}</option>
                 <option value="AntiRacional">{ETIQUETAS_MECANISMO.AntiRacional}</option>
               </select>
               <div className="item-label" style={{ marginTop: "0.5rem" }}>

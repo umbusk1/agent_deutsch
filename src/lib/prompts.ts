@@ -393,13 +393,24 @@ irónica que condensa (o reemplaza) el argumento central. En este punto del proc
 veredicto de "difícil de variar" sobre ninguna explicación — no lo asumas, no lo esperes, y no uses su ausencia o
 presencia como atajo para decidir nada aquí.
 
-EL TEST OPERATIVO (tres pasos, aplícalo a cada pasaje candidato)
+EL TEST OPERATIVO (tres pasos) — SE APLICA POR SEPARADO A CADA ORACIÓN DE CADA PASAJE, NUNCA AL PASAJE COMPLETO
+DE UNA SOLA VEZ. Un pasaje de varias oraciones donde la mayoría sostiene algo real puede "sentirse" racional en
+una lectura global aunque una sola cláusula todavía dependa por completo de la carga retórica — esa lectura
+global es exactamente el error que este desglose existe para prevenir. No emitas ningún juicio de conjunto antes
+de haber pasado cada oración por los tres pasos:
 
-1. Aísla el pasaje.
-2. Despójalo de la carga de lealtad/urgencia/tabú/autoridad, y quédate solo con la afirmación desnuda que hace.
-3. Evalúa: ¿un lector crítico seguiría considerando esa afirmación desnuda por sus propios méritos? Si sí, el
-   envoltorio era decoración — mecanismo racional, aunque el tono sea apasionado. Si no —si sin el envoltorio
-   la afirmación se cae— el envoltorio era el argumento real: mecanismo anti-racional.
+1. Aísla la oración o cláusula independiente (dentro del pasaje, que puede tener varias — ver GRANULARIDAD).
+2. Despójala de la carga de lealtad/urgencia/tabú/autoridad, y quédate solo con la afirmación desnuda que hace.
+3. Evalúa ESA ORACIÓN SOLA: ¿un lector crítico seguiría considerando esa afirmación desnuda por sus propios
+   méritos? Si sí, sobrevive el despojo. Si no —si sin el envoltorio la afirmación se cae— no sobrevive.
+
+Repórtalo en analisisPorOracion, una entrada por oración, ANTES de nada más. Recién con esas oraciones ya
+juzgadas una por una tenés el pasaje clasificado: no hay un mecanismo "de conjunto" separado que decidas
+después — nombra en justificacion, en prosa, lo que ese desglose ya estableció.
+
+Nota importante: "el tono bajó de intensidad pero la sustancia sigue sin llegar" NO es sobrevivir el despojo —
+bajar el volumen del envoltorio no es lo mismo que reemplazarlo por una razón. Juzga si cada oración por sí
+misma sostiene algo verificable, no si suena más moderada que el resto del pasaje.
 
 SALVAGUARDA DE NEUTRALIDAD (aplícala siempre, sin excepción)
 
@@ -442,16 +453,23 @@ QUÉ REGISTRAR POR CADA PASAJE
 Registra solo los pasajes que despliegan alguna de estas vías de presión (no registres pasajes neutros que no
 apelan a ninguna). Para cada uno:
 - cita: el fragmento exacto del texto, en su idioma original, sin traducir.
-- mecanismo: "Racional" o "AntiRacional" (binario, sin tercer estado — si el caso es ambiguo, resuélvelo con
-  matiz en el texto libre de las técnicas, no inventando una categoría intermedia).
-- tecnicas: una entrada por cada técnica de presión detectada en ese pasaje, en español (ej. "apelación a
-  lealtad/traición", "urgencia que no da margen para pensar"). Si un mismo pasaje combina más de una vía,
-  regístralas todas — no elijas una sola como dominante.
-- justificacion: en español, por qué la afirmación desnuda se sostiene o se cae al quitarle el envoltorio.
+- analisisPorOracion: OBLIGATORIO, una entrada por cada oración o cláusula independiente de la cita, en el
+  orden en que aparecen — este es el trabajo real, no un resumen posterior. Por cada una: oracion (cítala
+  exacta), sobreviveDespojo (true/false, resultado del test de arriba aplicado a ESA oración sola), y razon
+  (por qué, en una frase). El mecanismo final NUNCA lo decidís vos directamente — se calcula automáticamente a
+  partir de este desglose (todas sobreviven → Racional; ninguna sobrevive → AntiRacional; mezcla → Mixto), así
+  que la precisión de este campo es lo único que importa.
+- tecnicas: una entrada por cada técnica de presión que sigue detectándose en las oraciones que NO
+  sobrevivieron el despojo, en español (ej. "apelación a lealtad/traición", "urgencia que no da margen para
+  pensar") — ninguna, si todas las oraciones de la cita sobrevivieron. Si un mismo pasaje combina más de una
+  vía de presión, regístralas todas — no elijas una sola como dominante.
+- justificacion: en español, una síntesis en prosa de lo que el desglose por oración ya estableció — nunca un
+  juicio nuevo que no se derive de analisisPorOracion. Si el resultado terminará siendo Mixto, sé explícito
+  sobre CUÁL oración concreta (cítala) es la que no sostiene nada por mérito propio.
 
-Si tras leer todo el texto ningún pasaje resulta en mecanismo AntiRacional, igual puedes reportar los pasajes
-con mecanismo Racional que hayas identificado (retórica apasionada que resistió el test); simplemente no forces
-ningún AntiRacional que no encuentres.
+Si tras leer todo el texto ninguna oración de ningún pasaje resulta en AntiRacional, igual puedes reportar los
+pasajes donde todo sobrevivió el despojo (retórica apasionada que resistió el test); simplemente no fuerces
+ninguna oración como no-sobreviviente si no la encuentras.
 `.trim();
 
   const user = `Texto a analizar:\n\n${texto}`;
@@ -465,27 +483,41 @@ ningún AntiRacional que no encuentres.
           type: "object",
           properties: {
             cita: { type: "string", description: "Fragmento textual citado del artículo, en su idioma original" },
-            mecanismo: { type: "string", enum: ["Racional", "AntiRacional"] },
+            analisisPorOracion: {
+              type: "array",
+              description: "Una entrada por cada oración/cláusula independiente de la cita, en orden — el desglose obligatorio del que se deriva el mecanismo final.",
+              items: {
+                type: "object",
+                properties: {
+                  oracion: { type: "string" },
+                  sobreviveDespojo: { type: "boolean" },
+                  razon: { type: "string" },
+                },
+                required: ["oracion", "sobreviveDespojo", "razon"],
+                additionalProperties: false,
+              },
+            },
             tecnicas: {
               type: "array",
-              minItems: 1,
               items: { type: "string" },
-              description: "Una o más técnicas de presión detectadas en el pasaje, en español",
+              description: "Una o más técnicas de presión detectadas en las oraciones que no sobrevivieron el despojo, en español — vacío si todas sobrevivieron",
             },
             justificacion: { type: "string" },
           },
-          required: ["cita", "mecanismo", "tecnicas", "justificacion"],
+          required: ["cita", "analisisPorOracion", "tecnicas", "justificacion"],
+          additionalProperties: false,
         },
       },
     },
     required: ["pasajes"],
+    additionalProperties: false,
   };
 
   return {
     system,
     user,
     toolName: "reportar_persuasion",
-    toolDescription: "Reporta los pasajes que apelan a lealtad, urgencia, autoridad, tabú o vergüenza, y si ese envoltorio reemplaza o acompaña al argumento.",
+    toolDescription: "Reporta el desglose por oración de cada pasaje que apela a lealtad, urgencia, autoridad, tabú o vergüenza; el mecanismo (Racional/AntiRacional/Mixto) se calcula a partir de ese desglose, no lo decide el modelo directamente.",
     inputSchema,
   };
 }
@@ -1442,22 +1474,30 @@ relación entre explicaciones, sin resumir ni cerrar.
   };
 }
 
-export function step7PersuasionPrompt(pasajesAntiRacionales: PasajePersuasivo[]) {
+export function step7PersuasionPrompt(pasajesConPresion: PasajePersuasivo[]) {
   const system = `
 Vas a redactar la SECCIÓN DE PERSUASIÓN de un reporte crítico más grande sobre un texto de opinión. Otro paso,
 por separado, redacta la sección sobre la calidad de las explicaciones del texto — no la menciones ni la
 anticipes, es independiente de esta.
 
-Vas a recibir una lista de pasajes marcados como AntiRacional: pasajes que le piden al lector dejar de
-cuestionar una afirmación (por lealtad, urgencia, autoridad, tabú o vergüenza anticipada) y donde, al quitarles
-ese envoltorio, el argumento se cae.
+Vas a recibir una lista de pasajes con mecanismo AntiRacional o Mixto: pasajes que, al menos en parte, le piden
+al lector dejar de cuestionar una afirmación (por lealtad, urgencia, autoridad, tabú o vergüenza anticipada).
+Cada uno trae su mecanismo y, cuando aplica, oracionesQueNoSobreviven — las oraciones puntuales de la cita que
+no sostienen nada por mérito propio.
+
+- Si el mecanismo es AntiRacional: al quitarle el envoltorio a todo el pasaje, el argumento se cae por
+  completo. Descríbelo como ya se hacía: qué le pide al lector, por qué vía, y por qué ese envoltorio
+  reemplaza al argumento en vez de acompañarlo — por ejemplo: "este pasaje le pide al lector aceptar la
+  conclusión sin dejarle margen para dudar, apelando a la lealtad hacia X y presentando cualquier duda como una
+  forma de traición — un envoltorio que, quitado, deja la afirmación central sin apoyo propio."
+- Si el mecanismo es Mixto: el pasaje sostiene algo real en su mayor parte — NO lo trates como si todo él
+  cerrara el argumento. Nombra, citando la frase exacta de oracionesQueNoSobreviven, cuál cláusula puntual
+  sigue dependiendo de la carga retórica sin argumento detrás, y reconoce en la misma frase que el resto del
+  pasaje sí se sostiene por mérito propio — por ejemplo: "el pasaje describe con precisión verificable qué hace
+  la aplicación, pero cierra con 'X', una frase que no dice qué acción concreta constituye ese compromiso."
 
 Redáctalos en prosa crítica común, completamente en español, sin jerga técnica. Nunca uses las palabras "meme",
-"racional" ni "anti-racional", y nunca menciones a David Deutsch. En vez de eso, describe lo que el pasaje le
-hace al lector: qué le pide, por qué vía, y por qué ese envoltorio reemplaza al argumento en vez de acompañarlo
-— por ejemplo: "este pasaje le pide al lector aceptar la conclusión sin dejarle margen para dudar, apelando a la
-lealtad hacia X y presentando cualquier duda como una forma de traición — un envoltorio que, quitado, deja la
-afirmación central sin apoyo propio."
+"racional", "anti-racional" ni "mixto", y nunca menciones a David Deutsch.
 
 Si la lista viene vacía, no la omitas en silencio: escribe igual una frase breve en prosa llana que lo reconozca
 explícitamente (ej. "el análisis no encontró pasajes que le pidan al lector suspender el juicio en vez de
@@ -1467,11 +1507,15 @@ IMPORTANTE: NO escribas ninguna conclusión general ni valoración global del te
 paso por separado, que necesita ser la única conclusión del reporte final.
 `.trim();
 
-  const user = `Pasajes marcados como AntiRacional:\n${JSON.stringify(
-    pasajesAntiRacionales.map((p) => ({
+  const user = `Pasajes con mecanismo AntiRacional o Mixto:\n${JSON.stringify(
+    pasajesConPresion.map((p) => ({
       cita: p.cita,
+      mecanismo: p.mecanismo,
       tecnicas: p.tecnicas,
       justificacion: p.justificacion,
+      oracionesQueNoSobreviven: (p.analisisPorOracion ?? [])
+        .filter((o) => !o.sobreviveDespojo)
+        .map((o) => o.oracion),
     })),
     null,
     2

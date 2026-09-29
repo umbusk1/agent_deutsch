@@ -17,10 +17,7 @@ export const ETIQUETAS_VEREDICTO: Record<Veredicto["veredicto"], string> = {
   SinSustitutoGenuino: "Sin poner a prueba todavía",
 };
 
-// Tipado con la unión literal en vez de PasajePersuasivo["mecanismo"] (que se queda binaria — el escaneo de
-// step1BPrompt sobre el artículo completo no cambia) porque IntentoMejoraPasaje.mecanismo, que sí puede salir
-// "Mixto", también usa este mapa.
-export const ETIQUETAS_MECANISMO: Record<PasajePersuasivo["mecanismo"] | "Mixto", string> = {
+export const ETIQUETAS_MECANISMO: Record<PasajePersuasivo["mecanismo"], string> = {
   Racional: "Abre el argumento",
   AntiRacional: "Cierra el argumento",
   Mixto: "Parcialmente abre el argumento",

@@ -105,7 +105,14 @@ export type Alcance = {
 export type PasajePersuasivo = {
   id: string;
   cita: string;
-  mecanismo: "Racional" | "AntiRacional";
+  /** "Mixto": una parte de la cita sostiene algo sustantivo y otra parte todavía se apoya en carga emocional
+   * sin argumento — mecanismo se CALCULA de analisisPorOracion (ver step1b/route.ts), nunca lo reporta el
+   * modelo directamente, mismo patrón que IntentoMejoraPasaje.mecanismo. */
+  mecanismo: "Racional" | "AntiRacional" | "Mixto";
+  /** El desglose oración por oración del que se deriva mecanismo. Opcional porque los análisis guardados
+   * antes de este campo (2026-09-29) no lo tienen — sin migración, esos registros simplemente no tienen
+   * desglose que mostrar. */
+  analisisPorOracion?: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
   tecnicas: string[];
   justificacion: string;
 };

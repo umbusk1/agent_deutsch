@@ -181,8 +181,11 @@ export async function listarAnalisis(): Promise<AnalisisResumen[]> {
       const fragilIds = (r.veredictos ?? [])
         .filter((v) => v.veredicto === "FacilDeVariar")
         .map((v) => v.explicacionId);
+      // Mixto cuenta como mejorable igual que AntiRacional (ver el mismo filtro en mejora/route.ts) — el
+      // nombre de la variable se quedó igual por historia, pero ya no es literalmente "los que cierran el
+      // argumento", sino "los que tienen algo mejorable en su mecanismo".
       const cierranArgumentoIds = (r.pasajesPersuasivos ?? [])
-        .filter((p) => p.mecanismo === "AntiRacional")
+        .filter((p) => p.mecanismo === "AntiRacional" || p.mecanismo === "Mixto")
         .map((p) => p.id);
 
       // Solo las explicaciones Frágiles / pasajes que cierran el argumento pueden tener alguna vez una sesión

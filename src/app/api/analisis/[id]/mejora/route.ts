@@ -59,7 +59,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       })
       .filter((h): h is NonNullable<typeof h> => h !== null);
 
-    const cierranArgumento = (analisis.pasajesPersuasivos ?? []).filter((p) => p.mecanismo === "AntiRacional");
+    // Mixto cuenta como mejorable igual que AntiRacional — mismo filtro que listarAnalisis (ver ese
+    // comentario en analisis.ts).
+    const cierranArgumento = (analisis.pasajesPersuasivos ?? []).filter(
+      (p) => p.mecanismo === "AntiRacional" || p.mecanismo === "Mixto"
+    );
     const cierranArgumentoIds = cierranArgumento.map((p) => p.id);
     const sesionesPasaje = await obtenerMejoraSesionesPasaje(analisisId, cierranArgumentoIds);
 
@@ -69,6 +73,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       cita: p.cita,
       tecnicasOriginales: p.tecnicas,
       razonDespojo: p.justificacion,
+      // Opcional (registros viejos no lo tienen) — el cliente lo usa para mostrar cuál oración puntual no
+      // sobrevivió el despojo, sobre todo relevante para Mixto (donde no es "todo el pasaje").
+      analisisPorOracion: p.analisisPorOracion,
       sesion: sesionesPasaje.get(p.id) ?? null,
     }));
 

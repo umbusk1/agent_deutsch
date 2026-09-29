@@ -46,7 +46,12 @@ export async function POST(request: Request) {
       problemasNuevosPorExplicacion.set(pn.explicacionId, lista);
     }
 
-    const pasajesAntiRacionales = (pasajesPersuasivos ?? []).filter((p) => p.mecanismo === "AntiRacional");
+    // Mixto entra acá también (no solo AntiRacional): el pasaje sostiene algo real en parte, pero al menos una
+    // oración sigue sin sostenerse por mérito propio — sigue siendo un hallazgo de persuasión legítimo, solo
+    // que step7PersuasionPrompt lo trata con matiz en vez de como si todo el pasaje cerrara el argumento.
+    const pasajesConPresion = (pasajesPersuasivos ?? []).filter(
+      (p) => p.mecanismo === "AntiRacional" || p.mecanismo === "Mixto"
+    );
 
     const principalPrompt = step7PrincipalPrompt(
       texto,
@@ -57,7 +62,7 @@ export async function POST(request: Request) {
       relaciones ?? [],
       alcances ?? []
     );
-    const persuasionPrompt = step7PersuasionPrompt(pasajesAntiRacionales);
+    const persuasionPrompt = step7PersuasionPrompt(pasajesConPresion);
 
     let [principalResult, persuasionResult] = await Promise.all([
       callTool<{ seccionPrincipal: string }>({ ...principalPrompt, effort: "medium" }),
