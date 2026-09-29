@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { obtenerAnalisis } from "@/lib/analisis";
 import { obtenerMejoraSesionPasaje, guardarMejoraSesionPasaje } from "@/lib/mejora";
 import { findUser } from "@/lib/users";
 
@@ -17,6 +18,20 @@ export async function POST(
     }
 
     const { id: analisisId, pasajeId } = await params;
+
+    // Mejora está restringida al autor del análisis, SIN excepción para admin — esta ruta no lo chequeaba
+    // en absoluto (ni siquiera pedía el análisis) antes de este fix.
+    const analisis = await obtenerAnalisis(analisisId);
+    if (!analisis) {
+      return NextResponse.json({ error: "Análisis no encontrado." }, { status: 404 });
+    }
+    if (analisis.usuario !== user.username) {
+      return NextResponse.json(
+        { error: "Mejora está restringido al autor de este análisis." },
+        { status: 403 }
+      );
+    }
+
     const { intentoId } = (await request.json()) as { intentoId: string };
     if (!intentoId) {
       return NextResponse.json({ error: "Falta el intento a aplicar." }, { status: 400 });

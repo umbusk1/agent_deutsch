@@ -87,6 +87,14 @@ export async function POST(
       { status: 400 }
     );
   }
+  // Mejora está restringida al autor del análisis, SIN excepción para admin — antes de gastar cupo o llamar
+  // a Claude, no después. Ver el mismo chequeo en mejora/route.ts (lista) y en las demás rutas de Mejora.
+  if (analisis.usuario !== user.username) {
+    return NextResponse.json(
+      { error: "Mejora está restringido al autor de este análisis." },
+      { status: 403 }
+    );
+  }
 
   const pasajeOriginal = analisis.pasajesPersuasivos.find((p) => p.id === pasajeId);
   if (!pasajeOriginal) {

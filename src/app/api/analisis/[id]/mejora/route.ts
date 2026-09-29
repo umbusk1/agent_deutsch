@@ -25,6 +25,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!analisis) {
       return NextResponse.json({ error: "Análisis no encontrado." }, { status: 404 });
     }
+    // Mejora está restringida al autor del análisis, SIN excepción para admin (a diferencia de
+    // editar/eliminar metadata) — es una decisión de producto explícita, no un descuido: el admin puede ver
+    // y editar cualquier análisis, pero poner a prueba reformulaciones de un texto ajeno no es su rol acá.
+    if (analisis.usuario !== user.username) {
+      return NextResponse.json(
+        { error: "Mejora está restringido al autor de este análisis." },
+        { status: 403 }
+      );
+    }
     if (!analisis.veredictos || !analisis.explicaciones || !analisis.texto) {
       // Registros guardados antes de que se empezara a persistir la corrida completa (ver comentario en
       // AnalisisGuardado) no tienen los datos que Mejora necesita — no hay nada que ofrecer para este análisis.

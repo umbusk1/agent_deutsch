@@ -180,6 +180,15 @@ export default function Biblioteca() {
     return Boolean(identidad && (identidad.username === item.usuario || identidad.isAdmin));
   }
 
+  // A diferencia de puedeEditar, sin excepción para admin: Mejora es un espacio de trabajo personal del
+  // autor sobre su propio texto, no una tarea administrativa — un admin puede ver/editar cualquier análisis,
+  // pero no le corresponde poner a prueba reformulaciones de un texto ajeno. El servidor hace cumplir esto
+  // mismo en cada ruta de Mejora (lista, evaluar, aplicar); este chequeo es solo para no ofrecer un botón que
+  // de todos modos terminaría en 403.
+  function puedeMejorar(item: AnalisisResumen): boolean {
+    return Boolean(identidad && identidad.username === item.usuario);
+  }
+
   function comenzarEdicion(item: AnalisisResumen) {
     setEditingId(item.id);
     setEditForm({
@@ -383,7 +392,7 @@ export default function Biblioteca() {
                       )}
                     </div>
                     <span className="badge">{item.totalProblemas}P/{item.problemasConExplicacion}E</span>
-                    {item.hayAlgoMejorable && (
+                    {item.hayAlgoMejorable && puedeMejorar(item) && (
                       <Link
                         href={`/analisis/${item.id}/mejora`}
                         className="badge-link"
