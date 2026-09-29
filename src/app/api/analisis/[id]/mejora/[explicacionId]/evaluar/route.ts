@@ -3,7 +3,7 @@ import { callTool } from "@/lib/anthropic";
 import { obtenerAnalisis } from "@/lib/analisis";
 import { obtenerMejoraSesionExplicacion, guardarMejoraSesionExplicacion } from "@/lib/mejora";
 import { MAX_INTENTOS_EXPLICACION } from "@/lib/mejora-limites";
-import { desbloquearTextoMejora, MEJORA_TEXTOS_LIMIT_SEMANAL } from "@/lib/usage";
+import { desbloquearTextoMejora, revertirDesbloqueoTexto, MEJORA_TEXTOS_LIMIT_SEMANAL } from "@/lib/usage";
 import { findUser } from "@/lib/users";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import { asArray } from "@/lib/safe-array";
@@ -96,7 +96,14 @@ export async function POST(
   // Mismo patrón que /api/comparacion/route.ts: los admin no tocan el cupo en absoluto, ni para chequearlo
   // ni para gastarlo (Mejora ilimitada para ellos, igual que Comparaciones).
   const isAdmin = user.role === "admin";
-  const desbloqueado = isAdmin || (await desbloquearTextoMejora(user.username, analisisId));
+  // fueNuevo distingue "este texto se acaba de desbloquear con ESTA llamada" (el `return { desbloqueado:
+  // true, fueNuevo: true }` tras el SADD, en desbloquearTextoMejora/usage.ts) de "ya estaba desbloqueado de
+  // antes" (el `return { desbloqueado: true, fueNuevo: false }` temprano por yaEstaba, misma función). Los
+  // admin nunca tocan el SET, así que para ellos fueNuevo es siempre false: si la llamada de un admin falla,
+  // no hay nada que revertir.
+  const { desbloqueado, fueNuevo } = isAdmin
+    ? { desbloqueado: true, fueNuevo: false }
+    : await desbloquearTextoMejora(user.username, analisisId);
   if (!desbloqueado) {
     return NextResponse.json(
       {
@@ -109,123 +116,134 @@ export async function POST(
   const texto = analisis.texto;
 
   return crearRespuestaSse(request, "mejora-evaluar", async (enviar) => {
-    // El fragmento editado juega el rol de "cita" y "resumen" a la vez: acá no hay una distinción entre cita
-    // literal y aplicación específica parafraseada, es directamente el texto que el usuario está poniendo a
-    // prueba. mecanismoGeneral se manda TAL CUAL vino del análisis original — nunca editable.
-    const explicacionParaPrueba: Explicacion = {
-      ...explicacionOriginal,
-      cita: textoEditado,
-      resumen: textoEditado,
-    };
+    try {
+      // El fragmento editado juega el rol de "cita" y "resumen" a la vez: acá no hay una distinción entre
+      // cita literal y aplicación específica parafraseada, es directamente el texto que el usuario está
+      // poniendo a prueba. mecanismoGeneral se manda TAL CUAL vino del análisis original — nunca editable.
+      const explicacionParaPrueba: Explicacion = {
+        ...explicacionOriginal,
+        cita: textoEditado,
+        resumen: textoEditado,
+      };
 
-    const identificacionPrompt = step3IdentificarPrompt(texto, explicacionParaPrueba, problema);
-    const identificacion = await callTool<IdentificacionVariante>(identificacionPrompt);
+      const identificacionPrompt = step3IdentificarPrompt(texto, explicacionParaPrueba, problema);
+      const identificacion = await callTool<IdentificacionVariante>(identificacionPrompt);
 
-    const variantesPrompt = step3VariantesPrompt(texto, explicacionParaPrueba, problema, identificacion);
-    const resultVariantes = await callTool<{
-      candidatosBrutos: string[];
-      variantesAceptadas: {
-        descripcion: string;
-        tipo?: "sustitucion_minima" | "conocimiento_nuevo";
-        elementoFijoVerificado?: string;
-      }[];
-      variantesDescartadas: { descripcion: string; motivo: string }[];
-    }>(variantesPrompt);
+      const variantesPrompt = step3VariantesPrompt(texto, explicacionParaPrueba, problema, identificacion);
+      const resultVariantes = await callTool<{
+        candidatosBrutos: string[];
+        variantesAceptadas: {
+          descripcion: string;
+          tipo?: "sustitucion_minima" | "conocimiento_nuevo";
+          elementoFijoVerificado?: string;
+        }[];
+        variantesDescartadas: { descripcion: string; motivo: string }[];
+      }>(variantesPrompt);
 
-    let contador = 0;
-    const variantes: VarianteAceptada[] = asArray(resultVariantes.variantesAceptadas)
-      .filter((v) => v.descripcion?.trim())
-      .map((v) => {
-        contador += 1;
-        return {
-          id: `V${contador}`,
-          explicacionId,
-          descripcion: v.descripcion.trim(),
-          tipo: v.tipo === "conocimiento_nuevo" ? ("conocimiento_nuevo" as const) : ("sustitucion_minima" as const),
-          elementoFijoVerificado: v.elementoFijoVerificado?.trim() ?? "",
-        };
+      let contador = 0;
+      const variantes: VarianteAceptada[] = asArray(resultVariantes.variantesAceptadas)
+        .filter((v) => v.descripcion?.trim())
+        .map((v) => {
+          contador += 1;
+          return {
+            id: `V${contador}`,
+            explicacionId,
+            descripcion: v.descripcion.trim(),
+            tipo: v.tipo === "conocimiento_nuevo" ? ("conocimiento_nuevo" as const) : ("sustitucion_minima" as const),
+            elementoFijoVerificado: v.elementoFijoVerificado?.trim() ?? "",
+          };
+        });
+
+      let resultadosVariantes: ResultadoVariante[] = [];
+      let veredicto: IntentoMejoraExplicacion["veredicto"];
+      let justificacion: string;
+      let resisteConocimientoNuevo: IntentoMejoraExplicacion["resisteConocimientoNuevo"] = null;
+
+      if (variantes.length === 0) {
+        // Mismo caso y mismo mensaje que step4/route.ts: no se pudo poner a prueba, no es evidencia de nada.
+        veredicto = "SinSustitutoGenuino";
+        justificacion =
+          "Esta vez no se logró generar ninguna variante que compitiera genuinamente por resolver el mismo problema: cualquier cambio de detalles considerado terminaba resolviendo un problema distinto. Este intento no fue puesto a prueba.";
+      } else {
+        const veredictoPrompt = step4Prompt(texto, explicacionParaPrueba, problema, variantes);
+        const resultVeredicto = await callTool<{
+          resultadosVariantes: { varianteId: string; resultado: "rompe" | "sobrevive"; justificacion: string }[];
+          veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta";
+          justificacion: string;
+          resisteConocimientoNuevo?: { resultado: "rompe" | "sobrevive"; justificacion: string };
+        }>(veredictoPrompt);
+
+        resultadosVariantes = asArray(resultVeredicto.resultadosVariantes);
+        veredicto = resultVeredicto.veredicto;
+        justificacion = resultVeredicto.justificacion;
+        resisteConocimientoNuevo = resultVeredicto.resisteConocimientoNuevo ?? null;
+      }
+
+      const numeroIntento = (sesionExistente?.intentos.length ?? 0) + 1;
+      const intentoAnteriorRegistro = sesionExistente?.intentos[sesionExistente.intentos.length - 1] ?? null;
+
+      const intentoActualParaNota = comoResultadoParaNota({
+        texto: textoEditado,
+        veredicto,
+        justificacion,
+        variantes,
+        resultadosVariantes,
       });
+      const intentoAnteriorParaNota = intentoAnteriorRegistro
+        ? comoResultadoParaNota(intentoAnteriorRegistro)
+        : null;
 
-    let resultadosVariantes: ResultadoVariante[] = [];
-    let veredicto: IntentoMejoraExplicacion["veredicto"];
-    let justificacion: string;
-    let resisteConocimientoNuevo: IntentoMejoraExplicacion["resisteConocimientoNuevo"] = null;
+      const notaPrompt = mejoraNotaPrompt(
+        explicacionOriginal.mecanismoGeneral,
+        veredictoOriginal.justificacion,
+        intentoActualParaNota,
+        intentoAnteriorParaNota,
+        numeroIntento
+      );
+      const resultNota = await callTool<{ notaMentor: string }>(notaPrompt);
 
-    if (variantes.length === 0) {
-      // Mismo caso y mismo mensaje que step4/route.ts: no se pudo poner a prueba, no es evidencia de nada.
-      veredicto = "SinSustitutoGenuino";
-      justificacion =
-        "Esta vez no se logró generar ninguna variante que compitiera genuinamente por resolver el mismo problema: cualquier cambio de detalles considerado terminaba resolviendo un problema distinto. Este intento no fue puesto a prueba.";
-    } else {
-      const veredictoPrompt = step4Prompt(texto, explicacionParaPrueba, problema, variantes);
-      const resultVeredicto = await callTool<{
-        resultadosVariantes: { varianteId: string; resultado: "rompe" | "sobrevive"; justificacion: string }[];
-        veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta";
-        justificacion: string;
-        resisteConocimientoNuevo?: { resultado: "rompe" | "sobrevive"; justificacion: string };
-      }>(veredictoPrompt);
+      const nuevoIntento: IntentoMejoraExplicacion = {
+        id: `I${numeroIntento}`,
+        texto: textoEditado,
+        creadoEn: new Date().toISOString(),
+        identificacion,
+        variantes,
+        resultadosVariantes,
+        veredicto,
+        justificacion,
+        resisteConocimientoNuevo,
+        notaMentor: resultNota.notaMentor,
+      };
 
-      resultadosVariantes = asArray(resultVeredicto.resultadosVariantes);
-      veredicto = resultVeredicto.veredicto;
-      justificacion = resultVeredicto.justificacion;
-      resisteConocimientoNuevo = resultVeredicto.resisteConocimientoNuevo ?? null;
+      const ahora = new Date().toISOString();
+      const sesion: MejoraSesionExplicacion = sesionExistente
+        ? { ...sesionExistente, intentos: [...sesionExistente.intentos, nuevoIntento], actualizadoEn: ahora }
+        : {
+            tipo: "explicacion",
+            id: `${analisisId}:${explicacionId}`,
+            analisisId,
+            explicacionId,
+            mecanismoGeneral: explicacionOriginal.mecanismoGeneral,
+            razonFragil: veredictoOriginal.justificacion,
+            intentos: [nuevoIntento],
+            aplicadoIntentoId: null,
+            usuario: user.username,
+            creadoEn: ahora,
+            actualizadoEn: ahora,
+          };
+
+      await guardarMejoraSesionExplicacion(sesion);
+
+      enviar({ sesion });
+    } catch (error) {
+      // Si esta misma llamada fue la que desbloqueó el texto (fueNuevo) y no llegó a guardar ningún intento
+      // (guardarMejoraSesionExplicacion no se alcanzó a ejecutar más arriba), revierte el desbloqueo — el
+      // usuario no debería perder uno de sus 2 textos semanales por una llamada que no produjo nada. Un
+      // texto que ya estaba desbloqueado antes de esta llamada nunca se toca acá.
+      if (fueNuevo) {
+        await revertirDesbloqueoTexto(user.username, analisisId);
+      }
+      throw error; // re-lanzado para que crearRespuestaSse siga logueando y avisando al cliente como siempre
     }
-
-    const numeroIntento = (sesionExistente?.intentos.length ?? 0) + 1;
-    const intentoAnteriorRegistro = sesionExistente?.intentos[sesionExistente.intentos.length - 1] ?? null;
-
-    const intentoActualParaNota = comoResultadoParaNota({
-      texto: textoEditado,
-      veredicto,
-      justificacion,
-      variantes,
-      resultadosVariantes,
-    });
-    const intentoAnteriorParaNota = intentoAnteriorRegistro
-      ? comoResultadoParaNota(intentoAnteriorRegistro)
-      : null;
-
-    const notaPrompt = mejoraNotaPrompt(
-      explicacionOriginal.mecanismoGeneral,
-      veredictoOriginal.justificacion,
-      intentoActualParaNota,
-      intentoAnteriorParaNota,
-      numeroIntento
-    );
-    const resultNota = await callTool<{ notaMentor: string }>(notaPrompt);
-
-    const nuevoIntento: IntentoMejoraExplicacion = {
-      id: `I${numeroIntento}`,
-      texto: textoEditado,
-      creadoEn: new Date().toISOString(),
-      identificacion,
-      variantes,
-      resultadosVariantes,
-      veredicto,
-      justificacion,
-      resisteConocimientoNuevo,
-      notaMentor: resultNota.notaMentor,
-    };
-
-    const ahora = new Date().toISOString();
-    const sesion: MejoraSesionExplicacion = sesionExistente
-      ? { ...sesionExistente, intentos: [...sesionExistente.intentos, nuevoIntento], actualizadoEn: ahora }
-      : {
-          tipo: "explicacion",
-          id: `${analisisId}:${explicacionId}`,
-          analisisId,
-          explicacionId,
-          mecanismoGeneral: explicacionOriginal.mecanismoGeneral,
-          razonFragil: veredictoOriginal.justificacion,
-          intentos: [nuevoIntento],
-          aplicadoIntentoId: null,
-          usuario: user.username,
-          creadoEn: ahora,
-          actualizadoEn: ahora,
-        };
-
-    await guardarMejoraSesionExplicacion(sesion);
-
-    enviar({ sesion });
   });
 }

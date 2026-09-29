@@ -108,11 +108,22 @@ export async function textosDesbloqueadosEstaSemana(
   return getRedis().scard(mejoraTextosKey(username, weekId));
 }
 
+export type ResultadoDesbloqueo = {
+  desbloqueado: boolean;
+  /** true SOLO si ESTA llamada fue la que agregó el analisisId al SET (línea del SADD, más abajo) — false
+   * tanto si ya estaba desbloqueado de antes (yaEstaba, línea de abajo) como si el cupo estaba agotado. Lo
+   * usa la ruta de Mejora para decidir si, ante una llamada fallida que no llegó a guardar ningún intento,
+   * corresponde revertir el desbloqueo (SREM) — un texto que ya estaba desbloqueado antes de esta llamada
+   * nunca se toca, aunque la llamada falle. */
+  fueNuevo: boolean;
+};
+
 /**
  * Intenta desbloquear un texto para Mejora esta semana. Si ese analisisId ya estaba desbloqueado, es
- * idempotente (no gasta cupo ni error) — el gasto real es solo por texto NUEVO. Devuelve false si el texto es
- * nuevo y el cupo semanal (MEJORA_TEXTOS_LIMIT_SEMANAL) ya se agotó; la ruta decide qué hacer con ese false
- * (ej. responder 429), igual que step1 decide qué hacer con peekUsage antes de llamar a incrementUsage.
+ * idempotente (no gasta cupo ni error) — el gasto real es solo por texto NUEVO. `desbloqueado` sale false si
+ * el texto es nuevo y el cupo semanal (MEJORA_TEXTOS_LIMIT_SEMANAL) ya se agotó; la ruta decide qué hacer con
+ * ese false (ej. responder 429), igual que step1 decide qué hacer con peekUsage antes de llamar a
+ * incrementUsage.
  *
  * Nota: como en el resto de usage.ts, el chequeo y la escritura no son atómicos entre sí (SISMEMBER/SCARD
  * seguidos de SADD) — mismo nivel de tolerancia a condiciones de carrera que ya acepta incrementUsage/
@@ -122,15 +133,15 @@ export async function desbloquearTextoMejora(
   username: string,
   analisisId: string,
   weekId: string = currentWeekId()
-): Promise<boolean> {
+): Promise<ResultadoDesbloqueo> {
   const key = mejoraTextosKey(username, weekId);
   const redis = getRedis();
 
   const yaEstaba = await redis.sismember(key, analisisId);
-  if (yaEstaba === 1) return true;
+  if (yaEstaba === 1) return { desbloqueado: true, fueNuevo: false };
 
   const actuales = await redis.scard(key);
-  if (actuales >= MEJORA_TEXTOS_LIMIT_SEMANAL) return false;
+  if (actuales >= MEJORA_TEXTOS_LIMIT_SEMANAL) return { desbloqueado: false, fueNuevo: false };
 
   await redis.sadd(key, analisisId);
   if (actuales === 0) {
@@ -138,5 +149,16 @@ export async function desbloquearTextoMejora(
     // chequear el tamaño ANTES de agregar evita pisar el TTL de una clave que ya estaba viva.
     await redis.expire(key, WEEK_TTL_SECONDS);
   }
-  return true;
+  return { desbloqueado: true, fueNuevo: true };
+}
+
+/** Revierte un desbloqueo hecho por error (SREM) — solo debe llamarse cuando desbloquearTextoMejora devolvió
+ * fueNuevo=true para esta misma llamada Y la evaluación terminó fallando antes de guardar ningún intento; ver
+ * el comentario en la ruta de evaluar. Nunca se llama para un texto que ya estaba desbloqueado de antes. */
+export async function revertirDesbloqueoTexto(
+  username: string,
+  analisisId: string,
+  weekId: string = currentWeekId()
+): Promise<void> {
+  await getRedis().srem(mejoraTextosKey(username, weekId), analisisId);
 }

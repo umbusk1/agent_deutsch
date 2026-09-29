@@ -3,7 +3,7 @@ import { callTool } from "@/lib/anthropic";
 import { obtenerAnalisis } from "@/lib/analisis";
 import { obtenerMejoraSesionPasaje, guardarMejoraSesionPasaje } from "@/lib/mejora";
 import { MAX_INTENTOS_PASAJE } from "@/lib/mejora-limites";
-import { desbloquearTextoMejora, MEJORA_TEXTOS_LIMIT_SEMANAL } from "@/lib/usage";
+import { desbloquearTextoMejora, revertirDesbloqueoTexto, MEJORA_TEXTOS_LIMIT_SEMANAL } from "@/lib/usage";
 import { findUser } from "@/lib/users";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import { asArray } from "@/lib/safe-array";
@@ -110,7 +110,14 @@ export async function POST(
   // Mismo cupo semanal que Explicación, mismo bypass de admin — es el mismo "texto", solo cambia qué
   // hallazgo puntual se está evaluando dentro de él (ver desbloquearTextoMejora en usage.ts).
   const isAdmin = user.role === "admin";
-  const desbloqueado = isAdmin || (await desbloquearTextoMejora(user.username, analisisId));
+  // fueNuevo distingue "este texto se acaba de desbloquear con ESTA llamada" (el `return { desbloqueado:
+  // true, fueNuevo: true }` tras el SADD, en desbloquearTextoMejora/usage.ts) de "ya estaba desbloqueado de
+  // antes" (el `return { desbloqueado: true, fueNuevo: false }` temprano por yaEstaba, misma función). Los
+  // admin nunca tocan el SET, así que para ellos fueNuevo es siempre false: si la llamada de un admin falla,
+  // no hay nada que revertir.
+  const { desbloqueado, fueNuevo } = isAdmin
+    ? { desbloqueado: true, fueNuevo: false }
+    : await desbloquearTextoMejora(user.username, analisisId);
   if (!desbloqueado) {
     return NextResponse.json(
       {
@@ -123,89 +130,99 @@ export async function POST(
   const texto = analisis.texto;
 
   return crearRespuestaSse(request, "mejora-pasaje-evaluar", async (enviar) => {
-    const numeroIntento = (sesionExistente?.intentos.length ?? 0) + 1;
-    const intentoAnteriorRegistro = sesionExistente?.intentos[sesionExistente.intentos.length - 1] ?? null;
-    // La versión inmediatamente anterior de ESTE fragmento puntual — el intento previo si ya hubo alguno, o
-    // la cita original sin editar si este es el primer intento. Nunca null en la práctica: siempre hay algo
-    // contra qué contrastar, incluso en el primer intento.
-    const versionAnterior = intentoAnteriorRegistro?.texto ?? pasajeOriginal.cita;
+    try {
+      const numeroIntento = (sesionExistente?.intentos.length ?? 0) + 1;
+      const intentoAnteriorRegistro = sesionExistente?.intentos[sesionExistente.intentos.length - 1] ?? null;
+      // La versión inmediatamente anterior de ESTE fragmento puntual — el intento previo si ya hubo alguno, o
+      // la cita original sin editar si este es el primer intento. Nunca null en la práctica: siempre hay algo
+      // contra qué contrastar, incluso en el primer intento.
+      const versionAnterior = intentoAnteriorRegistro?.texto ?? pasajeOriginal.cita;
 
-    const despojoPrompt = mejoraDespojoPasajePrompt(texto, textoEditado, pasajeOriginal.tecnicas, versionAnterior);
-    // strict:true (con additionalProperties:false en cada nivel del schema, ver mejoraDespojoPasajePrompt) para
-    // que "required" se aplique de verdad — analisisPorOracion es exactamente el campo que necesita forzarse,
-    // no vale la pena repetir acá el hueco ya documentado en anthropic.ts de confiar en required sin strict.
-    const resultDespojo = await callTool<{
-      analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
-      tecnicas: string[];
-      justificacion: string;
-    }>({ ...despojoPrompt, strict: true });
+      const despojoPrompt = mejoraDespojoPasajePrompt(texto, textoEditado, pasajeOriginal.tecnicas, versionAnterior);
+      // strict:true (con additionalProperties:false en cada nivel del schema, ver mejoraDespojoPasajePrompt) para
+      // que "required" se aplique de verdad — analisisPorOracion es exactamente el campo que necesita forzarse,
+      // no vale la pena repetir acá el hueco ya documentado en anthropic.ts de confiar en required sin strict.
+      const resultDespojo = await callTool<{
+        analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
+        tecnicas: string[];
+        justificacion: string;
+      }>({ ...despojoPrompt, strict: true });
 
-    const analisisPorOracion = asArray(resultDespojo.analisisPorOracion);
+      const analisisPorOracion = asArray(resultDespojo.analisisPorOracion);
 
-    // Error explícito, no clasificación: si el desglose no reconstruye el fragmento editado, el agregado de
-    // calcularMecanismo estaría calculado sobre oraciones que no representan con fidelidad lo que el usuario
-    // realmente escribió — no hay clasificación confiable posible a partir de acá. Nada se guarda (ni el
-    // intento, ni el cupo semanal ya se gastó antes de esta llamada — ver el comentario sobre eso más abajo).
-    if (!oracionesReconstruyenTexto(analisisPorOracion, textoEditado)) {
-      enviar({
-        error:
-          "El desglose oración por oración que devolvió el modelo no reconstruye el fragmento editado — no se puede confiar en la clasificación resultante. Probá de nuevo.",
+      // Error explícito, no clasificación: si el desglose no reconstruye el fragmento editado, el agregado de
+      // calcularMecanismo estaría calculado sobre oraciones que no representan con fidelidad lo que el usuario
+      // realmente escribió — no hay clasificación confiable posible a partir de acá. Se tira como excepción
+      // (en vez de enviar+return) para pasar por el mismo catch de abajo, que decide si corresponde revertir
+      // el desbloqueo del cupo — un solo lugar que decide eso, no dos caminos de falla distintos.
+      if (!oracionesReconstruyenTexto(analisisPorOracion, textoEditado)) {
+        throw new Error(
+          "El desglose oración por oración que devolvió el modelo no reconstruye el fragmento editado — no se puede confiar en la clasificación resultante. Probá de nuevo."
+        );
+      }
+
+      const mecanismo = calcularMecanismo(analisisPorOracion);
+
+      const intentoActualParaNota = comoResultadoParaNota({
+        texto: textoEditado,
+        mecanismo,
+        analisisPorOracion,
+        tecnicas: resultDespojo.tecnicas,
+        justificacion: resultDespojo.justificacion,
       });
-      return;
+      const intentoAnteriorParaNota = intentoAnteriorRegistro
+        ? comoResultadoParaNota(intentoAnteriorRegistro)
+        : null;
+
+      const notaPrompt = mejoraNotaPasajePrompt(
+        pasajeOriginal.tecnicas,
+        pasajeOriginal.justificacion,
+        intentoActualParaNota,
+        intentoAnteriorParaNota,
+        numeroIntento
+      );
+      const resultNota = await callTool<{ notaMentor: string }>(notaPrompt);
+
+      const nuevoIntento: IntentoMejoraPasaje = {
+        id: `I${numeroIntento}`,
+        texto: textoEditado,
+        creadoEn: new Date().toISOString(),
+        mecanismo,
+        analisisPorOracion,
+        tecnicas: resultDespojo.tecnicas,
+        justificacion: resultDespojo.justificacion,
+        notaMentor: resultNota.notaMentor,
+      };
+
+      const ahora = new Date().toISOString();
+      const sesion: MejoraSesionPasaje = sesionExistente
+        ? { ...sesionExistente, intentos: [...sesionExistente.intentos, nuevoIntento], actualizadoEn: ahora }
+        : {
+            tipo: "pasaje",
+            id: `${analisisId}:pasaje:${pasajeId}`,
+            analisisId,
+            pasajeId,
+            tecnicasOriginales: pasajeOriginal.tecnicas,
+            razonDespojo: pasajeOriginal.justificacion,
+            intentos: [nuevoIntento],
+            aplicadoIntentoId: null,
+            usuario: user.username,
+            creadoEn: ahora,
+            actualizadoEn: ahora,
+          };
+
+      await guardarMejoraSesionPasaje(sesion);
+
+      enviar({ sesion });
+    } catch (error) {
+      // Si esta misma llamada fue la que desbloqueó el texto (fueNuevo) y no llegó a guardar ningún intento
+      // (guardarMejoraSesionPasaje no se alcanzó a ejecutar más arriba), revierte el desbloqueo — el usuario
+      // no debería perder uno de sus 2 textos semanales por una llamada que no produjo nada. Un texto que ya
+      // estaba desbloqueado antes de esta llamada nunca se toca acá.
+      if (fueNuevo) {
+        await revertirDesbloqueoTexto(user.username, analisisId);
+      }
+      throw error; // re-lanzado para que crearRespuestaSse siga logueando y avisando al cliente como siempre
     }
-
-    const mecanismo = calcularMecanismo(analisisPorOracion);
-
-    const intentoActualParaNota = comoResultadoParaNota({
-      texto: textoEditado,
-      mecanismo,
-      analisisPorOracion,
-      tecnicas: resultDespojo.tecnicas,
-      justificacion: resultDespojo.justificacion,
-    });
-    const intentoAnteriorParaNota = intentoAnteriorRegistro
-      ? comoResultadoParaNota(intentoAnteriorRegistro)
-      : null;
-
-    const notaPrompt = mejoraNotaPasajePrompt(
-      pasajeOriginal.tecnicas,
-      pasajeOriginal.justificacion,
-      intentoActualParaNota,
-      intentoAnteriorParaNota,
-      numeroIntento
-    );
-    const resultNota = await callTool<{ notaMentor: string }>(notaPrompt);
-
-    const nuevoIntento: IntentoMejoraPasaje = {
-      id: `I${numeroIntento}`,
-      texto: textoEditado,
-      creadoEn: new Date().toISOString(),
-      mecanismo,
-      analisisPorOracion,
-      tecnicas: resultDespojo.tecnicas,
-      justificacion: resultDespojo.justificacion,
-      notaMentor: resultNota.notaMentor,
-    };
-
-    const ahora = new Date().toISOString();
-    const sesion: MejoraSesionPasaje = sesionExistente
-      ? { ...sesionExistente, intentos: [...sesionExistente.intentos, nuevoIntento], actualizadoEn: ahora }
-      : {
-          tipo: "pasaje",
-          id: `${analisisId}:pasaje:${pasajeId}`,
-          analisisId,
-          pasajeId,
-          tecnicasOriginales: pasajeOriginal.tecnicas,
-          razonDespojo: pasajeOriginal.justificacion,
-          intentos: [nuevoIntento],
-          aplicadoIntentoId: null,
-          usuario: user.username,
-          creadoEn: ahora,
-          actualizadoEn: ahora,
-        };
-
-    await guardarMejoraSesionPasaje(sesion);
-
-    enviar({ sesion });
   });
 }
