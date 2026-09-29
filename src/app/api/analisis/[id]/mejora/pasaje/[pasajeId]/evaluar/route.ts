@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { obtenerAnalisis } from "@/lib/analisis";
-import { obtenerMejoraSesionPasaje, guardarMejoraSesionPasaje, MAX_INTENTOS_PASAJE } from "@/lib/mejora";
+import { obtenerMejoraSesionPasaje, guardarMejoraSesionPasaje } from "@/lib/mejora";
+import { MAX_INTENTOS_PASAJE } from "@/lib/mejora-limites";
 import { desbloquearTextoMejora, MEJORA_TEXTOS_LIMIT_SEMANAL } from "@/lib/usage";
 import { findUser } from "@/lib/users";
 import { crearRespuestaSse } from "@/lib/sse-stream";

@@ -16,9 +16,6 @@ function getRedis(): Redis {
   return redis;
 }
 
-export const MAX_INTENTOS_EXPLICACION = 5;
-export const MAX_INTENTOS_PASAJE = 3;
-
 // Clave compuesta (análisis + hallazgo) en vez de un índice aparte: la lista de explicaciones Frágiles/pasajes
 // que cierran el argumento de un análisis ya vive en su propio registro (AnalisisGuardado.veredictos/
 // .pasajesPersuasivos), así que no hace falta mantener un índice separado solo para poder listar qué sesiones

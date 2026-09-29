@@ -156,7 +156,7 @@ export type IntentoMejoraExplicacion = {
  * sustitución acá, solo re-clasificación (Racional/AntiRacional) del fragmento editado.
  */
 export type IntentoMejoraPasaje = {
-  /** "I1".."IN" — secuencial dentro de la sesión (tope MAX_INTENTOS_PASAJE en mejora.ts). */
+  /** "I1".."IN" — secuencial dentro de la sesión (tope MAX_INTENTOS_PASAJE en mejora-limites.ts). */
   id: string;
   texto: string;
   creadoEn: string;
