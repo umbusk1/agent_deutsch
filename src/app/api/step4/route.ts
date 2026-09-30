@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step4Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import { registrarSiTardaMucho } from "@/lib/step-timings";
+import { registrarDuracion } from "@/lib/step-timings";
 import type { Explicacion, Problema, VarianteAceptada, Veredicto } from "@/lib/types";
 
 // 200s: además de las 2 llamadas ya contempladas (esta y la posible de callTool), la validación de forma de
@@ -148,6 +148,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    void registrarSiTardaMucho("step4", Date.now() - inicio);
+    void registrarDuracion("step4", Date.now() - inicio);
   }
 }

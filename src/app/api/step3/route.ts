@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step3IdentificarPrompt, step3VariantesPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import { registrarSiTardaMucho } from "@/lib/step-timings";
+import { registrarDuracion } from "@/lib/step-timings";
 import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada, IdentificacionVariante } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -92,6 +92,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    void registrarSiTardaMucho("step3", Date.now() - inicio);
+    void registrarDuracion("step3", Date.now() - inicio);
   }
 }

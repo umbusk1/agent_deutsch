@@ -3,7 +3,7 @@ import { callTool } from "@/lib/anthropic";
 import { step1BPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import { calcularMecanismo, oracionesReconstruyenTexto, type EntradaAnalisisPorOracion } from "@/lib/despojo";
-import { registrarSiTardaMucho } from "@/lib/step-timings";
+import { registrarDuracion } from "@/lib/step-timings";
 import type { PasajePersuasivo } from "@/lib/types";
 
 // 150s: una sola llamada para TODO el artículo (a diferencia de Mejora-pasaje, que aísla un fragmento por
@@ -98,6 +98,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    void registrarSiTardaMucho("step1b", Date.now() - inicio);
+    void registrarDuracion("step1b", Date.now() - inicio);
   }
 }

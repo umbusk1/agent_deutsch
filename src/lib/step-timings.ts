@@ -16,13 +16,10 @@ function getRedis(): Redis {
 }
 
 const LISTA_KEY = "agente-deutsch:step-timings";
-// Mismo motivo que MAX_REGISTROS en stream-errors.ts: sin TTL a propósito (ver registrarSiTardaMucho), así
-// que el tope es por cantidad, no por tiempo.
-const MAX_REGISTROS = 500;
-
-// 45s: el umbral que nos interesa medir, no un límite técnico — está por debajo de los 60s del techo real ya
-// confirmado en producción (ver project_vercel_infra_notes.md), para tener aviso antes de llegar a ese techo.
-const UMBRAL_MS = 45_000;
+// Tope por cantidad, no por tiempo (mismo motivo que stream-errors.ts: sin TTL a propósito) — 300 en vez del
+// original 500 porque ahora se registra CADA invocación, no solo las que superan un umbral, así que la lista
+// rota más rápido.
+const MAX_REGISTROS = 300;
 
 export type RegistroDuracion = {
   ruta: string;
@@ -33,12 +30,13 @@ export type RegistroDuracion = {
 /**
  * Registro propio e independiente de los logs de Vercel, mismo patrón que stream-errors.ts (Redis, sin TTL a
  * propósito: en el plan Hobby los logs de Vercel expiran a la hora y los Log Drains están bloqueados). A
- * diferencia de ese archivo, esto no registra errores sino duración real — para tener datos concretos de
- * cuánto tardan los pasos de la corrida en vez de analogías entre rutas al decidir maxDuration. Solo se
- * persiste si supera UMBRAL_MS; no es un log de cada invocación.
+ * diferencia de ese archivo, esto no registra errores sino duración real de CADA invocación de un paso — sin
+ * umbral: sin credenciales de Redis locales no hay forma de comprobar desde el sandbox que el registro
+ * realmente escribe, y una lista vacía sería ambigua (¿nadie corrió un paso lento, o el registro no
+ * funciona?) si solo se guardaran los casos lentos. Registrando todo, cualquier corrida real deja al menos
+ * una entrada — confirma por sí sola que el mecanismo funciona.
  */
-export async function registrarSiTardaMucho(ruta: string, ms: number): Promise<void> {
-  if (ms < UMBRAL_MS) return;
+export async function registrarDuracion(ruta: string, ms: number): Promise<void> {
   try {
     const registro: RegistroDuracion = { ruta, ms, timestamp: new Date().toISOString() };
     await getRedis().lpush(LISTA_KEY, registro);
@@ -50,6 +48,6 @@ export async function registrarSiTardaMucho(ruta: string, ms: number): Promise<v
 }
 
 /** Más reciente primero (lpush inserta al principio de la lista). */
-export async function listarDuracionesLargas(): Promise<RegistroDuracion[]> {
+export async function listarDuraciones(): Promise<RegistroDuracion[]> {
   return getRedis().lrange<RegistroDuracion>(LISTA_KEY, 0, -1);
 }
