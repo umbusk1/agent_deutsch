@@ -117,6 +117,10 @@ export default function Home() {
 
   const [pasajesPersuasivos, setPasajesPersuasivos] = useState<PasajePersuasivo[]>([]);
   const [pasajesExcluidos, setPasajesExcluidos] = useState<Set<string>>(new Set());
+  // Pasajes que step1b no pudo clasificar con confianza (desglose que no reconstruía su cita) y excluyó — ver
+  // step1b/route.ts. Se muestra en el checkpoint Test y viaja a step7/guardado para que la sección de
+  // persuasión no afirme "no se encontraron pasajes" cuando en realidad algo quedó sin revisar.
+  const [pasajesDescartados, setPasajesDescartados] = useState(0);
 
   const [problemas, setProblemas] = useState<Problema[]>([]);
   const [problemasExcluidos, setProblemasExcluidos] = useState<Set<string>>(new Set());
@@ -298,7 +302,7 @@ export default function Home() {
     setError(null);
     try {
       const [pasajesData, variantesData] = await Promise.all([
-        callApi<{ pasajesPersuasivos: PasajePersuasivo[] }>("/api/step1b", { texto }),
+        callApi<{ pasajesPersuasivos: PasajePersuasivo[]; pasajesDescartados?: number }>("/api/step1b", { texto }),
         callApi<{ variantesAceptadas: VarianteAceptada[]; variantesDescartadas: VarianteDescartada[] }>(
           "/api/step3",
           { texto, explicaciones: explicacionesActivas, problemas }
@@ -307,6 +311,7 @@ export default function Home() {
       setExplicaciones(explicacionesActivas);
       setPasajesPersuasivos(pasajesData.pasajesPersuasivos);
       setPasajesExcluidos(new Set());
+      setPasajesDescartados(pasajesData.pasajesDescartados ?? 0);
       setVariantesAceptadas(variantesData.variantesAceptadas);
       setVariantesDescartadas(variantesData.variantesDescartadas);
       setVariantesExcluidas(new Set());
@@ -397,6 +402,7 @@ export default function Home() {
         relaciones,
         pasajesPersuasivos: pasajesActivos,
         alcances,
+        pasajesDescartados,
       });
       // Título en negrita + demás metadata (si hay) antes del resumen neutral que ya trae el reporte —
       // se hornea acá, una sola vez, para que se vea igual en la vista en vivo, en Biblioteca y al
@@ -428,6 +434,7 @@ export default function Home() {
           relaciones,
           alcances,
           pasajesPersuasivos: pasajesActivos,
+          pasajesDescartados,
         });
         setGuardadoEstado("ok");
       } catch {
@@ -836,6 +843,13 @@ export default function Home() {
           </p>
           {pasajesPersuasivos.length === 0 && (
             <p className="loading">No se encontraron pasajes con mecanismo de persuasión de este tipo.</p>
+          )}
+          {pasajesDescartados > 0 && (
+            <p className="warning-note">
+              {pasajesDescartados === 1
+                ? "1 pasaje no se pudo clasificar con confianza y quedó fuera de esta revisión."
+                : `${pasajesDescartados} pasajes no se pudieron clasificar con confianza y quedaron fuera de esta revisión.`}
+            </p>
           )}
           {pasajesPersuasivos.map((m) => (
             <div className="item" key={m.id} style={{ opacity: pasajesExcluidos.has(m.id) ? 0.5 : 1 }}>

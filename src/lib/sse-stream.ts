@@ -1,4 +1,5 @@
 import { registrarErrorDeStream } from "./stream-errors";
+import { registrarSiTardaMucho } from "./step-timings";
 
 const encoder = new TextEncoder();
 
@@ -72,6 +73,7 @@ export function crearRespuestaSse(
       };
       request.signal.addEventListener("abort", alDesconectar);
 
+      const inicio = Date.now();
       try {
         await handler(enviar);
       } catch (error) {
@@ -82,6 +84,9 @@ export function crearRespuestaSse(
         const message = error instanceof Error ? error.message : "Error desconocido.";
         enviar({ error: message });
       } finally {
+        // Registro de duración (ver step-timings.ts) — mide el handler completo, con o sin error, para
+        // tener datos reales de cuánto tardan estos pasos frente al techo real de la plataforma.
+        void registrarSiTardaMucho(ruta, Date.now() - inicio);
         clearInterval(heartbeat);
         request.signal.removeEventListener("abort", alDesconectar);
         cerrar();

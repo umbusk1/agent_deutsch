@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { explicacionPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
+import { registrarSiTardaMucho } from "@/lib/step-timings";
 import type { Explicacion, Descartada, Problema } from "@/lib/types";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const inicio = Date.now();
   try {
     const { texto, problemas } = (await request.json()) as { texto: string; problemas: Problema[] };
     if (!texto || !texto.trim()) {
@@ -73,5 +75,7 @@ export async function POST(request: Request) {
       { error: error instanceof Error ? error.message : "Error desconocido." },
       { status: 500 }
     );
+  } finally {
+    void registrarSiTardaMucho("step2", Date.now() - inicio);
   }
 }

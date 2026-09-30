@@ -12,17 +12,30 @@ import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Relacion, PasajeP
 export const maxDuration = 210;
 
 export async function POST(request: Request) {
-  const { texto, explicaciones, problemas, veredictos, problemasNuevos, relaciones, pasajesPersuasivos, alcances } =
-    (await request.json()) as {
-      texto: string;
-      explicaciones: Explicacion[];
-      problemas: Problema[];
-      veredictos: Veredicto[];
-      problemasNuevos: ProblemaNuevo[];
-      relaciones: Relacion[];
-      pasajesPersuasivos: PasajePersuasivo[];
-      alcances: Alcance[];
-    };
+  const {
+    texto,
+    explicaciones,
+    problemas,
+    veredictos,
+    problemasNuevos,
+    relaciones,
+    pasajesPersuasivos,
+    alcances,
+    pasajesDescartados,
+  } = (await request.json()) as {
+    texto: string;
+    explicaciones: Explicacion[];
+    problemas: Problema[];
+    veredictos: Veredicto[];
+    problemasNuevos: ProblemaNuevo[];
+    relaciones: Relacion[];
+    pasajesPersuasivos: PasajePersuasivo[];
+    alcances: Alcance[];
+    // Pasajes que step1b no pudo clasificar con confianza (desglose que no reconstruía su cita) y excluyó —
+    // ver step1b/route.ts. Sin esto, si terminaron siendo 0 pasajes reales, step7PersuasionPrompt afirmaría
+    // "no se encontraron pasajes" aunque en realidad algo quedó sin revisar.
+    pasajesDescartados?: number;
+  };
 
   if (!texto) {
     return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
@@ -62,7 +75,7 @@ export async function POST(request: Request) {
       relaciones ?? [],
       alcances ?? []
     );
-    const persuasionPrompt = step7PersuasionPrompt(pasajesConPresion);
+    const persuasionPrompt = step7PersuasionPrompt(pasajesConPresion, pasajesDescartados ?? 0);
 
     let [principalResult, persuasionResult] = await Promise.all([
       callTool<{ seccionPrincipal: string }>({ ...principalPrompt, effort: "medium" }),

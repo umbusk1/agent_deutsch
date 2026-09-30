@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step4Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
+import { registrarSiTardaMucho } from "@/lib/step-timings";
 import type { Explicacion, Problema, VarianteAceptada, Veredicto } from "@/lib/types";
 
 // 200s: además de las 2 llamadas ya contempladas (esta y la posible de callTool), la validación de forma de
@@ -60,6 +61,7 @@ function formaInvalidaDe(result: ResultadoVeredictoBruto): string | null {
 }
 
 export async function POST(request: Request) {
+  const inicio = Date.now();
   try {
     const { texto, explicaciones, problemas, variantesAceptadas } = (await request.json()) as {
       texto: string;
@@ -145,5 +147,7 @@ export async function POST(request: Request) {
       { error: error instanceof Error ? error.message : "Error desconocido." },
       { status: 500 }
     );
+  } finally {
+    void registrarSiTardaMucho("step4", Date.now() - inicio);
   }
 }

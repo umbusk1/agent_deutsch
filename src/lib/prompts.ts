@@ -1474,7 +1474,7 @@ relación entre explicaciones, sin resumir ni cerrar.
   };
 }
 
-export function step7PersuasionPrompt(pasajesConPresion: PasajePersuasivo[]) {
+export function step7PersuasionPrompt(pasajesConPresion: PasajePersuasivo[], pasajesDescartados: number) {
   const system = `
 Vas a redactar la SECCIÓN DE PERSUASIÓN de un reporte crítico más grande sobre un texto de opinión. Otro paso,
 por separado, redacta la sección sobre la calidad de las explicaciones del texto — no la menciones ni la
@@ -1499,9 +1499,16 @@ no sostienen nada por mérito propio.
 Redáctalos en prosa crítica común, completamente en español, sin jerga técnica. Nunca uses las palabras "meme",
 "racional", "anti-racional" ni "mixto", y nunca menciones a David Deutsch.
 
-Si la lista viene vacía, no la omitas en silencio: escribe igual una frase breve en prosa llana que lo reconozca
-explícitamente (ej. "el análisis no encontró pasajes que le pidan al lector suspender el juicio en vez de
+Si la lista de pasajes viene vacía, NO afirmes sin más que "no se encontraron pasajes...": si pasajesDescartados
+(más abajo) es mayor que 0, en vez de eso escribe una frase que reconozca que uno o más pasajes no pudieron
+clasificarse con confianza y quedaron fuera de esta revisión — nunca afirmes una ausencia de hallazgos cuando en
+realidad hay algo sin revisar. Solo si pasajesDescartados es 0 y la lista está vacía, escribe la frase de
+ausencia genuina (ej. "el análisis no encontró pasajes que le pidan al lector suspender el juicio en vez de
 sostenerlo con razones"), sin usar jerga ni inventar un hallazgo que no hubo.
+
+Si pasajesDescartados es mayor que 0 y SÍ hay pasajes en la lista (no vino vacía), igual sumá al final de la
+sección una frase breve y aparte que lo mencione (ej. "un pasaje adicional no pudo clasificarse con confianza y
+quedó fuera de esta revisión") — no lo omitas solo porque ya hay otros hallazgos que reportar.
 
 IMPORTANTE: NO escribas ninguna conclusión general ni valoración global del texto completo — eso lo redacta otro
 paso por separado, que necesita ser la única conclusión del reporte final.
@@ -1519,7 +1526,7 @@ paso por separado, que necesita ser la única conclusión del reporte final.
     })),
     null,
     2
-  )}`;
+  )}\n\npasajesDescartados (pasajes que no se pudieron clasificar con confianza y quedaron fuera de esta revisión): ${pasajesDescartados}`;
 
   const inputSchema: Schema = {
     type: "object",

@@ -64,6 +64,10 @@ export type AnalisisGuardado = {
   relaciones?: Relacion[];
   alcances?: Alcance[];
   pasajesPersuasivos?: PasajePersuasivo[];
+  /** Cuántos pasajes descartó step1b por no reconstruir su propia cita tras el reintento (ver
+   * step1b/route.ts) — un rastro de auditoría, no un dato que la UI de Biblioteca use hoy. Opcional: ausente
+   * en análisis guardados antes de este campo, y también en corridas donde simplemente no pasó nada. */
+  pasajesDescartados?: number;
 };
 
 export type AnalisisResumen = {
@@ -119,6 +123,7 @@ type GuardarAnalisisInput = {
   relaciones?: Relacion[];
   alcances?: Alcance[];
   pasajesPersuasivos?: PasajePersuasivo[];
+  pasajesDescartados?: number;
 };
 
 /**
@@ -152,6 +157,7 @@ export async function guardarAnalisis(input: GuardarAnalisisInput): Promise<Anal
     ...(input.relaciones !== undefined ? { relaciones: input.relaciones } : {}),
     ...(input.alcances !== undefined ? { alcances: input.alcances } : {}),
     ...(input.pasajesPersuasivos !== undefined ? { pasajesPersuasivos: input.pasajesPersuasivos } : {}),
+    ...(input.pasajesDescartados !== undefined ? { pasajesDescartados: input.pasajesDescartados } : {}),
   };
 
   await getRedis().set(analisisKey(registro.id), registro);

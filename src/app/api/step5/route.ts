@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step5Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
+import { registrarSiTardaMucho } from "@/lib/step-timings";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Alcance } from "@/lib/types";
 
 export const maxDuration = 90;
 
 export async function POST(request: Request) {
+  const inicio = Date.now();
   try {
     const { texto, explicaciones, problemas, veredictos } = (await request.json()) as {
       texto: string;
@@ -85,5 +87,7 @@ export async function POST(request: Request) {
       { error: error instanceof Error ? error.message : "Error desconocido." },
       { status: 500 }
     );
+  } finally {
+    void registrarSiTardaMucho("step5", Date.now() - inicio);
   }
 }

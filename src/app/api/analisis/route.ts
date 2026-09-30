@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       relaciones?: Relacion[];
       alcances?: Alcance[];
       pasajesPersuasivos?: PasajePersuasivo[];
+      pasajesDescartados?: number;
     };
 
     if (!body.reporte?.trim()) {
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
       relaciones: body.relaciones,
       alcances: body.alcances,
       pasajesPersuasivos: body.pasajesPersuasivos,
+      pasajesDescartados: body.pasajesDescartados,
     });
 
     return NextResponse.json({ id: registro.id });
