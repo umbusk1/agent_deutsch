@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step1BPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -98,6 +98,9 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    void registrarDuracion("step1b", Date.now() - inicio);
+    // after() (no `void registrarDuracion(...)` fire-and-forget, como estaba antes — eso perdía escrituras
+    // porque nada garantizaba que el runtime siguiera vivo hasta que la promesa terminara) extiende la vida
+    // de la invocación vía waitUntil hasta que esto se resuelva, aunque la respuesta ya se haya mandado.
+    after(() => registrarDuracion("step1b", Date.now() - inicio));
   }
 }

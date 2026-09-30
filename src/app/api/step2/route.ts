@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { explicacionPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import { registrarDuracion } from "@/lib/step-timings";
 import type { Explicacion, Descartada, Problema } from "@/lib/types";
 
-export const maxDuration = 60;
+// 120s (subido de 60, 2026-09-30): Fluid Compute confirmado activo en el panel de Vercel, techo documentado
+// de 300s en el plan Hobby — el 60s real observado antes no era un límite duro de la cuenta, era el
+// comportamiento sin Fluid Compute. Ver la nota actualizada en la memoria del proyecto sobre esto.
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const inicio = Date.now();
@@ -76,6 +79,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    void registrarDuracion("step2", Date.now() - inicio);
+    after(() => registrarDuracion("step2", Date.now() - inicio));
   }
 }

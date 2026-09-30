@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step4Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -148,6 +148,6 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    void registrarDuracion("step4", Date.now() - inicio);
+    after(() => registrarDuracion("step4", Date.now() - inicio));
   }
 }

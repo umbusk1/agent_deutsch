@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { registrarErrorDeStream } from "./stream-errors";
 import { registrarDuracion } from "./step-timings";
 
@@ -33,6 +34,23 @@ export function crearRespuestaSse(
   ruta: string,
   handler: (enviar: Enviar) => Promise<void>
 ): Response {
+  // `void registrarDuracion(...)` (como estaba antes) es fire-and-forget: en una función serverless, nada
+  // garantiza que el runtime siga vivo el tiempo suficiente para que esa escritura a Redis termine una vez
+  // que la respuesta ya se consideró "enviada" — confirmado en la práctica: faltaban entradas reales en el
+  // registro. `after()` (ver node_modules/next/dist/docs/.../functions/after.md) es la API de Next.js
+  // pensada exactamente para esto: extiende la vida de la invocación (vía waitUntil en Vercel) hasta que la
+  // promesa que le pasamos se resuelva. Se registra acá, de forma SÍNCRONA, al llamar a crearRespuestaSse
+  // (dentro del mismo contexto de request del route handler) — el propio callback recién espera la duración
+  // real más abajo, una vez que el handler del stream termina.
+  let resolverDuracion: (ms: number) => void;
+  const duracionLista = new Promise<number>((resolve) => {
+    resolverDuracion = resolve;
+  });
+  after(async () => {
+    const ms = await duracionLista;
+    await registrarDuracion(ruta, ms);
+  });
+
   const stream = new ReadableStream({
     async start(controller) {
       let cerrado = false;
@@ -84,9 +102,9 @@ export function crearRespuestaSse(
         const message = error instanceof Error ? error.message : "Error desconocido.";
         enviar({ error: message });
       } finally {
-        // Registro de duración (ver step-timings.ts) — mide el handler completo, con o sin error, para
-        // tener datos reales de cuánto tardan estos pasos frente al techo real de la plataforma.
-        void registrarDuracion(ruta, Date.now() - inicio);
+        // Resuelve la promesa que after() ya está esperando (arriba) — el registro real a Redis ocurre
+        // adentro de ese callback, con la vida de la invocación garantizada por waitUntil.
+        resolverDuracion(Date.now() - inicio);
         clearInterval(heartbeat);
         request.signal.removeEventListener("abort", alDesconectar);
         cerrar();
