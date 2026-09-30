@@ -5,7 +5,12 @@ import { asArray } from "@/lib/safe-array";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada, IdentificacionVariante } from "@/lib/types";
 
-export const maxDuration = 120;
+// 230s (subido de 120, 2026-09-30): dos llamadas secuenciales por explicación (identificar -> variantes),
+// cada una con su propio reintento interno por marcador mal formado — peor caso por explicación (2×50s) +
+// (2×50s) = 200s con el timeoutMs default de callTool, sin tocar (corre en paralelo entre explicaciones, así
+// que el peor caso de la ruta es el de la explicación más lenta, no la suma de todas). 230s deja margen y
+// queda bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
+export const maxDuration = 230;
 
 export async function POST(request: Request) {
   const { texto, explicaciones, problemas } = (await request.json()) as {

@@ -6,15 +6,11 @@ import { calcularMecanismo, oracionesReconstruyenTexto, type EntradaAnalisisPorO
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { PasajePersuasivo } from "@/lib/types";
 
-// 150s: una sola llamada para TODO el artículo (a diferencia de Mejora-pasaje, que aísla un fragmento por
-// llamada) — cada pasaje ahora trae su propio desglose oración por oración, lo que aumenta el volumen de
-// salida frente a la versión anterior (mecanismo autoreportado, sin desglose): más pasajes o pasajes más
-// largos ya no son solo 4 campos por uno, son 4 campos + un array de oraciones por uno. callTool ya reintenta
-// internamente una vez si detecta un marcador de tool-call mal formado (ver anthropic.ts); esta ruta agrega
-// su PROPIO reintento (una sola vez, de la llamada completa) si el desglose de algún pasaje no reconstruye su
-// propia cita — y si tras ese reintento algún pasaje SIGUE sin reconstruir, se excluye solo ese pasaje (con
-// log) en vez de perder el paso entero: ver separarPasajesValidos.
-export const maxDuration = 150;
+// 230s (subido de 150, 2026-09-30): dos llamadas completas posibles (el intento original y, si algún pasaje
+// no reconstruye su cita, el reintento de la llamada entera), cada una con su propio reintento interno por
+// marcador mal formado — peor caso (2×50s) + (2×50s) = 200s con el timeoutMs default de callTool, sin tocar.
+// 230s deja margen y queda bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
+export const maxDuration = 230;
 
 type PasajeBruto = {
   cita: string;

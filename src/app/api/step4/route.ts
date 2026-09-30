@@ -5,10 +5,12 @@ import { asArray } from "@/lib/safe-array";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, VarianteAceptada, Veredicto } from "@/lib/types";
 
-// 200s: además de las 2 llamadas ya contempladas (esta y la posible de callTool), la validación de forma de
-// abajo puede pedir un reintento propio, sumando hasta una llamada extra en el peor caso — mismo motivo que
-// el margen ampliado de Paso 7 (ver ese route.ts) ante un reintento poco frecuente pero real.
-export const maxDuration = 200;
+// 230s (subido de 200, 2026-09-30): el peor caso ya era 200s con el timeoutMs default de callTool (50s) —
+// la primera llamada (2×50s con su propio reintento por marcador mal formado) más, si la forma resulta
+// inválida, una segunda llamada completa (otros 2×50s) — y 200 == 200 no deja ningún margen real frente al
+// maxDuration anterior. 230s corrige eso sin tocar ningún timeoutMs, y queda bien por debajo de los 300s
+// documentados en el plan Hobby con Fluid Compute.
+export const maxDuration = 230;
 
 /** El modelo reporta "veredicto" como un agregado autoreportado, en paralelo a resultadosVariantes — nada
  * verificaba hasta ahora que ese agregado fuera consistente con el patrón real de las variantes de tipo

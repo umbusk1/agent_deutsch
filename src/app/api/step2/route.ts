@@ -5,10 +5,12 @@ import { asArray } from "@/lib/safe-array";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Descartada, Problema } from "@/lib/types";
 
-// 120s (subido de 60, 2026-09-30): Fluid Compute confirmado activo en el panel de Vercel, techo documentado
-// de 300s en el plan Hobby — el 60s real observado antes no era un límite duro de la cuenta, era el
-// comportamiento sin Fluid Compute. Ver la nota actualizada en la memoria del proyecto sobre esto.
-export const maxDuration = 120;
+// 220s (subido de 120, 2026-09-30): dato real de /api/step-timings, un solo intento tardó 40,8s en un
+// artículo largo (2245 palabras) — 82% del timeoutMs por defecto de callTool (50s). timeoutMs se sube acá a
+// 90s (~2,2x ese dato real, margen para un artículo más largo todavía) y maxDuration tiene que cubrir el
+// peor caso con el reintento por marcador mal formado ya incluido: 2×90s = 180s. 220s deja margen y queda
+// bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
+export const maxDuration = 220;
 
 export async function POST(request: Request) {
   const { texto, problemas } = (await request.json()) as { texto: string; problemas: Problema[] };
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
         premisaValorOculta?: { presente: boolean; justificacion: string | null };
       }[];
       descartadas: Descartada[];
-    }>({ ...prompt, effort: "medium" });
+    }>({ ...prompt, effort: "medium", timeoutMs: 90_000 });
 
     const explicaciones: Explicacion[] = asArray(result.candidatas)
       .filter(

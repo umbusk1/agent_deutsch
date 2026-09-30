@@ -7,7 +7,11 @@ import { peekUsage, incrementUsage } from "@/lib/usage";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Problema } from "@/lib/types";
 
-export const maxDuration = 90;
+// 150s (subido de 90, 2026-09-30): el peor caso estructural ya era mayor que 90s antes de este cambio —
+// callFreeform (razonamiento, sin reintento) 40s + callTool (estructura, con hasta un reintento por marcador
+// mal formado) 2×40s = 120s. 150s cubre ese peor caso con margen, sin tocar los timeoutMs individuales (no
+// hay dato real todavía que indique que 40s sea insuficiente para ninguna de las dos llamadas).
+export const maxDuration = 150;
 
 export async function POST(request: Request) {
   const { texto } = (await request.json()) as { texto: string };
