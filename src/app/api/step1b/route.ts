@@ -1,9 +1,9 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step1BPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import { calcularMecanismo, oracionesReconstruyenTexto, type EntradaAnalisisPorOracion } from "@/lib/despojo";
-import { registrarDuracion } from "@/lib/step-timings";
+import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { PasajePersuasivo } from "@/lib/types";
 
 // 150s: una sola llamada para TODO el artículo (a diferencia de Mejora-pasaje, que aísla un fragmento por
@@ -44,13 +44,18 @@ function separarPasajesValidos(pasajesBrutos: PasajeBruto[]): { validos: PasajeB
 }
 
 export async function POST(request: Request) {
-  const inicio = Date.now();
-  try {
-    const { texto } = (await request.json()) as { texto: string };
-    if (!texto || !texto.trim()) {
-      return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
-    }
+  const { texto } = (await request.json()) as { texto: string };
+  if (!texto || !texto.trim()) {
+    return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
+  }
 
+  // Streaming (Server-Sent Events) en vez de una sola respuesta al final: un artículo largo puede dejar al
+  // navegador sin recibir ningún byte por 30-45s+ mientras Claude procesa todo el texto, y algún
+  // intermediario entre el cliente y Vercel corta la conexión por inactividad aunque la función termine bien
+  // (confirmado en producción: "Failed to fetch" / ERR_CONNECTION_CLOSED en el navegador con 200 limpio en
+  // los logs de Vercel — mismo síntoma ya resuelto en step1/step7). El heartbeat de crearRespuestaSse mantiene
+  // la conexión viva durante la llamada larga.
+  return crearRespuestaSse(request, "step1b", async (enviar) => {
     const prompt = step1BPrompt(texto);
     // strict:true (con additionalProperties:false en cada nivel del schema, ver step1BPrompt en prompts.ts):
     // mismo shape que mejoraDespojoPasajePrompt, ya validado — analisisPorOracion es exactamente el campo que
@@ -90,17 +95,6 @@ export async function POST(request: Request) {
         };
       });
 
-    return NextResponse.json({ pasajesPersuasivos, pasajesDescartados });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error desconocido." },
-      { status: 500 }
-    );
-  } finally {
-    // after() (no `void registrarDuracion(...)` fire-and-forget, como estaba antes — eso perdía escrituras
-    // porque nada garantizaba que el runtime siguiera vivo hasta que la promesa terminara) extiende la vida
-    // de la invocación vía waitUntil hasta que esto se resuelva, aunque la respuesta ya se haya mandado.
-    after(() => registrarDuracion("step1b", Date.now() - inicio));
-  }
+    enviar({ pasajesPersuasivos, pasajesDescartados });
+  });
 }

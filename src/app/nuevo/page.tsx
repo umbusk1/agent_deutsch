@@ -265,7 +265,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ explicaciones: Explicacion[]; descartadas: Descartada[] }>(
+      const data = await callApiStream<{ explicaciones: Explicacion[]; descartadas: Descartada[] }>(
         "/api/step2",
         { texto, problemas: problemasActivos }
       );
@@ -302,7 +302,7 @@ export default function Home() {
     setError(null);
     try {
       const [pasajesData, variantesData] = await Promise.all([
-        callApi<{ pasajesPersuasivos: PasajePersuasivo[]; pasajesDescartados?: number }>("/api/step1b", { texto }),
+        callApiStream<{ pasajesPersuasivos: PasajePersuasivo[]; pasajesDescartados?: number }>("/api/step1b", { texto }),
         callApi<{ variantesAceptadas: VarianteAceptada[]; variantesDescartadas: VarianteDescartada[] }>(
           "/api/step3",
           { texto, explicaciones: explicacionesActivas, problemas }

@@ -1,8 +1,8 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { explicacionPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import { registrarDuracion } from "@/lib/step-timings";
+import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Descartada, Problema } from "@/lib/types";
 
 // 120s (subido de 60, 2026-09-30): Fluid Compute confirmado activo en el panel de Vercel, techo documentado
@@ -11,19 +11,22 @@ import type { Explicacion, Descartada, Problema } from "@/lib/types";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  const inicio = Date.now();
-  try {
-    const { texto, problemas } = (await request.json()) as { texto: string; problemas: Problema[] };
-    if (!texto || !texto.trim()) {
-      return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
-    }
-    if (!problemas?.length) {
-      return NextResponse.json(
-        { error: "No hay problemas activos (¿se excluyeron todos en el paso anterior?)." },
-        { status: 400 }
-      );
-    }
+  const { texto, problemas } = (await request.json()) as { texto: string; problemas: Problema[] };
+  if (!texto || !texto.trim()) {
+    return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
+  }
+  if (!problemas?.length) {
+    return NextResponse.json(
+      { error: "No hay problemas activos (¿se excluyeron todos en el paso anterior?)." },
+      { status: 400 }
+    );
+  }
 
+  // Streaming (Server-Sent Events) en vez de una sola respuesta al final: confirmado en producción con un
+  // artículo largo real (40,8s de duración real en /api/step-timings) — "Failed to fetch" / ERR_CONNECTION_CLOSED
+  // en el navegador con un 200 limpio en los logs de Vercel, el mismo síntoma ya resuelto en step1/step7. El
+  // heartbeat de crearRespuestaSse mantiene la conexión viva durante la llamada larga.
+  return crearRespuestaSse(request, "step2", async (enviar) => {
     const prompt = explicacionPrompt(texto, problemas);
     const result = await callTool<{
       candidatas: {
@@ -71,14 +74,6 @@ export async function POST(request: Request) {
 
     const descartadas = asArray(result.descartadas).filter((d) => d.cita?.trim() && d.motivo?.trim());
 
-    return NextResponse.json({ explicaciones, descartadas });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error desconocido." },
-      { status: 500 }
-    );
-  } finally {
-    after(() => registrarDuracion("step2", Date.now() - inicio));
-  }
+    enviar({ explicaciones, descartadas });
+  });
 }
