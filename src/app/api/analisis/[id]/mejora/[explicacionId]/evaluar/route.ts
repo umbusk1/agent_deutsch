@@ -17,11 +17,17 @@ import type {
   MejoraSesionExplicacion,
 } from "@/lib/types";
 
-// 180s: hasta 4 llamadas SECUENCIALES por intento (step3Identificar → step3Variantes → step4 →
-// mejoraNotaPrompt) — más que las 2 secuenciales de step7, así que el margen tiene que ser mayor. Streaming
-// SSE con heartbeat por la misma razón que step1/step7: sin esto, el navegador puede pasar más de un minuto
-// sin recibir ningún byte mientras corren las cuatro llamadas.
-export const maxDuration = 180;
+// 300s (subido de 180, 2026-09-30 — auditoría de peor caso, comentario anterior desactualizado: no contaba
+// el reintento por marcador mal formado de cada llamada). 4 llamadas SECUENCIALES por intento
+// (step3Identificar → step3Variantes → step4 → mejoraNotaPrompt), ninguna con reintento propio de
+// aplicación más allá del de callTool — peor caso real: 4×(2×50s) = 400s, con el timeoutMs default de
+// callTool, sin tocar.
+// BRECHA CONOCIDA: 400s de peor caso teórico supera los 300s documentados en el plan Hobby con Fluid
+// Compute — fijamos el techo en 300s (el máximo posible) en vez de en el peor caso real, así que en el
+// escenario extremo (3-4 de las 4 llamadas fallando con marcador mal formado en su primer intento, nunca
+// visto en producción) la función se cortaría antes de terminar. No se tocó la lógica de reintentos para
+// cerrar esta brecha — decisión explícita, pendiente de revisar si alguna vez se observa en la práctica.
+export const maxDuration = 300;
 
 function comoResultadoParaNota(intento: {
   texto: string;

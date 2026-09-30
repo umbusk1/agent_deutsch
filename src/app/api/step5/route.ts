@@ -5,7 +5,10 @@ import { asArray } from "@/lib/safe-array";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Alcance } from "@/lib/types";
 
-export const maxDuration = 90;
+// 130s (subido de 90, 2026-09-30): 1 llamada por explicación fuerte, en paralelo, sin reintento propio de
+// aplicación — peor caso por explicación 2×50s = 100s (con el timeoutMs default de callTool, sin tocar). 130s
+// deja margen y queda bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
+export const maxDuration = 130;
 
 export async function POST(request: Request) {
   const { texto, explicaciones, problemas, veredictos } = (await request.json()) as {

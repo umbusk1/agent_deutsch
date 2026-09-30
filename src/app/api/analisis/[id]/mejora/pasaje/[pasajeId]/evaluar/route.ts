@@ -11,10 +11,14 @@ import { mejoraDespojoPasajePrompt, mejoraNotaPasajePrompt } from "@/lib/prompts
 import { calcularMecanismo, oracionesReconstruyenTexto } from "@/lib/despojo";
 import type { IntentoMejoraPasaje, MejoraSesionPasaje } from "@/lib/types";
 
-// 90s: dos llamadas SECUENCIALES por intento (despojo → nota de mentor) — menos que Explicación, que además
-// del despojo tiene el mecanismo de sustitución completo. Streaming SSE con heartbeat por la misma razón de
-// siempre: sin esto, el navegador puede pasar tiempo sin recibir ningún byte durante las dos llamadas.
-export const maxDuration = 90;
+// 230s (subido de 90, 2026-09-30 — auditoría de peor caso, comentario anterior desactualizado: no contaba
+// el reintento por marcador mal formado de cada llamada). Dos llamadas SECUENCIALES por intento (despojo →
+// nota de mentor) — el chequeo de reconstrucción del despojo no reintenta, lanza error directo (ver
+// oracionesReconstruyenTexto más abajo), así que el único reintento en juego es el de callTool por marcador
+// mal formado en cada una de las dos llamadas: peor caso real = (2×50s) + (2×50s) = 200s, con el timeoutMs
+// default de callTool, sin tocar. 230s deja margen y queda bien por debajo de los 300s documentados en el
+// plan Hobby con Fluid Compute.
+export const maxDuration = 230;
 
 function comoResultadoParaNota(intento: {
   texto: string;

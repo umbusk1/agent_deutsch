@@ -5,9 +5,9 @@ import { asArray } from "@/lib/safe-array";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, Relacion } from "@/lib/types";
 
-// 120s (subido de 60, 2026-09-30): Fluid Compute confirmado activo en el panel de Vercel, techo documentado
-// de 300s en el plan Hobby — el 60s real observado antes no era un límite duro de la cuenta, era el
-// comportamiento sin Fluid Compute. Ver la nota actualizada en la memoria del proyecto sobre esto.
+// 120s: 1 sola llamada, sin reintento propio de aplicación — peor caso 2×50s = 100s (con el timeoutMs
+// default de callTool, sin tocar), ya cubierto por este valor sin necesidad de subirlo (auditoría
+// 2026-09-30). Bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
 export const maxDuration = 120;
 
 type RelacionObligatoria = { tipo?: "compite_con" | "complementa"; justificacion?: string };

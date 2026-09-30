@@ -4,12 +4,18 @@ import { step7PrincipalPrompt, step7PersuasionPrompt, step7EnsamblajePrompt } fr
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Relacion, PasajePersuasivo, Alcance } from "@/lib/types";
 
-// 210s: el flujo hace 2 llamadas en paralelo (hasta 50s cada una), cada una con hasta un reintento propio si
-// vino vacía (también en paralelo entre sí, hasta 50s más), y luego, ya con ambas resueltas, una llamada de
-// ensamblaje (hasta 50s) con su propio reintento posible (hasta 50s más) — el peor caso ronda los 200s, un
-// escenario raro (requiere que 3+ llamadas fallen vacías en su primer intento) pero el margen tiene que
-// cubrirlo igual.
-export const maxDuration = 210;
+// 300s (subido de 210, 2026-09-30 — auditoría de peor caso, comentario anterior desactualizado: decía
+// "ronda los 200s" y no contaba el reintento de la fase 2 ni el de la fase 3b). Peor caso teórico real:
+// fase 1 (2 llamadas en paralelo, cada una con su propio reintento por marcador mal formado) 2×50s=100s +
+// fase 2 (reintento por parte vacía de cualquiera de las dos, en paralelo, cada una con su propio reintento
+// por marcador) 2×50s=100s + fase 3a (ensamblaje) 2×50s=100s + fase 3b (reintento del ensamblaje si vino
+// vacío) 2×50s=100s = 400s en total, con las cuatro fases secuenciales entre sí.
+// BRECHA CONOCIDA: 400s de peor caso teórico supera los 300s documentados en el plan Hobby con Fluid
+// Compute — fijamos el techo en 300s (el máximo posible) en vez de en el peor caso real, así que en el
+// escenario extremo (3-4 llamadas fallando con marcador mal formado en su primer intento, nunca visto en
+// producción) la función se cortaría antes de terminar. No se tocó la lógica de reintentos para cerrar esta
+// brecha — decisión explícita, pendiente de revisar si alguna vez se observa en la práctica.
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const {
