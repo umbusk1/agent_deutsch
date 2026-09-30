@@ -1,34 +1,35 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step5Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import { registrarDuracion } from "@/lib/step-timings";
+import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Alcance } from "@/lib/types";
 
 export const maxDuration = 90;
 
 export async function POST(request: Request) {
-  const inicio = Date.now();
-  try {
-    const { texto, explicaciones, problemas, veredictos } = (await request.json()) as {
-      texto: string;
-      explicaciones: Explicacion[];
-      problemas: Problema[];
-      veredictos: Veredicto[];
-    };
-    if (!texto) {
-      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
-    }
-    if (!explicaciones?.length) {
-      return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
-    }
-    if (!veredictos?.length) {
-      return NextResponse.json(
-        { error: "No hay resultados (ninguna explicación llegó con variantes evaluadas)." },
-        { status: 400 }
-      );
-    }
+  const { texto, explicaciones, problemas, veredictos } = (await request.json()) as {
+    texto: string;
+    explicaciones: Explicacion[];
+    problemas: Problema[];
+    veredictos: Veredicto[];
+  };
+  if (!texto) {
+    return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+  }
+  if (!explicaciones?.length) {
+    return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
+  }
+  if (!veredictos?.length) {
+    return NextResponse.json(
+      { error: "No hay resultados (ninguna explicación llegó con variantes evaluadas)." },
+      { status: 400 }
+    );
+  }
 
+  // Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva
+  // ya confirmado en step2 con un artículo largo real.
+  return crearRespuestaSse(request, "step5", async (enviar) => {
     // Una llamada por explicación fuerte (en paralelo), no una sola llamada combinada para todas: con una
     // llamada combinada, la última explicación de la lista podía quedarse sin presupuesto de salida y salir
     // sin alcance ni preguntas nuevas. Este patrón replica el de los Pasos 3 y 4.
@@ -80,14 +81,6 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ problemasNuevos, alcances });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error desconocido." },
-      { status: 500 }
-    );
-  } finally {
-    after(() => registrarDuracion("step5", Date.now() - inicio));
-  }
+    enviar({ problemasNuevos, alcances });
+  });
 }

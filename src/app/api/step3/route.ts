@@ -1,33 +1,35 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step3IdentificarPrompt, step3VariantesPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import { registrarDuracion } from "@/lib/step-timings";
+import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada, IdentificacionVariante } from "@/lib/types";
 
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  const inicio = Date.now();
-  try {
-    const { texto, explicaciones, problemas } = (await request.json()) as {
-      texto: string;
-      explicaciones: Explicacion[];
-      problemas: Problema[];
-    };
-    if (!texto) {
-      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
-    }
-    if (!explicaciones?.length) {
-      return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
-    }
-    if (!problemas?.length) {
-      return NextResponse.json(
-        { error: "No hay problemas activos (¿se podaron todos en el paso anterior?)." },
-        { status: 400 }
-      );
-    }
+  const { texto, explicaciones, problemas } = (await request.json()) as {
+    texto: string;
+    explicaciones: Explicacion[];
+    problemas: Problema[];
+  };
+  if (!texto) {
+    return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+  }
+  if (!explicaciones?.length) {
+    return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
+  }
+  if (!problemas?.length) {
+    return NextResponse.json(
+      { error: "No hay problemas activos (¿se podaron todos en el paso anterior?)." },
+      { status: 400 }
+    );
+  }
 
+  // Streaming (Server-Sent Events) en vez de una sola respuesta al final: cada explicación hace dos llamadas
+  // secuenciales sobre el artículo completo, y con varias explicaciones en paralelo el navegador puede pasar
+  // 30s+ sin recibir ningún byte — mismo riesgo ya confirmado en step2 con un artículo largo real.
+  return crearRespuestaSse(request, "step3", async (enviar) => {
     const porExplicacion = await Promise.all(
       explicaciones.map(async (explicacion) => {
         const problema = problemas.find((p) => p.id === explicacion.problemaId);
@@ -84,14 +86,6 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ variantesAceptadas, variantesDescartadas });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error desconocido." },
-      { status: 500 }
-    );
-  } finally {
-    after(() => registrarDuracion("step3", Date.now() - inicio));
-  }
+    enviar({ variantesAceptadas, variantesDescartadas });
+  });
 }

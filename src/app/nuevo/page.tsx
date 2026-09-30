@@ -303,7 +303,7 @@ export default function Home() {
     try {
       const [pasajesData, variantesData] = await Promise.all([
         callApiStream<{ pasajesPersuasivos: PasajePersuasivo[]; pasajesDescartados?: number }>("/api/step1b", { texto }),
-        callApi<{ variantesAceptadas: VarianteAceptada[]; variantesDescartadas: VarianteDescartada[] }>(
+        callApiStream<{ variantesAceptadas: VarianteAceptada[]; variantesDescartadas: VarianteDescartada[] }>(
           "/api/step3",
           { texto, explicaciones: explicacionesActivas, problemas }
         ),
@@ -338,7 +338,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApi<{ veredictos: Veredicto[] }>("/api/step4", {
+      const data = await callApiStream<{ veredictos: Veredicto[] }>("/api/step4", {
         texto,
         explicaciones,
         problemas,
@@ -365,13 +365,13 @@ export default function Home() {
     setError(null);
     try {
       const [nuevosData, relacionesData] = await Promise.all([
-        callApi<{ problemasNuevos: ProblemaNuevo[]; alcances: Alcance[] }>("/api/step5", {
+        callApiStream<{ problemasNuevos: ProblemaNuevo[]; alcances: Alcance[] }>("/api/step5", {
           texto,
           explicaciones,
           problemas,
           veredictos,
         }),
-        callApi<{ relaciones: Relacion[] }>("/api/step6", { explicaciones, problemas }),
+        callApiStream<{ relaciones: Relacion[] }>("/api/step6", { explicaciones, problemas }),
       ]);
       setProblemasNuevos(nuevosData.problemasNuevos);
       setProblemasNuevosExcluidos(new Set());

@@ -1,8 +1,8 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step6Prompt, paresMismoProblema, claveRelacionMismoProblema } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import { registrarDuracion } from "@/lib/step-timings";
+import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, Relacion } from "@/lib/types";
 
 // 120s (subido de 60, 2026-09-30): Fluid Compute confirmado activo en el panel de Vercel, techo documentado
@@ -19,16 +19,18 @@ type RelacionAdicional = {
 };
 
 export async function POST(request: Request) {
-  const inicio = Date.now();
-  try {
-    const { explicaciones, problemas } = (await request.json()) as {
-      explicaciones: Explicacion[];
-      problemas: Problema[];
-    };
-    if (!explicaciones || explicaciones.length < 2) {
-      return NextResponse.json({ relaciones: [] as Relacion[] });
-    }
+  const { explicaciones, problemas } = (await request.json()) as {
+    explicaciones: Explicacion[];
+    problemas: Problema[];
+  };
+  if (!explicaciones || explicaciones.length < 2) {
+    return NextResponse.json({ relaciones: [] as Relacion[] });
+  }
 
+  // Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva
+  // ya confirmado en step2 con un artículo largo real; el esquema de esta ruta además crece combinatorio con
+  // pares que comparten problemaId (ver TODO junto a paresMismoProblema en prompts.ts).
+  return crearRespuestaSse(request, "step6", async (enviar) => {
     const pares = paresMismoProblema(explicaciones);
     const prompt = step6Prompt(explicaciones, problemas);
     const result = await callTool<Record<string, unknown>>(prompt);
@@ -60,14 +62,6 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ relaciones });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error desconocido." },
-      { status: 500 }
-    );
-  } finally {
-    after(() => registrarDuracion("step6", Date.now() - inicio));
-  }
+    enviar({ relaciones });
+  });
 }

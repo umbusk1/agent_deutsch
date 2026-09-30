@@ -1,8 +1,8 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step4Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
-import { registrarDuracion } from "@/lib/step-timings";
+import { crearRespuestaSse } from "@/lib/sse-stream";
 import type { Explicacion, Problema, VarianteAceptada, Veredicto } from "@/lib/types";
 
 // 200s: además de las 2 llamadas ya contempladas (esta y la posible de callTool), la validación de forma de
@@ -61,24 +61,25 @@ function formaInvalidaDe(result: ResultadoVeredictoBruto): string | null {
 }
 
 export async function POST(request: Request) {
-  const inicio = Date.now();
-  try {
-    const { texto, explicaciones, problemas, variantesAceptadas } = (await request.json()) as {
-      texto: string;
-      explicaciones: Explicacion[];
-      problemas: Problema[];
-      variantesAceptadas: VarianteAceptada[];
-    };
-    if (!texto) {
-      return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
-    }
-    if (!explicaciones?.length) {
-      return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
-    }
-    if (!problemas?.length) {
-      return NextResponse.json({ error: "No hay problemas activos." }, { status: 400 });
-    }
+  const { texto, explicaciones, problemas, variantesAceptadas } = (await request.json()) as {
+    texto: string;
+    explicaciones: Explicacion[];
+    problemas: Problema[];
+    variantesAceptadas: VarianteAceptada[];
+  };
+  if (!texto) {
+    return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
+  }
+  if (!explicaciones?.length) {
+    return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
+  }
+  if (!problemas?.length) {
+    return NextResponse.json({ error: "No hay problemas activos." }, { status: 400 });
+  }
 
+  // Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva
+  // ya confirmado en step2 con un artículo largo real, agravado acá por el reintento propio de forma.
+  return crearRespuestaSse(request, "step4", async (enviar) => {
     const porExplicacion = await Promise.all(
       explicaciones.map(async (explicacion): Promise<Veredicto | null> => {
         const problema = problemas.find((p) => p.id === explicacion.problemaId);
@@ -140,14 +141,6 @@ export async function POST(request: Request) {
 
     const veredictos: Veredicto[] = porExplicacion.filter((v): v is Veredicto => v !== null);
 
-    return NextResponse.json({ veredictos });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error desconocido." },
-      { status: 500 }
-    );
-  } finally {
-    after(() => registrarDuracion("step4", Date.now() - inicio));
-  }
+    enviar({ veredictos });
+  });
 }
