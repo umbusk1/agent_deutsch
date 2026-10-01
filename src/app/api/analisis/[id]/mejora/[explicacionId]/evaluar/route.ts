@@ -8,6 +8,7 @@ import { findUser } from "@/lib/users";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import { asArray } from "@/lib/safe-array";
 import { step3IdentificarPrompt, step3VariantesPrompt, step4Prompt, mejoraNotaPrompt } from "@/lib/prompts";
+import { generarNotaMentorVerificada } from "@/lib/nota-mentor-validacion";
 import type {
   Explicacion,
   IdentificacionVariante,
@@ -18,17 +19,25 @@ import type {
 } from "@/lib/types";
 
 // 300s (subido de 180, 2026-09-30 — auditoría de peor caso, comentario anterior desactualizado: no contaba
-// el reintento por marcador mal formado de cada llamada). 4 llamadas SECUENCIALES por intento
-// (step3Identificar → step3Variantes → step4 → mejoraNotaPrompt), ninguna con reintento propio de
-// aplicación más allá del de callTool — peor caso real: 4×(2×50s) = 400s, con el timeoutMs default de
-// callTool, sin tocar.
-// BRECHA CONOCIDA: 400s de peor caso teórico supera los 300s documentados en el plan Hobby con Fluid
-// Compute — fijamos el techo en 300s (el máximo posible) en vez de en el peor caso real, así que en el
-// escenario extremo (3-4 de las 4 llamadas fallando con marcador mal formado en su primer intento, nunca
-// visto en producción) la función se cortaría antes de terminar. No se tocó la lógica de reintentos para
-// cerrar esta brecha — decisión explícita, pendiente de revisar si alguna vez se observa en la práctica.
+// el reintento por marcador mal formado de cada llamada; actualizado 2026-10-01 para contar también el
+// reintento propio de la nota de mentor, ver generarNotaMentorVerificada en nota-mentor-validacion.ts). Hasta
+// 5 llamadas SECUENCIALES por intento en el peor caso (step3Identificar → step3Variantes → step4 →
+// mejoraNotaPrompt → reintento de mejoraNotaPrompt si la nota no pasa la verificación de voseo/caracteres
+// anómalos), ninguna con reintento propio de aplicación más allá del de callTool — peor caso real:
+// 5×(2×50s) = 500s, con el timeoutMs default de callTool, sin tocar.
+// BRECHA CONOCIDA (ensanchada 2026-10-01 por el punto anterior): 500s de peor caso teórico supera los 300s
+// documentados en el plan Hobby con Fluid Compute — fijamos el techo en 300s (el máximo posible) en vez de
+// en el peor caso real, así que en el escenario extremo (varias de las 5 llamadas fallando con marcador mal
+// formado en su primer intento, O la nota de mentor fallando la verificación Y además con marcador mal
+// formado, nunca visto en producción) la función se cortaría antes de terminar. No se tocó la lógica de
+// reintentos para cerrar esta brecha — decisión explícita, pendiente de revisar si alguna vez se observa en
+// la práctica.
 export const maxDuration = 300;
 
+// Separa lo que escribió el usuario (textoDelUsuario) de lo que generó el sistema (generadoPorElSistema) —
+// ver el comentario junto a ResultadoParaNota en prompts.ts para el motivo. El tipo de cada variante (antes
+// omitido acá) viaja ahora junto al resultado: es lo que le permite al prompt distinguir una sustitución
+// mínima de una variante de conocimiento_nuevo, que el sistema agrega siempre por su cuenta.
 function comoResultadoParaNota(intento: {
   texto: string;
   veredicto: IntentoMejoraExplicacion["veredicto"];
@@ -37,14 +46,20 @@ function comoResultadoParaNota(intento: {
   resultadosVariantes: ResultadoVariante[];
 }) {
   return {
-    texto: intento.texto,
-    veredicto: intento.veredicto,
-    justificacion: intento.justificacion,
-    resultadosVariantes: intento.resultadosVariantes.map((r) => ({
-      descripcion: intento.variantes.find((v) => v.id === r.varianteId)?.descripcion ?? "",
-      resultado: r.resultado,
-      justificacion: r.justificacion,
-    })),
+    textoDelUsuario: intento.texto,
+    generadoPorElSistema: {
+      veredicto: intento.veredicto,
+      justificacionVeredicto: intento.justificacion,
+      variantes: intento.resultadosVariantes.map((r) => {
+        const variante = intento.variantes.find((v) => v.id === r.varianteId);
+        return {
+          descripcion: variante?.descripcion ?? "",
+          tipo: variante?.tipo ?? ("sustitucion_minima" as const),
+          resultado: r.resultado,
+          justificacionResultado: r.justificacion,
+        };
+      }),
+    },
   };
 }
 
@@ -214,7 +229,7 @@ export async function POST(
         intentoAnteriorParaNota,
         numeroIntento
       );
-      const resultNota = await callTool<{ notaMentor: string }>(notaPrompt);
+      const notaMentor = await generarNotaMentorVerificada(notaPrompt, "mejora-evaluar");
 
       const nuevoIntento: IntentoMejoraExplicacion = {
         id: `I${numeroIntento}`,
@@ -226,7 +241,7 @@ export async function POST(
         veredicto,
         justificacion,
         resisteConocimientoNuevo,
-        notaMentor: resultNota.notaMentor,
+        notaMentor,
       };
 
       const ahora = new Date().toISOString();

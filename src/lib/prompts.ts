@@ -849,11 +849,26 @@ justificación. Si no recibiste ninguna variante de ese tipo, omite el campo res
   };
 }
 
-type ResultadoIntentoMejora = {
-  texto: string;
-  veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta" | "SinSustitutoGenuino";
-  justificacion: string;
-  resultadosVariantes: { descripcion: string; resultado: "rompe" | "sobrevive"; justificacion: string }[];
+// Separado en dos partes DELIBERADAMENTE (no es solo un cambio de nombres): textoDelUsuario es lo único que la
+// persona escribió de verdad — el resto, generadoPorElSistema, lo generó y calculó el sistema automáticamente
+// (las variantes de sustitución propuestas, con su tipo, y el resultado de cada una; el veredicto final). Antes
+// este objeto mezclaba ambas cosas sin distinción (ni siquiera traía el tipo de cada variante), y el modelo de
+// la nota de mentor terminaba atribuyéndole al usuario haber "agregado" o "elegido" una variante que en realidad
+// generó el sistema — confirmado en notas reales de producción. La separación en el tipo (y el texto explícito
+// del prompt más abajo) existe para que esa confusión sea estructuralmente más difícil, no solo una instrucción
+// de prosa que el modelo puede pasar por alto bajo presión.
+type ResultadoParaNota = {
+  textoDelUsuario: string;
+  generadoPorElSistema: {
+    veredicto: "DificilDeVariar" | "FacilDeVariar" | "Mixta" | "SinSustitutoGenuino";
+    justificacionVeredicto: string;
+    variantes: {
+      descripcion: string;
+      tipo: "sustitucion_minima" | "conocimiento_nuevo";
+      resultado: "rompe" | "sobrevive";
+      justificacionResultado: string;
+    }[];
+  };
 };
 
 // Guardrail reforzado ACÁ (no solo en instrucciones generales) porque este es el único punto de todo el
@@ -873,8 +888,8 @@ calidez, recordando en una frase que tu función acá es poner a prueba lo que e
 export function mejoraNotaPrompt(
   mecanismoGeneral: string,
   razonFragil: string,
-  intentoActual: ResultadoIntentoMejora,
-  intentoAnterior: ResultadoIntentoMejora | null,
+  intentoActual: ResultadoParaNota,
+  intentoAnterior: ResultadoParaNota | null,
   numeroIntento: number
 ) {
   const system = `
@@ -889,6 +904,20 @@ decirle con precisión qué pasó y por qué, sin jerga técnica y sin desplegar
 (esas ya quedan visibles aparte, en la lista de resultados de este intento).
 
 ${REGLA_NUNCA_PROPONER_REDACCION}
+
+AUTORÍA DE LOS DATOS (no te equivoques con esto, es crítico): en "Intento actual" y, si existe, "Intento
+anterior", el campo textoDelUsuario es LO ÚNICO que la persona escribió — es el fragmento que reescribió, punto.
+Todo lo que está bajo generadoPorElSistema (cada variante de sustitución propuesta, con su tipo y el resultado
+de ponerla a prueba, y el veredicto final con su justificación) lo generó y calculó el sistema automáticamente —
+el usuario nunca las vio ni las eligió antes de este resultado. Por lo tanto:
+- NUNCA digas que el usuario "agregó", "cambió", "quitó", "probó" o "eligió" una variante o un sustituto — esas
+  son acciones del sistema, no de él. Lo único que el usuario hizo, de punta a punta, fue reescribir
+  textoDelUsuario.
+- Cualquier variante con tipo "conocimiento_nuevo" SIEMPRE la agrega el sistema como una prueba adicional —
+  nunca fue algo que el usuario pidió, decidió incluir o se le ocurrió agregar.
+- Podés describir QUÉ reveló cada variante sobre el fragmento (ej. "una de las sustituciones que se probó
+  mostró que..."), pero siempre en voz pasiva o atribuida al sistema/la prueba, nunca al usuario como agente de
+  esa variante puntual.
 
 Reglas de tono según el resultado de ESTE intento:
 - Si el resultado es "DificilDeVariar": celébralo genuinamente como un logro — el fragmento reescrito ahora
@@ -945,12 +974,18 @@ frágil como contexto de fondo, pero la nota es sobre ESTE intento, no una reeva
   };
 }
 
-type ResultadoIntentoMejoraPasaje = {
-  texto: string;
-  mecanismo: "Racional" | "AntiRacional" | "Mixto";
-  analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
-  tecnicas: string[];
-  justificacion: string;
+// Misma separación deliberada que ResultadoParaNota (ver ese comentario): textoDelUsuario es lo único que la
+// persona escribió; todo lo de generadoPorElSistema (mecanismo, desglose por oración, técnicas detectadas,
+// justificación) lo calculó el sistema al reclasificar ese fragmento — acá no hay "variantes" como en
+// Explicación, pero el mismo riesgo de atribución existe igual (ej. "el usuario eligió el mecanismo").
+type ResultadoParaNotaPasaje = {
+  textoDelUsuario: string;
+  generadoPorElSistema: {
+    mecanismo: "Racional" | "AntiRacional" | "Mixto";
+    analisisPorOracion: { oracion: string; sobreviveDespojo: boolean; razon: string }[];
+    tecnicas: string[];
+    justificacion: string;
+  };
 };
 
 /**
@@ -1086,8 +1121,8 @@ QUÉ REGISTRAR
 export function mejoraNotaPasajePrompt(
   tecnicasOriginales: string[],
   razonDespojo: string,
-  intentoActual: ResultadoIntentoMejoraPasaje,
-  intentoAnterior: ResultadoIntentoMejoraPasaje | null,
+  intentoActual: ResultadoParaNotaPasaje,
+  intentoAnterior: ResultadoParaNotaPasaje | null,
   numeroIntento: number
 ) {
   const system = `
@@ -1101,9 +1136,16 @@ que ya conocés. Esta nota es lo único que va a leer después de este intento.
 
 ${REGLA_NUNCA_PROPONER_REDACCION}
 
-GUARDRAIL ESPECÍFICO DE ESTE TIPO DE HALLAZGO (además del de arriba): premia que aparezca una razón sustantiva
+AUTORÍA DE LOS DATOS (no te equivoques con esto, es crítico): en "Intento actual" y, si existe, "Intento
+anterior", el campo textoDelUsuario es LO ÚNICO que la persona escribió. Todo lo que está bajo
+generadoPorElSistema (mecanismo, el desglose oración por oración, las técnicas detectadas, la justificación) lo
+calculó el sistema al reclasificar ese fragmento — el usuario no lo decidió ni lo eligió. Nunca digas que el
+usuario "agregó" una técnica, "quitó" la carga retórica o "eligió" el mecanismo: esas son conclusiones del
+sistema sobre el texto, no acciones que el usuario haya tomado conscientemente más allá de reescribirlo.
+
+GUARDRAIL ESPECÍFICO DE ESTE TIPO DE HALLAZGO (además de los de arriba): premia que aparezca una razón sustantiva
 real detrás del envoltorio retirado — NUNCA que simplemente hayan desaparecido las palabras cargadas. Si el
-usuario quitó una frase como "chantaje grosero" pero no puso ningún argumento sustantivo en su lugar, el
+fragmento quitó una frase como "chantaje grosero" pero no puso ningún argumento sustantivo en su lugar, el
 fragmento SIGUE cerrando el argumento (AntiRacional) aunque suene más moderado — decilo con esa claridad. No
 confundas "más suave de tono" con "sobrevive el despojo": son preguntas distintas, y solo la segunda es la que
 importa acá. El maquillaje retórico no es una mejora, es la misma falla con otro envoltorio.
@@ -1121,9 +1163,9 @@ Reglas de tono según el resultado de ESTE intento:
   fragmento ya sostiene algo por mérito propio (celebra ESA parte puntual) y cuál frase o cláusula concreta
   todavía pide ser aceptada por su peso emocional sin argumento detrás — la nota no cumple su función si dice
   "en parte funciona" sin señalar textualmente cuál parte es la que sigue floja. Para esto tenés
-  analisisPorOracion en el intento actual (y en el anterior, si lo hay): son las oraciones exactas que ya se
-  evaluaron una por una, con sobreviveDespojo y su razón — usalo como fuente de las citas textuales en vez de
-  re-derivarlas de la síntesis en prosa de justificacion.
+  generadoPorElSistema.analisisPorOracion en el intento actual (y en el anterior, si lo hay): son las oraciones
+  exactas que ya se evaluaron una por una, con sobreviveDespojo y su razón — usalo como fuente de las citas
+  textuales en vez de re-derivarlas de la síntesis en prosa de justificacion.
 
 Contraste obligatorio: ${
     intentoAnterior

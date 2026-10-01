@@ -8,18 +8,26 @@ import { findUser } from "@/lib/users";
 import { crearRespuestaSse } from "@/lib/sse-stream";
 import { asArray } from "@/lib/safe-array";
 import { mejoraDespojoPasajePrompt, mejoraNotaPasajePrompt } from "@/lib/prompts";
+import { generarNotaMentorVerificada } from "@/lib/nota-mentor-validacion";
 import { calcularMecanismo, oracionesReconstruyenTexto } from "@/lib/despojo";
 import type { IntentoMejoraPasaje, MejoraSesionPasaje } from "@/lib/types";
 
-// 230s (subido de 90, 2026-09-30 — auditoría de peor caso, comentario anterior desactualizado: no contaba
-// el reintento por marcador mal formado de cada llamada). Dos llamadas SECUENCIALES por intento (despojo →
-// nota de mentor) — el chequeo de reconstrucción del despojo no reintenta, lanza error directo (ver
-// oracionesReconstruyenTexto más abajo), así que el único reintento en juego es el de callTool por marcador
-// mal formado en cada una de las dos llamadas: peor caso real = (2×50s) + (2×50s) = 200s, con el timeoutMs
-// default de callTool, sin tocar. 230s deja margen y queda bien por debajo de los 300s documentados en el
-// plan Hobby con Fluid Compute.
-export const maxDuration = 230;
+// 300s (subido de 230, 2026-10-01 — ahora cuenta también el reintento propio de la nota de mentor, ver
+// generarNotaMentorVerificada en nota-mentor-validacion.ts). Hasta 3 llamadas SECUENCIALES por intento en el
+// peor caso (despojo → nota de mentor → reintento de la nota si no pasa la verificación de voseo/caracteres
+// anómalos) — el chequeo de reconstrucción del despojo no reintenta, lanza error directo (ver
+// oracionesReconstruyenTexto más abajo), así que el reintento en juego de cada llamada individual sigue
+// siendo solo el de callTool por marcador mal formado: peor caso real = 3×(2×50s) = 300s, con el timeoutMs
+// default de callTool, sin tocar.
+// BRECHA CONOCIDA: 300s de peor caso teórico iguala, sin margen, los 300s documentados en el plan Hobby con
+// Fluid Compute — mismo techo que mejora/[explicacionId]/evaluar. En el escenario extremo (las tres llamadas
+// fallando con marcador mal formado en su primer intento Y la nota fallando la verificación, nunca visto en
+// producción) la función se cortaría antes de terminar. No se tocó la lógica de reintentos para cerrar esta
+// brecha — decisión explícita, pendiente de revisar si alguna vez se observa en la práctica.
+export const maxDuration = 300;
 
+// Separa lo que escribió el usuario (textoDelUsuario) de lo que calculó el sistema al reclasificar ese
+// fragmento (generadoPorElSistema) — ver el comentario junto a ResultadoParaNotaPasaje en prompts.ts.
 function comoResultadoParaNota(intento: {
   texto: string;
   mecanismo: "Racional" | "AntiRacional" | "Mixto";
@@ -27,7 +35,15 @@ function comoResultadoParaNota(intento: {
   tecnicas: string[];
   justificacion: string;
 }) {
-  return intento;
+  return {
+    textoDelUsuario: intento.texto,
+    generadoPorElSistema: {
+      mecanismo: intento.mecanismo,
+      analisisPorOracion: intento.analisisPorOracion,
+      tecnicas: intento.tecnicas,
+      justificacion: intento.justificacion,
+    },
+  };
 }
 
 export async function POST(
@@ -157,7 +173,7 @@ export async function POST(
         intentoAnteriorParaNota,
         numeroIntento
       );
-      const resultNota = await callTool<{ notaMentor: string }>(notaPrompt);
+      const notaMentor = await generarNotaMentorVerificada(notaPrompt, "mejora-pasaje-evaluar");
 
       const nuevoIntento: IntentoMejoraPasaje = {
         id: `I${numeroIntento}`,
@@ -167,7 +183,7 @@ export async function POST(
         analisisPorOracion,
         tecnicas: resultDespojo.tecnicas,
         justificacion: resultDespojo.justificacion,
-        notaMentor: resultNota.notaMentor,
+        notaMentor,
       };
 
       const ahora = new Date().toISOString();
