@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { explicacionPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -12,23 +11,26 @@ import type { Explicacion, Descartada, Problema } from "@/lib/types";
 // bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
 export const maxDuration = 220;
 
+// Streaming (Server-Sent Events) en vez de una sola respuesta al final: confirmado en producción con un
+// artículo largo real (40,8s de duración real en /api/step-timings) — "Failed to fetch" / ERR_CONNECTION_CLOSED
+// en el navegador con un 200 limpio en los logs de Vercel, el mismo síntoma ya resuelto en step1/step7. El
+// heartbeat de crearRespuestaSse mantiene la conexión viva durante la llamada larga.
+//
+// TODA la lógica, incluida la validación de entrada, vive DENTRO del envoltorio — ver el mismo comentario en
+// step1b/route.ts para el motivo (confirmado en producción con step6: una salida temprana por fuera de
+// crearRespuestaSse rompe callApiStream del cliente con un error engañoso).
 export async function POST(request: Request) {
-  const { texto, problemas } = (await request.json()) as { texto: string; problemas: Problema[] };
-  if (!texto || !texto.trim()) {
-    return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
-  }
-  if (!problemas?.length) {
-    return NextResponse.json(
-      { error: "No hay problemas activos (¿se excluyeron todos en el paso anterior?)." },
-      { status: 400 }
-    );
-  }
-
-  // Streaming (Server-Sent Events) en vez de una sola respuesta al final: confirmado en producción con un
-  // artículo largo real (40,8s de duración real en /api/step-timings) — "Failed to fetch" / ERR_CONNECTION_CLOSED
-  // en el navegador con un 200 limpio en los logs de Vercel, el mismo síntoma ya resuelto en step1/step7. El
-  // heartbeat de crearRespuestaSse mantiene la conexión viva durante la llamada larga.
   return crearRespuestaSse(request, "step2", async (enviar) => {
+    const { texto, problemas } = (await request.json()) as { texto: string; problemas: Problema[] };
+    if (!texto || !texto.trim()) {
+      enviar({ error: "Falta el texto a analizar." });
+      return;
+    }
+    if (!problemas?.length) {
+      enviar({ error: "No hay problemas activos (¿se excluyeron todos en el paso anterior?)." });
+      return;
+    }
+
     const prompt = explicacionPrompt(texto, problemas);
     const result = await callTool<{
       candidatas: {

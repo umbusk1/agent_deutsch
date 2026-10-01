@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step6Prompt, paresMismoProblema, claveRelacionMismoProblema } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -18,19 +17,26 @@ type RelacionAdicional = {
   justificacion: string;
 };
 
+// Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva ya
+// confirmado en step2 con un artículo largo real; el esquema de esta ruta además crece combinatorio con pares
+// que comparten problemaId (ver TODO junto a paresMismoProblema en prompts.ts).
+//
+// Esta ruta era la única de las seis con una salida temprana por FUERA del envoltorio (el caso de menos de dos
+// explicaciones): un JSON plano de 200 que callApiStream no sabía leer (espera framing `data: ...`), confirmado
+// como la causa raíz del bug de producción del 2026-10-01 ("La conexión se cerró antes de recibir el reporte
+// completo." con una sola explicación). Ahora ese caso es un resultado vacío LEGÍTIMO enviado por el mismo
+// camino que cualquier otro resultado, no una salida temprana.
 export async function POST(request: Request) {
-  const { explicaciones, problemas } = (await request.json()) as {
-    explicaciones: Explicacion[];
-    problemas: Problema[];
-  };
-  if (!explicaciones || explicaciones.length < 2) {
-    return NextResponse.json({ relaciones: [] as Relacion[] });
-  }
-
-  // Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva
-  // ya confirmado en step2 con un artículo largo real; el esquema de esta ruta además crece combinatorio con
-  // pares que comparten problemaId (ver TODO junto a paresMismoProblema en prompts.ts).
   return crearRespuestaSse(request, "step6", async (enviar) => {
+    const { explicaciones, problemas } = (await request.json()) as {
+      explicaciones: Explicacion[];
+      problemas: Problema[];
+    };
+    if (!explicaciones || explicaciones.length < 2) {
+      enviar({ relaciones: [] as Relacion[] });
+      return;
+    }
+
     const pares = paresMismoProblema(explicaciones);
     const prompt = step6Prompt(explicaciones, problemas);
     const result = await callTool<Record<string, unknown>>(prompt);

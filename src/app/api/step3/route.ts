@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step3IdentificarPrompt, step3VariantesPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -12,29 +11,33 @@ import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada, Ident
 // queda bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
 export const maxDuration = 230;
 
+// Streaming (Server-Sent Events) en vez de una sola respuesta al final: cada explicación hace dos llamadas
+// secuenciales sobre el artículo completo, y con varias explicaciones en paralelo el navegador puede pasar
+// 30s+ sin recibir ningún byte — mismo riesgo ya confirmado en step2 con un artículo largo real.
+//
+// TODA la lógica, incluida la validación de entrada, vive DENTRO del envoltorio — ver el mismo comentario en
+// step1b/route.ts para el motivo (confirmado en producción con step6: una salida temprana por fuera de
+// crearRespuestaSse rompe callApiStream del cliente con un error engañoso).
 export async function POST(request: Request) {
-  const { texto, explicaciones, problemas } = (await request.json()) as {
-    texto: string;
-    explicaciones: Explicacion[];
-    problemas: Problema[];
-  };
-  if (!texto) {
-    return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
-  }
-  if (!explicaciones?.length) {
-    return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
-  }
-  if (!problemas?.length) {
-    return NextResponse.json(
-      { error: "No hay problemas activos (¿se podaron todos en el paso anterior?)." },
-      { status: 400 }
-    );
-  }
-
-  // Streaming (Server-Sent Events) en vez de una sola respuesta al final: cada explicación hace dos llamadas
-  // secuenciales sobre el artículo completo, y con varias explicaciones en paralelo el navegador puede pasar
-  // 30s+ sin recibir ningún byte — mismo riesgo ya confirmado en step2 con un artículo largo real.
   return crearRespuestaSse(request, "step3", async (enviar) => {
+    const { texto, explicaciones, problemas } = (await request.json()) as {
+      texto: string;
+      explicaciones: Explicacion[];
+      problemas: Problema[];
+    };
+    if (!texto) {
+      enviar({ error: "Falta el texto original." });
+      return;
+    }
+    if (!explicaciones?.length) {
+      enviar({ error: "No hay explicaciones activas." });
+      return;
+    }
+    if (!problemas?.length) {
+      enviar({ error: "No hay problemas activos (¿se podaron todos en el paso anterior?)." });
+      return;
+    }
+
     const porExplicacion = await Promise.all(
       explicaciones.map(async (explicacion) => {
         const problema = problemas.find((p) => p.id === explicacion.problemaId);

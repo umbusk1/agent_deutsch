@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step4Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -62,26 +61,33 @@ function formaInvalidaDe(result: ResultadoVeredictoBruto): string | null {
   return null;
 }
 
+// Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva ya
+// confirmado en step2 con un artículo largo real, agravado acá por el reintento propio de forma.
+//
+// TODA la lógica, incluida la validación de entrada, vive DENTRO del envoltorio — ver el mismo comentario en
+// step1b/route.ts para el motivo (confirmado en producción con step6: una salida temprana por fuera de
+// crearRespuestaSse rompe callApiStream del cliente con un error engañoso).
 export async function POST(request: Request) {
-  const { texto, explicaciones, problemas, variantesAceptadas } = (await request.json()) as {
-    texto: string;
-    explicaciones: Explicacion[];
-    problemas: Problema[];
-    variantesAceptadas: VarianteAceptada[];
-  };
-  if (!texto) {
-    return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
-  }
-  if (!explicaciones?.length) {
-    return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
-  }
-  if (!problemas?.length) {
-    return NextResponse.json({ error: "No hay problemas activos." }, { status: 400 });
-  }
-
-  // Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva
-  // ya confirmado en step2 con un artículo largo real, agravado acá por el reintento propio de forma.
   return crearRespuestaSse(request, "step4", async (enviar) => {
+    const { texto, explicaciones, problemas, variantesAceptadas } = (await request.json()) as {
+      texto: string;
+      explicaciones: Explicacion[];
+      problemas: Problema[];
+      variantesAceptadas: VarianteAceptada[];
+    };
+    if (!texto) {
+      enviar({ error: "Falta el texto original." });
+      return;
+    }
+    if (!explicaciones?.length) {
+      enviar({ error: "No hay explicaciones activas." });
+      return;
+    }
+    if (!problemas?.length) {
+      enviar({ error: "No hay problemas activos." });
+      return;
+    }
+
     const porExplicacion = await Promise.all(
       explicaciones.map(async (explicacion): Promise<Veredicto | null> => {
         const problema = problemas.find((p) => p.id === explicacion.problemaId);

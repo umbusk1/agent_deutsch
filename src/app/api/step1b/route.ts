@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step1BPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -39,19 +38,26 @@ function separarPasajesValidos(pasajesBrutos: PasajeBruto[]): { validos: PasajeB
   return { validos, descartados };
 }
 
+// Streaming (Server-Sent Events) en vez de una sola respuesta al final: un artículo largo puede dejar al
+// navegador sin recibir ningún byte por 30-45s+ mientras Claude procesa todo el texto, y algún intermediario
+// entre el cliente y Vercel corta la conexión por inactividad aunque la función termine bien (confirmado en
+// producción: "Failed to fetch" / ERR_CONNECTION_CLOSED en el navegador con 200 limpio en los logs de Vercel
+// — mismo síntoma ya resuelto en step1/step7). El heartbeat de crearRespuestaSse mantiene la conexión viva
+// durante la llamada larga.
+//
+// TODA la lógica, incluida la validación de entrada, vive DENTRO del envoltorio — ninguna salida temprana de
+// esta ruta devuelve una respuesta plana por fuera de crearRespuestaSse. Confirmado en producción
+// (2026-10-01, step6): una salida temprana que bypasea el envoltorio SSE rompe callApiStream del cliente
+// (espera framing `data: ...`, no JSON plano) con "La conexión se cerró antes de recibir el reporte
+// completo." — un error engañoso que no describe lo que realmente pasó.
 export async function POST(request: Request) {
-  const { texto } = (await request.json()) as { texto: string };
-  if (!texto || !texto.trim()) {
-    return NextResponse.json({ error: "Falta el texto a analizar." }, { status: 400 });
-  }
-
-  // Streaming (Server-Sent Events) en vez de una sola respuesta al final: un artículo largo puede dejar al
-  // navegador sin recibir ningún byte por 30-45s+ mientras Claude procesa todo el texto, y algún
-  // intermediario entre el cliente y Vercel corta la conexión por inactividad aunque la función termine bien
-  // (confirmado en producción: "Failed to fetch" / ERR_CONNECTION_CLOSED en el navegador con 200 limpio en
-  // los logs de Vercel — mismo síntoma ya resuelto en step1/step7). El heartbeat de crearRespuestaSse mantiene
-  // la conexión viva durante la llamada larga.
   return crearRespuestaSse(request, "step1b", async (enviar) => {
+    const { texto } = (await request.json()) as { texto: string };
+    if (!texto || !texto.trim()) {
+      enviar({ error: "Falta el texto a analizar." });
+      return;
+    }
+
     const prompt = step1BPrompt(texto);
     // strict:true (con additionalProperties:false en cada nivel del schema, ver step1BPrompt en prompts.ts):
     // mismo shape que mejoraDespojoPasajePrompt, ya validado — analisisPorOracion es exactamente el campo que

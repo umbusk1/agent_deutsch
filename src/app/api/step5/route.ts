@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { callTool } from "@/lib/anthropic";
 import { step5Prompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
@@ -10,29 +9,33 @@ import type { Explicacion, Problema, Veredicto, ProblemaNuevo, Alcance } from "@
 // deja margen y queda bien por debajo de los 300s documentados en el plan Hobby con Fluid Compute.
 export const maxDuration = 130;
 
+// Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva ya
+// confirmado en step2 con un artículo largo real.
+//
+// TODA la lógica, incluida la validación de entrada, vive DENTRO del envoltorio — ver el mismo comentario en
+// step1b/route.ts para el motivo (confirmado en producción con step6: una salida temprana por fuera de
+// crearRespuestaSse rompe callApiStream del cliente con un error engañoso).
 export async function POST(request: Request) {
-  const { texto, explicaciones, problemas, veredictos } = (await request.json()) as {
-    texto: string;
-    explicaciones: Explicacion[];
-    problemas: Problema[];
-    veredictos: Veredicto[];
-  };
-  if (!texto) {
-    return NextResponse.json({ error: "Falta el texto original." }, { status: 400 });
-  }
-  if (!explicaciones?.length) {
-    return NextResponse.json({ error: "No hay explicaciones activas." }, { status: 400 });
-  }
-  if (!veredictos?.length) {
-    return NextResponse.json(
-      { error: "No hay resultados (ninguna explicación llegó con variantes evaluadas)." },
-      { status: 400 }
-    );
-  }
-
-  // Streaming (Server-Sent Events) en vez de una sola respuesta al final — mismo riesgo de conexión inactiva
-  // ya confirmado en step2 con un artículo largo real.
   return crearRespuestaSse(request, "step5", async (enviar) => {
+    const { texto, explicaciones, problemas, veredictos } = (await request.json()) as {
+      texto: string;
+      explicaciones: Explicacion[];
+      problemas: Problema[];
+      veredictos: Veredicto[];
+    };
+    if (!texto) {
+      enviar({ error: "Falta el texto original." });
+      return;
+    }
+    if (!explicaciones?.length) {
+      enviar({ error: "No hay explicaciones activas." });
+      return;
+    }
+    if (!veredictos?.length) {
+      enviar({ error: "No hay resultados (ninguna explicación llegó con variantes evaluadas)." });
+      return;
+    }
+
     // Una llamada por explicación fuerte (en paralelo), no una sola llamada combinada para todas: con una
     // llamada combinada, la última explicación de la lista podía quedarse sin presupuesto de salida y salir
     // sin alcance ni preguntas nuevas. Este patrón replica el de los Pasos 3 y 4.

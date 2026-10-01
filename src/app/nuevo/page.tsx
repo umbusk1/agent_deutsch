@@ -173,10 +173,26 @@ export default function Home() {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    // Distingue un fallo real de red (reader.read() rechaza) de un stream que terminó limpio (done:true) sin
+    // haber entregado nunca un payload válido — antes ambos casos caían en el mismo mensaje genérico
+    // ("La conexión se cerró..."), que confundía una desconexión real con un handler que responde sin llamar
+    // a enviar() (ver el bug de producción de step6, 2026-10-01: ahí no había fallo de red alguno).
+    let recibioBytes = false;
 
     for (;;) {
-      const { done, value } = await reader.read();
+      let done: boolean;
+      let value: Uint8Array | undefined;
+      try {
+        ({ done, value } = await reader.read());
+      } catch {
+        throw new Error(
+          recibioBytes
+            ? "Se perdió la conexión con el servidor mientras se recibía el reporte. Intenta de nuevo."
+            : "No se pudo conectar con el servidor. Intenta de nuevo."
+        );
+      }
       if (done) break;
+      recibioBytes = true;
       buffer += decoder.decode(value, { stream: true });
 
       let sepIndex: number;
@@ -193,7 +209,7 @@ export default function Home() {
       }
     }
 
-    throw new Error("La conexión se cerró antes de recibir el reporte completo.");
+    throw new Error("El servidor terminó la conexión sin enviar ningún resultado. Intenta de nuevo.");
   }
 
   function toggleSet(set: Set<string>, id: string, setter: (s: Set<string>) => void) {
