@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { registrarErrorDeStream } from "./stream-errors";
-import { registrarDuracion } from "./step-timings";
+import { registrarDuracion, type Desenlace } from "./step-timings";
 
 const encoder = new TextEncoder();
 
@@ -42,18 +42,25 @@ export function crearRespuestaSse(
   // promesa que le pasamos se resuelva. Se registra acá, de forma SÍNCRONA, al llamar a crearRespuestaSse
   // (dentro del mismo contexto de request del route handler) — el propio callback recién espera la duración
   // real más abajo, una vez que el handler del stream termina.
-  let resolverDuracion: (ms: number) => void;
-  const duracionLista = new Promise<number>((resolve) => {
-    resolverDuracion = resolve;
+  let resolverResultado: (resultado: { ms: number; desenlace: Desenlace }) => void;
+  const resultadoListo = new Promise<{ ms: number; desenlace: Desenlace }>((resolve) => {
+    resolverResultado = resolve;
   });
   after(async () => {
-    const ms = await duracionLista;
-    await registrarDuracion(ruta, ms);
+    const { ms, desenlace } = await resultadoListo;
+    await registrarDuracion(ruta, ms, desenlace);
   });
 
   const stream = new ReadableStream({
     async start(controller) {
       let cerrado = false;
+      // Para el desenlace: si el único envío que se pudo hacer fue porque el cliente ya se había ido
+      // (desconectado=true y nunca se logró enqueue de ningún payload), eso es "cliente-desconectado", no
+      // "sin-resultado" — distingue el caso esperado (el usuario cerró la pestaña) de un handler que de
+      // verdad terminó sin llamar a enviar().
+      let desconectado = false;
+      let envioExitoso = false;
+      let envioError = false;
 
       const cerrar = () => {
         if (cerrado) return;
@@ -69,6 +76,11 @@ export function crearRespuestaSse(
         if (cerrado) return;
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          if (data && typeof data === "object" && "error" in data) {
+            envioError = true;
+          } else {
+            envioExitoso = true;
+          }
         } catch (enqueueError) {
           cerrado = true;
           void registrarErrorDeStream(ruta, enqueueError);
@@ -88,6 +100,7 @@ export function crearRespuestaSse(
 
       const alDesconectar = () => {
         cerrado = true;
+        desconectado = true;
       };
       request.signal.addEventListener("abort", alDesconectar);
 
@@ -103,8 +116,18 @@ export function crearRespuestaSse(
         enviar({ error: message });
       } finally {
         // Resuelve la promesa que after() ya está esperando (arriba) — el registro real a Redis ocurre
-        // adentro de ese callback, con la vida de la invocación garantizada por waitUntil.
-        resolverDuracion(Date.now() - inicio);
+        // adentro de ese callback, con la vida de la invocación garantizada por waitUntil. Prioridad:
+        // cliente-desconectado solo si NINGÚN envío (ni éxito ni error) llegó a hacerse — si ya se había
+        // mandado algo antes de que el cliente se fuera, ese envío es el desenlace real.
+        const desenlace: Desenlace =
+          desconectado && !envioExitoso && !envioError
+            ? "cliente-desconectado"
+            : envioError
+              ? "error"
+              : envioExitoso
+                ? "ok"
+                : "sin-resultado";
+        resolverResultado({ ms: Date.now() - inicio, desenlace });
         clearInterval(heartbeat);
         request.signal.removeEventListener("abort", alDesconectar);
         cerrar();

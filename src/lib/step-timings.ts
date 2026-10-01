@@ -21,9 +21,12 @@ const LISTA_KEY = "agente-deutsch:step-timings";
 // rota más rápido.
 const MAX_REGISTROS = 300;
 
+export type Desenlace = "ok" | "error" | "sin-resultado" | "cliente-desconectado";
+
 export type RegistroDuracion = {
   ruta: string;
   ms: number;
+  desenlace: Desenlace;
   timestamp: string;
 };
 
@@ -36,9 +39,9 @@ export type RegistroDuracion = {
  * funciona?) si solo se guardaran los casos lentos. Registrando todo, cualquier corrida real deja al menos
  * una entrada — confirma por sí sola que el mecanismo funciona.
  */
-export async function registrarDuracion(ruta: string, ms: number): Promise<void> {
+export async function registrarDuracion(ruta: string, ms: number, desenlace: Desenlace): Promise<void> {
   try {
-    const registro: RegistroDuracion = { ruta, ms, timestamp: new Date().toISOString() };
+    const registro: RegistroDuracion = { ruta, ms, desenlace, timestamp: new Date().toISOString() };
     await getRedis().lpush(LISTA_KEY, registro);
     await getRedis().ltrim(LISTA_KEY, 0, MAX_REGISTROS - 1);
   } catch (logError) {
