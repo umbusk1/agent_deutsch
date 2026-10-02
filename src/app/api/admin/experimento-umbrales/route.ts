@@ -194,9 +194,11 @@ export async function POST(request: Request) {
                 etiqueta = r.etiqueta;
                 detalle = r.detalle;
               }
-              enviar({ metodo, corrida, etiqueta, detalle, ms: Date.now() - inicio });
+              enviar({ analisisId, explicacionId, metodo, corrida, etiqueta, detalle, ms: Date.now() - inicio });
             } catch (error) {
               enviar({
+                analisisId,
+                explicacionId,
                 metodo,
                 corrida,
                 etiqueta: null,

@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 type ResultadoCorrida = {
+  analisisId: string;
+  explicacionId: string;
   metodo: string;
   corrida: number;
   etiqueta: string | null;
@@ -94,6 +96,8 @@ export default function ExperimentoUmbralesPage() {
 
   function descargar() {
     const paraDescargar = resultados.map((r) => ({
+      analisisId: r.analisisId,
+      explicacionId: r.explicacionId,
       metodo: r.metodo,
       corrida: r.corrida,
       etiqueta: r.etiqueta,
@@ -143,7 +147,7 @@ export default function ExperimentoUmbralesPage() {
       <table style={{ borderCollapse: "collapse", width: "100%" }}>
         <thead>
           <tr>
-            {["Método", "Corrida", "Etiqueta", "ms", "Error"].map((h) => (
+            {["Explicación", "Método", "Corrida", "Etiqueta", "ms", "Error"].map((h) => (
               <th key={h} style={{ border: "1px solid #ccc", padding: "0.25rem 0.5rem", textAlign: "left" }}>
                 {h}
               </th>
@@ -153,6 +157,7 @@ export default function ExperimentoUmbralesPage() {
         <tbody>
           {resultados.map((r, i) => (
             <tr key={i}>
+              <td style={{ border: "1px solid #ccc", padding: "0.25rem 0.5rem" }}>{r.explicacionId}</td>
               <td style={{ border: "1px solid #ccc", padding: "0.25rem 0.5rem" }}>{r.metodo}</td>
               <td style={{ border: "1px solid #ccc", padding: "0.25rem 0.5rem" }}>{r.corrida}</td>
               <td style={{ border: "1px solid #ccc", padding: "0.25rem 0.5rem" }}>{r.etiqueta ?? "—"}</td>
