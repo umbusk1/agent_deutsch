@@ -20,7 +20,7 @@ los campos estructurados que se te piden. El usuario final debe leer prosa crít
 epistemología.
 `.trim();
 
-const REGLA_IDIOMA = `
+export const REGLA_IDIOMA = `
 El texto que vas a analizar puede estar en cualquier idioma. Todos los campos de texto libre que generes (resúmenes,
 enunciados de problemas, descripciones de variantes, justificaciones, etc.) deben estar SIEMPRE en español,
 independientemente del idioma del texto original. La única excepción son las citas textuales extraídas literalmente
