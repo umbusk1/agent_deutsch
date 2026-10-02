@@ -42,19 +42,40 @@ const PALABRAS_VOSEO = [
   "acordate",
   "pensalo",
   "hacelo",
+  "planteás",
+  "buscás",
+  "necesitás",
+  "intentás",
+  "pretendés",
+  "esperás",
+  "mostrás",
+  "notás",
 ];
 
 // Límites de palabra con \p{L}/\p{N} en vez de \b: \b de JS es ASCII (no trata á/í/é como parte de una
 // palabra), así que "\bmirá\b" no cierra bien el límite después de la á. Esto además evita que "vos" matchee
 // dentro de "vosotros" (la letra siguiente, "o", sigue siendo \p{L}, así que el lookahead niega el match).
-const PATRON_VOSEO = new RegExp(
+const PATRON_VOSEO_CERRADO = new RegExp(
   `(?<![\\p{L}\\p{N}])(${PALABRAS_VOSEO.join("|")})(?![\\p{L}\\p{N}])`,
   "giu"
 );
 
+// Regla GENERAL (en vez de enumerar cada verbo -ir): cualquier palabra terminada en "ís" tónico es presente
+// de indicativo voseo (describís, vivís, compartís, insistís, etc.) — reemplaza tener que listar verbo por
+// verbo. Excepciones: sustantivos que terminan en "ís" por coincidencia léxica, no por conjugación. "países"
+// ya queda afuera estructuralmente (no termina en "ís" seguido de límite de palabra), pero se deja explícito
+// por si algún día cambia el patrón.
+const EXCEPCIONES_IS = new Set(["país", "países", "anís", "anises", "luís"]);
+const PATRON_IS_GENERAL = /(?<![\p{L}\p{N}])(\p{L}+ís)(?![\p{L}\p{N}])/giu;
+
 function detectarVoseo(texto: string): string | null {
-  const m = texto.match(PATRON_VOSEO);
-  return m ? m[0] : null;
+  const m = texto.match(PATRON_VOSEO_CERRADO);
+  if (m) return m[0];
+  for (const coincidencia of texto.matchAll(PATRON_IS_GENERAL)) {
+    const palabra = coincidencia[1];
+    if (!EXCEPCIONES_IS.has(palabra.toLowerCase())) return palabra;
+  }
+  return null;
 }
 
 function detectarCaracterAnomalo(texto: string): string | null {
