@@ -38,15 +38,17 @@ function guardarEnSessionStorage(resultados: ResultadoCorrida[]) {
 export default function ExperimentoUmbralesPage() {
   const [analisisId, setAnalisisId] = useState("");
   const [explicacionId, setExplicacionId] = useState("E1");
+  const [nCorridas, setNCorridas] = useState(5);
   const [corriendo, setCorriendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultados, setResultados] = useState<ResultadoCorrida[]>(cargarDeSessionStorage);
 
-  async function ejecutarPiloto() {
+  async function ejecutar() {
     setCorriendo(true);
     setError(null);
-    const acumulado: ResultadoCorrida[] = [];
-    setResultados(acumulado);
+    // Arranca desde lo ya acumulado (de corridas anteriores, incluso contra otra explicación) — cada
+    // ejecución AGREGA filas, nunca reemplaza el log.
+    const acumulado: ResultadoCorrida[] = [...resultados];
     try {
       const res = await fetch("/api/admin/experimento-umbrales", {
         method: "POST",
@@ -55,7 +57,7 @@ export default function ExperimentoUmbralesPage() {
           analisisId: analisisId.trim(),
           explicacionId: explicacionId.trim(),
           metodos: ["A", "A+", "B", "C"],
-          corridas: 1,
+          corridas: nCorridas,
         }),
       });
       if (!res.ok) {
@@ -131,11 +133,21 @@ export default function ExperimentoUmbralesPage() {
         <label>
           explicacionId: <input value={explicacionId} onChange={(e) => setExplicacionId(e.target.value)} />
         </label>
+        <label>
+          N corridas:{" "}
+          <input
+            type="number"
+            min={1}
+            value={nCorridas}
+            onChange={(e) => setNCorridas(Math.max(1, Number(e.target.value) || 1))}
+            style={{ width: "4rem" }}
+          />
+        </label>
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-        <button onClick={ejecutarPiloto} disabled={corriendo || !analisisId.trim()}>
-          {corriendo ? "Corriendo..." : "Ejecutar piloto (1 corrida × 4 métodos)"}
+        <button onClick={ejecutar} disabled={corriendo || !analisisId.trim()}>
+          {corriendo ? "Corriendo..." : `Ejecutar ${nCorridas} corrida${nCorridas === 1 ? "" : "s"} × 4 métodos`}
         </button>
         <button onClick={descargar} disabled={resultados.length === 0}>
           Descargar resultados (JSON)
