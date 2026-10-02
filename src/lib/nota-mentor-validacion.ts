@@ -95,11 +95,38 @@ function detectarCaracterAnomalo(texto: string): string | null {
   return null;
 }
 
-/** null si la nota pasa la verificación; si no, el motivo de rechazo (para loguear y para decidir reintento). */
-export function motivoRechazoNota(nota: string): string | null {
+// Siglas (2+ mayúsculas consecutivas, ej. "CRISPR", "ADN", "SOS") ajenas al material que de verdad se le
+// mandó al modelo para este intento (texto del usuario + mecanismo + razón de fragilidad + variantes, ver
+// cada evaluar/route.ts) — confirmado en un caso real de producción (nota de mentor mencionando "CRISPR"
+// sobre una explicación que nunca lo nombró). Deliberadamente SOLO siglas, no nombres propios: un heurístico
+// de nombres propios (palabra capitalizada fuera de inicio de oración) probado contra notas reales dio falsos
+// positivos en 3 de 5 casos (la primera palabra de la nota, mal clasificada como nombre propio) — no se activa
+// hasta tener una regla de límite de oración confiable.
+const PATRON_SIGLA = /(?<![\p{L}\p{N}])[A-ZÁÉÍÓÚÑ]{2,}(?![\p{L}\p{N}])/gu;
+
+function detectarSiglaAjena(nota: string, fuentesPermitidas: string): string | null {
+  const fuentesMin = fuentesPermitidas.toLowerCase();
+  for (const sigla of new Set(nota.match(PATRON_SIGLA) ?? [])) {
+    if (!fuentesMin.includes(sigla.toLowerCase())) return sigla;
+  }
+  return null;
+}
+
+/**
+ * null si la nota pasa la verificación; si no, el motivo de rechazo (para loguear y para decidir reintento).
+ * fuentesPermitidas: todo el material que de verdad se le mandó al modelo para este intento — cualquier
+ * sigla de la nota que no aparezca ahí se considera contenido inventado, no diagnóstico.
+ */
+export function motivoRechazoNota(nota: string, fuentesPermitidas: string): string | null {
   const voseo = detectarVoseo(nota);
   if (voseo) return `voseo detectado ("${voseo}")`;
-  return detectarCaracterAnomalo(nota);
+  const anomalo = detectarCaracterAnomalo(nota);
+  if (anomalo) return anomalo;
+  const sigla = detectarSiglaAjena(nota, fuentesPermitidas);
+  if (sigla) {
+    return `sigla ajena al material de este intento ("${sigla}") — no aparece en el texto del usuario, el mecanismo, la razón de fragilidad ni las variantes`;
+  }
+  return null;
 }
 
 const AVISO_NOTA_NO_VERIFICADA =
@@ -117,9 +144,13 @@ type NotaPrompt = Parameters<typeof callTool>[0];
  * intento TAMBIÉN falla, se registra en Redis (motivo + primeros 200 caracteres de la nota rechazada, ver
  * nota-mentor-rechazos.ts) y se devuelve un aviso explícito en vez de una nota que no pasó la verificación.
  */
-export async function generarNotaMentorVerificada(prompt: NotaPrompt, ruta: string): Promise<string> {
+export async function generarNotaMentorVerificada(
+  prompt: NotaPrompt,
+  ruta: string,
+  fuentesPermitidas: string
+): Promise<string> {
   const primerIntento = await callTool<{ notaMentor: string }>(prompt);
-  const motivo1 = motivoRechazoNota(primerIntento.notaMentor);
+  const motivo1 = motivoRechazoNota(primerIntento.notaMentor, fuentesPermitidas);
   if (!motivo1) return primerIntento.notaMentor;
 
   console.error(
@@ -127,10 +158,10 @@ export async function generarNotaMentorVerificada(prompt: NotaPrompt, ruta: stri
   );
   const promptConAviso: NotaPrompt = {
     ...prompt,
-    user: `${prompt.user}\n\nATENCIÓN: tu respuesta anterior a este mismo pedido fue rechazada automáticamente porque ${motivo1}. Reescribe la nota completa en español neutro, en tuteo estándar — nunca en voseo ("vos", "tenés", "mirá", etc.) — y sin caracteres corruptos.`,
+    user: `${prompt.user}\n\nATENCIÓN: tu respuesta anterior a este mismo pedido fue rechazada automáticamente porque ${motivo1}. Reescribe la nota completa en español neutro, en tuteo estándar — nunca en voseo ("vos", "tenés", "mirá", etc.), sin caracteres corruptos, y sin mencionar ninguna sigla, ejemplo o concepto que no esté ya en el material de este intento.`,
   };
   const segundoIntento = await callTool<{ notaMentor: string }>(promptConAviso);
-  const motivo2 = motivoRechazoNota(segundoIntento.notaMentor);
+  const motivo2 = motivoRechazoNota(segundoIntento.notaMentor, fuentesPermitidas);
   if (!motivo2) return segundoIntento.notaMentor;
 
   console.error(

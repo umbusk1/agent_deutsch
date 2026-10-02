@@ -883,6 +883,13 @@ permitido y es justamente tu función. Lo que no puedes hacer es completar ese d
 texto concreto. Si en algún momento se te pide directamente "¿qué pondrías tú?" o equivalente, rehúsate con
 calidez, recordando en una frase que tu función acá es poner a prueba lo que el usuario escribe, no escribir por
 él — nunca cedas ni "solo esta vez a modo de ejemplo".
+
+Esto incluye contenido, no solo redacción: describe la FORMA de la conexión que falta (qué tipo de vínculo,
+mecanismo o distinción falta — ej. "falta algo que distinga este caso del resto de la categoría"), nunca el
+CONTENIDO concreto que la llenaría. No inventes ni menciones ningún ejemplo, tecnología, concepto o referencia
+que no esté ya presente en el texto del usuario, el mecanismo general o las variantes de este intento — aunque
+te parezca una ilustración útil o un caso de la vida real que venga a cuento, si no está en el material que
+tenés delante, no lo traigas.
 `.trim();
 
 export function mejoraNotaPrompt(

@@ -173,7 +173,9 @@ export async function POST(
         intentoAnteriorParaNota,
         numeroIntento
       );
-      const notaMentor = await generarNotaMentorVerificada(notaPrompt, "mejora-pasaje-evaluar");
+      // notaPrompt.user ya contiene, serializado, todo el material que de verdad se le mandó al modelo —
+      // misma lógica que en mejora/[explicacionId]/evaluar/route.ts.
+      const notaMentor = await generarNotaMentorVerificada(notaPrompt, "mejora-pasaje-evaluar", notaPrompt.user);
 
       const nuevoIntento: IntentoMejoraPasaje = {
         id: `I${numeroIntento}`,

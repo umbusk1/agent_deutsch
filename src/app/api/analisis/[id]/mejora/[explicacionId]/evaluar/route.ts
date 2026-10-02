@@ -229,7 +229,10 @@ export async function POST(
         intentoAnteriorParaNota,
         numeroIntento
       );
-      const notaMentor = await generarNotaMentorVerificada(notaPrompt, "mejora-evaluar");
+      // notaPrompt.user ya contiene, serializado, todo el material que de verdad se le mandó al modelo
+      // (mecanismoGeneral, razonFragil, intento actual y anterior) — es la fuente de verdad exacta contra la
+      // que chequear si la nota menciona alguna sigla ajena a lo que el modelo pudo haber visto.
+      const notaMentor = await generarNotaMentorVerificada(notaPrompt, "mejora-evaluar", notaPrompt.user);
 
       const nuevoIntento: IntentoMejoraExplicacion = {
         id: `I${numeroIntento}`,
