@@ -64,6 +64,14 @@ export type IdentificacionVariante = {
   dominio: string;
 };
 
+/** Identificación de cada explicación, atada a su id — antes se calculaba en step3/route.ts y se descartaba
+ * después de construir el prompt de variantes; ahora viaja con el resto de los datos de la corrida para que
+ * quede algo persistido más allá del resumen comprimido en `tripletas`. */
+export type IdentificacionExplicacion = {
+  explicacionId: string;
+  identificacion: IdentificacionVariante;
+};
+
 export type ResultadoVariante = {
   varianteId: string;
   resultado: "rompe" | "sobrevive";

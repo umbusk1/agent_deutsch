@@ -15,6 +15,7 @@ import type {
   Relacion,
   PasajePersuasivo,
   Alcance,
+  IdentificacionExplicacion,
 } from "@/lib/types";
 
 const STEP_LABELS = ["Texto", "Problema", "Explicación", "Test", "Consecuencia", "Reporte"];
@@ -128,6 +129,9 @@ export default function Home() {
   const [variantesAceptadas, setVariantesAceptadas] = useState<VarianteAceptada[]>([]);
   const [variantesDescartadas, setVariantesDescartadas] = useState<VarianteDescartada[]>([]);
   const [variantesExcluidas, setVariantesExcluidas] = useState<Set<string>>(new Set());
+  // Antes se descartaba después de construir el prompt de variantes (ver IdentificacionExplicacion en
+  // types.ts) — ahora viaja hasta el guardado final, como campo opcional nuevo del análisis.
+  const [identificaciones, setIdentificaciones] = useState<IdentificacionExplicacion[]>([]);
 
   const [veredictos, setVeredictos] = useState<Veredicto[]>([]);
   // Dentro de "Test", separa la fase de revisar variantes (antes de pedir veredictos, el único corte
@@ -319,10 +323,11 @@ export default function Home() {
     try {
       const [pasajesData, variantesData] = await Promise.all([
         callApiStream<{ pasajesPersuasivos: PasajePersuasivo[]; pasajesDescartados?: number }>("/api/step1b", { texto }),
-        callApiStream<{ variantesAceptadas: VarianteAceptada[]; variantesDescartadas: VarianteDescartada[] }>(
-          "/api/step3",
-          { texto, explicaciones: explicacionesActivas, problemas }
-        ),
+        callApiStream<{
+          variantesAceptadas: VarianteAceptada[];
+          variantesDescartadas: VarianteDescartada[];
+          identificaciones: IdentificacionExplicacion[];
+        }>("/api/step3", { texto, explicaciones: explicacionesActivas, problemas }),
       ]);
       setExplicaciones(explicacionesActivas);
       setPasajesPersuasivos(pasajesData.pasajesPersuasivos);
@@ -330,6 +335,7 @@ export default function Home() {
       setPasajesDescartados(pasajesData.pasajesDescartados ?? 0);
       setVariantesAceptadas(variantesData.variantesAceptadas);
       setVariantesDescartadas(variantesData.variantesDescartadas);
+      setIdentificaciones(variantesData.identificaciones);
       setVariantesExcluidas(new Set());
       setVeredictos([]);
       setVeredictosCalculados(false);
@@ -451,6 +457,7 @@ export default function Home() {
           alcances,
           pasajesPersuasivos: pasajesActivos,
           pasajesDescartados,
+          identificaciones,
         });
         setGuardadoEstado("ok");
       } catch {

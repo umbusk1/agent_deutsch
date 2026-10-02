@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { guardarAnalisis, listarAnalisis } from "@/lib/analisis";
 import { findUser } from "@/lib/users";
-import type { Problema, Explicacion, Veredicto, ProblemaNuevo, Relacion, Alcance, PasajePersuasivo } from "@/lib/types";
+import type {
+  Problema,
+  Explicacion,
+  Veredicto,
+  ProblemaNuevo,
+  Relacion,
+  Alcance,
+  PasajePersuasivo,
+  IdentificacionExplicacion,
+} from "@/lib/types";
 
 export const maxDuration = 30;
 
@@ -43,6 +52,7 @@ export async function POST(request: Request) {
       alcances?: Alcance[];
       pasajesPersuasivos?: PasajePersuasivo[];
       pasajesDescartados?: number;
+      identificaciones?: IdentificacionExplicacion[];
     };
 
     if (!body.reporte?.trim()) {
@@ -71,6 +81,7 @@ export async function POST(request: Request) {
       alcances: body.alcances,
       pasajesPersuasivos: body.pasajesPersuasivos,
       pasajesDescartados: body.pasajesDescartados,
+      identificaciones: body.identificaciones,
     });
 
     return NextResponse.json({ id: registro.id });

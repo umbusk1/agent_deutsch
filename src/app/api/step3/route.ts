@@ -2,7 +2,14 @@ import { callTool } from "@/lib/anthropic";
 import { step3IdentificarPrompt, step3VariantesPrompt } from "@/lib/prompts";
 import { asArray } from "@/lib/safe-array";
 import { crearRespuestaSse } from "@/lib/sse-stream";
-import type { Explicacion, Problema, VarianteAceptada, VarianteDescartada, IdentificacionVariante } from "@/lib/types";
+import type {
+  Explicacion,
+  Problema,
+  VarianteAceptada,
+  VarianteDescartada,
+  IdentificacionVariante,
+  IdentificacionExplicacion,
+} from "@/lib/types";
 
 // 230s (subido de 120, 2026-09-30): dos llamadas secuenciales por explicación (identificar -> variantes),
 // cada una con su propio reintento interno por marcador mal formado — peor caso por explicación (2×50s) +
@@ -61,16 +68,20 @@ export async function POST(request: Request) {
           variantesDescartadas: { descripcion: string; motivo: string }[];
         }>(variantesPrompt);
 
-        return { explicacion, result };
+        return { explicacion, identificacion, result };
       })
     );
 
     const variantesAceptadas: VarianteAceptada[] = [];
     const variantesDescartadas: VarianteDescartada[] = [];
+    // Antes se descartaba después de construir el prompt de variantes (ver IdentificacionExplicacion en
+    // types.ts) — ahora viaja junto con el resto del resultado de este paso.
+    const identificaciones: IdentificacionExplicacion[] = [];
     let contador = 0;
 
     for (const item of porExplicacion) {
       if (!item) continue;
+      identificaciones.push({ explicacionId: item.explicacion.id, identificacion: item.identificacion });
       for (const v of asArray(item.result.variantesAceptadas)) {
         if (!v.descripcion?.trim()) continue;
         contador += 1;
@@ -94,6 +105,6 @@ export async function POST(request: Request) {
       }
     }
 
-    enviar({ variantesAceptadas, variantesDescartadas });
+    enviar({ variantesAceptadas, variantesDescartadas, identificaciones });
   });
 }

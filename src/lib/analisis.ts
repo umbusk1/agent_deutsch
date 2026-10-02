@@ -8,6 +8,7 @@ import type {
   Relacion,
   Alcance,
   PasajePersuasivo,
+  IdentificacionExplicacion,
 } from "./types";
 import { findUser } from "./users";
 import { obtenerMejoraSesionesExplicacion, obtenerMejoraSesionesPasaje } from "./mejora";
@@ -68,6 +69,11 @@ export type AnalisisGuardado = {
    * step1b/route.ts) — un rastro de auditoría, no un dato que la UI de Biblioteca use hoy. Opcional: ausente
    * en análisis guardados antes de este campo, y también en corridas donde simplemente no pasó nada. */
   pasajesDescartados?: number;
+  /** Identificación (tipo/elementoFijo/ingredienteVariable/dominio) de cada explicación, calculada en
+   * step3/route.ts y antes descartada después de construir el prompt de variantes — ver el comentario junto
+   * a IdentificacionExplicacion en types.ts. Opcional y ausente en todo registro guardado antes de este
+   * campo; no se retroalimenta a análisis viejos. */
+  identificaciones?: IdentificacionExplicacion[];
 };
 
 export type AnalisisResumen = {
@@ -124,6 +130,7 @@ type GuardarAnalisisInput = {
   alcances?: Alcance[];
   pasajesPersuasivos?: PasajePersuasivo[];
   pasajesDescartados?: number;
+  identificaciones?: IdentificacionExplicacion[];
 };
 
 /**
@@ -158,6 +165,7 @@ export async function guardarAnalisis(input: GuardarAnalisisInput): Promise<Anal
     ...(input.alcances !== undefined ? { alcances: input.alcances } : {}),
     ...(input.pasajesPersuasivos !== undefined ? { pasajesPersuasivos: input.pasajesPersuasivos } : {}),
     ...(input.pasajesDescartados !== undefined ? { pasajesDescartados: input.pasajesDescartados } : {}),
+    ...(input.identificaciones !== undefined ? { identificaciones: input.identificaciones } : {}),
   };
 
   await getRedis().set(analisisKey(registro.id), registro);
