@@ -18,6 +18,9 @@
  *   AU_USER="Moisés Ramírez" AU_PASS="..." node scripts/verificar-sse.mjs [baseUrl]
  *
  * baseUrl por defecto: http://localhost:3000
+ *
+ * CORRER ESTO ANTES DE DESPLEGAR CUALQUIER CAMBIO EN /api/step1b, step2, step3, step4, step5 o step6 — es el
+ * chequeo más rápido de que ninguna salida temprana nueva rompió el patrón "todo dentro del envoltorio SSE".
  */
 
 const baseUrl = process.argv[2] ?? "http://localhost:3000";

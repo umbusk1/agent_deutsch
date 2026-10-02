@@ -83,7 +83,8 @@ export function motivoRechazoNota(nota: string): string | null {
 
 const AVISO_NOTA_NO_VERIFICADA =
   "Esta nota no se pudo redactar en el tono esperado, incluso después de reintentarlo — el resultado de este " +
-  "intento (arriba) sigue siendo válido igual. Si quieres, genera un nuevo intento para obtener una nota nueva.";
+  "intento (arriba) sigue siendo válido igual. Este intento cuenta para tu límite de intentos. Si quieres, " +
+  "genera un nuevo intento para obtener una nota nueva.";
 
 type NotaPrompt = Parameters<typeof callTool>[0];
 
