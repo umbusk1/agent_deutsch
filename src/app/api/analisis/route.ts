@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { guardarAnalisis, listarAnalisis } from "@/lib/analisis";
 import { findUser } from "@/lib/users";
+import { registrarVersion, resolverVersionNueva } from "@/lib/versiones";
 import type {
   Problema,
   Explicacion,
@@ -53,6 +54,8 @@ export async function POST(request: Request) {
       pasajesPersuasivos?: PasajePersuasivo[];
       pasajesDescartados?: number;
       identificaciones?: IdentificacionExplicacion[];
+      /** Solo cuando este análisis es una versión nueva de otro (ver /api/step1). */
+      versionAnteriorId?: string;
     };
 
     if (!body.reporte?.trim()) {
@@ -62,6 +65,21 @@ export async function POST(request: Request) {
     // solo a quien corrió el análisis — por eso se exige acá también, no solo deshabilitando el botón en la UI.
     if (!body.metaTitulo?.trim()) {
       return NextResponse.json({ error: "Falta el título del análisis." }, { status: 400 });
+    }
+
+    // Versión nueva: el servidor recalcula raíz y número (nunca se confía en lo que diga el cliente) y vuelve a
+    // validar que quien guarda es el autor del análisis anterior.
+    let version: { versionRaizId: string; versionNumero: number; versionAnteriorId: string } | undefined;
+    if (body.versionAnteriorId) {
+      const resolucion = await resolverVersionNueva(body.versionAnteriorId, user.username, user.role === "admin");
+      if (!resolucion.ok) {
+        return NextResponse.json({ error: resolucion.error }, { status: resolucion.status });
+      }
+      version = {
+        versionRaizId: resolucion.raizId,
+        versionNumero: resolucion.numero,
+        versionAnteriorId: resolucion.anterior.id,
+      };
     }
 
     const registro = await guardarAnalisis({
@@ -82,9 +100,17 @@ export async function POST(request: Request) {
       pasajesPersuasivos: body.pasajesPersuasivos,
       pasajesDescartados: body.pasajesDescartados,
       identificaciones: body.identificaciones,
+      ...(version ?? {}),
     });
 
-    return NextResponse.json({ id: registro.id });
+    if (version) {
+      await registrarVersion(version.versionRaizId, registro.id);
+    }
+
+    return NextResponse.json({
+      id: registro.id,
+      ...(version ? { versionNumero: version.versionNumero } : {}),
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

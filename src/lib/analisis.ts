@@ -74,6 +74,12 @@ export type AnalisisGuardado = {
    * a IdentificacionExplicacion en types.ts. Opcional y ausente en todo registro guardado antes de este
    * campo; no se retroalimenta a análisis viejos. */
   identificaciones?: IdentificacionExplicacion[];
+  /** Versiones (2026-10): solo presentes en análisis creados con "Editar y volver a analizar". La raíz es el
+   * análisis original (versión 1, que NO tiene estos campos); versionNumero cuenta cronológicamente dentro de
+   * la lista de su texto. Ausentes en todo análisis anterior — nada se migra. */
+  versionRaizId?: string;
+  versionNumero?: number;
+  versionAnteriorId?: string;
 };
 
 export type AnalisisResumen = {
@@ -101,6 +107,8 @@ export type AnalisisResumen = {
   creadoEn: string;
   editadoPor?: string;
   editadoEn?: string;
+  /** Solo para versiones 2 en adelante (ver AnalisisGuardado.versionNumero). */
+  versionNumero?: number;
 };
 
 export function iniciales(nombreCompleto: string | undefined, fallback: string): string {
@@ -131,6 +139,9 @@ type GuardarAnalisisInput = {
   pasajesPersuasivos?: PasajePersuasivo[];
   pasajesDescartados?: number;
   identificaciones?: IdentificacionExplicacion[];
+  versionRaizId?: string;
+  versionNumero?: number;
+  versionAnteriorId?: string;
 };
 
 /**
@@ -166,6 +177,9 @@ export async function guardarAnalisis(input: GuardarAnalisisInput): Promise<Anal
     ...(input.pasajesPersuasivos !== undefined ? { pasajesPersuasivos: input.pasajesPersuasivos } : {}),
     ...(input.pasajesDescartados !== undefined ? { pasajesDescartados: input.pasajesDescartados } : {}),
     ...(input.identificaciones !== undefined ? { identificaciones: input.identificaciones } : {}),
+    ...(input.versionRaizId !== undefined ? { versionRaizId: input.versionRaizId } : {}),
+    ...(input.versionNumero !== undefined ? { versionNumero: input.versionNumero } : {}),
+    ...(input.versionAnteriorId !== undefined ? { versionAnteriorId: input.versionAnteriorId } : {}),
   };
 
   await getRedis().set(analisisKey(registro.id), registro);
@@ -237,6 +251,7 @@ export async function listarAnalisis(): Promise<AnalisisResumen[]> {
         creadoEn: r.creadoEn,
         editadoPor: r.editadoPor,
         editadoEn: r.editadoEn,
+        ...(r.versionNumero !== undefined ? { versionNumero: r.versionNumero } : {}),
       };
     })
   );

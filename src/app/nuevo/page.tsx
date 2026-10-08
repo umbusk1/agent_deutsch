@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSetAppChrome } from "@/lib/appChrome";
 import { Loader } from "@/components/Loader";
 import { ETIQUETA_CAMPO_VEREDICTO, ETIQUETAS_VEREDICTO, ETIQUETAS_MECANISMO } from "@/lib/etiquetas";
@@ -77,6 +78,7 @@ function download(filename: string, content: string) {
 export default function Home() {
   const [step, setStep] = useState(0);
   const [furthestStep, setFurthestStep] = useState(0);
+  const router = useRouter();
   const [texto, setTexto] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +95,15 @@ export default function Home() {
   } | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // Modo "versión nueva" (Editar y volver a analizar): llega con ?version=<id del análisis a editar>. El texto
+  // de esa versión se carga acá y se edita en la misma caja de siempre; todo el resto del flujo es el mismo
+  // de un análisis nuevo. Se lee de window.location en un efecto (no con useSearchParams) para no necesitar
+  // un límite de Suspense en toda la página.
+  const [versionDeId, setVersionDeId] = useState<string | null>(null);
+  const [versionTextoBase, setVersionTextoBase] = useState("");
+  const [guardadoId, setGuardadoId] = useState<string | null>(null);
+  const [guardadoVersionNumero, setGuardadoVersionNumero] = useState<number | null>(null);
+
   // Compuerta de rechazo temprano: si el Paso 1 no encuentra ningún problema genuino, el pipeline
   // se detiene aquí (no hay reporte ni datos que guardar) y se ofrece un camino de apelación.
   const [rejected, setRejected] = useState(false);
@@ -100,6 +111,27 @@ export default function Home() {
   const [apelacionEnviando, setApelacionEnviando] = useState(false);
   const [apelacionEnviada, setApelacionEnviada] = useState(false);
   const [apelacionError, setApelacionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const idVersion = new URLSearchParams(window.location.search).get("version");
+    if (!idVersion) return;
+    fetch(`/api/analisis/${idVersion}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error || !data.texto) {
+          setError(data.error ?? "Ese análisis no tiene el texto guardado, así que no se puede editar.");
+          return;
+        }
+        setVersionDeId(idVersion);
+        setVersionTextoBase(data.texto);
+        setTexto(data.texto);
+        setMetaFecha(data.metaFecha ?? "");
+        setMetaAutor(data.metaAutor ?? "");
+        setMetaMedio(data.metaMedio ?? "");
+        setMetaTitulo(data.metaTitulo ?? "");
+      })
+      .catch(() => setError("No se pudo cargar el análisis que quieres editar."));
+  }, []);
 
   useEffect(() => {
     fetch("/api/usage")
@@ -228,13 +260,19 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await callApiStream<{ problemas: Problema[] }>("/api/step1", { texto });
-      // La llamada ya se hizo y ya consumió cupo real, haya o no problema — se refleja siempre.
-      setQuota((prev) =>
-        prev && !prev.unlimited && typeof prev.remaining === "number"
-          ? { ...prev, remaining: Math.max(0, prev.remaining - 1) }
-          : prev
+      const data = await callApiStream<{ problemas: Problema[] }>(
+        "/api/step1",
+        versionDeId ? { texto, versionDeId } : { texto }
       );
+      // La llamada ya se hizo y ya consumió cupo real, haya o no problema — se refleja siempre. Una versión
+      // nueva no gasta el cupo de análisis (gasta el de Mejora, que se descuenta en el servidor).
+      if (!versionDeId) {
+        setQuota((prev) =>
+          prev && !prev.unlimited && typeof prev.remaining === "number"
+            ? { ...prev, remaining: Math.max(0, prev.remaining - 1) }
+            : prev
+        );
+      }
 
       if (data.problemas.length === 0) {
         setRejected(true);
@@ -441,7 +479,8 @@ export default function Home() {
       // el usuario ya tiene su reporte y puede descargarlo igual; el estado se refleja de forma discreta.
       setGuardadoEstado("guardando");
       try {
-        await callApi("/api/analisis", {
+        const guardado = await callApi<{ id: string; versionNumero?: number }>("/api/analisis", {
+          ...(versionDeId ? { versionAnteriorId: versionDeId } : {}),
           metaFecha,
           metaAutor,
           metaMedio,
@@ -459,6 +498,8 @@ export default function Home() {
           pasajesDescartados,
           identificaciones,
         });
+        setGuardadoId(guardado.id);
+        setGuardadoVersionNumero(guardado.versionNumero ?? null);
         setGuardadoEstado("ok");
       } catch {
         setGuardadoEstado("error");
@@ -573,7 +614,10 @@ export default function Home() {
           mode: "esperando",
           label: "Comenzar análisis",
           onClick: () => setShowConfirm(true),
-          disabled: !texto.trim() || !metaTitulo.trim() || quota?.remaining === 0,
+          disabled:
+            !texto.trim() ||
+            !metaTitulo.trim() ||
+            (versionDeId ? texto.trim() === versionTextoBase.trim() : quota?.remaining === 0),
         }
       : step === 1
       ? { mode: "esperando", label: "Continuar", onClick: runStep2 }
@@ -643,7 +687,14 @@ export default function Home() {
 
       {step === 0 && (
         <div className="card">
-          <h2>Pega el texto de opinión a analizar</h2>
+          <h2>{versionDeId ? "Edita el texto y vuelve a analizarlo" : "Pega el texto de opinión a analizar"}</h2>
+          {versionDeId && (
+            <p className="loading" style={{ marginBottom: "0.75rem" }}>
+              Estás creando una versión nueva de este texto. Cambia lo que quieras (el título o la pregunta, una
+              explicación, una frase). El análisis se hace completo, desde cero, y al final podrás compararlo con la
+              versión anterior.
+            </p>
+          )}
           <textarea
             className="big"
             value={texto}
@@ -710,7 +761,12 @@ export default function Home() {
               El título es obligatorio — la Biblioteca lo usa para identificar el análisis frente a los demás usuarios.
             </p>
           )}
-          {quota && !quota.unlimited && (
+          {versionDeId && texto.trim() === versionTextoBase.trim() && (
+            <p className="loading" style={{ marginTop: "0.5rem" }}>
+              Todavía no has cambiado nada del texto: no hay una versión nueva que analizar.
+            </p>
+          )}
+          {!versionDeId && quota && !quota.unlimited && (
             <p className="loading" style={{ marginTop: "0.75rem" }}>
               {quota.remaining === 0
                 ? `Ya usaste tus ${quota.limit} análisis de esta semana. El cupo se reinicia el próximo lunes.`
@@ -726,7 +782,9 @@ export default function Home() {
                 tardar más y consumir más cuota de la API.
               </p>
               <p style={{ marginBottom: "1rem" }}>
-                {quota && !quota.unlimited
+                {versionDeId
+                  ? "Vas a crear una versión nueva de este texto. Cuenta contra tu cupo de Mejora (no contra el de análisis), y reabrir el mismo texto esta semana no vuelve a gastarlo — ¿es la versión que quieres analizar?"
+                  : quota && !quota.unlimited
                   ? `Te quedan ${quota.remaining} de ${quota.limit} análisis esta semana. Vas a usar uno con este texto — ¿es el que quieres analizar?`
                   : "Vas a iniciar un análisis con este texto — ¿es el que quieres analizar?"}
               </p>
@@ -1203,6 +1261,15 @@ export default function Home() {
           )}
           <div className="report-preview">{reporte}</div>
           <div className="actions">
+            {versionDeId && guardadoId && (
+              <button
+                className="primary"
+                onClick={() => router.push(`/analisis/${guardadoId}/version`)}
+              >
+                Ver qué cambió respecto a la versión anterior
+                {guardadoVersionNumero ? ` (versión ${guardadoVersionNumero})` : ""}
+              </button>
+            )}
             <button onClick={() => window.location.reload()}>Analizar otro texto</button>
             <button
               onClick={() => download(`tripletas-${buildFilenameBase()}.txt`, buildMetaHeader() + buildTripletas())}

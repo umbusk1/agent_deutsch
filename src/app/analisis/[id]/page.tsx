@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { AnalisisGuardado } from "@/lib/analisis";
 
 function download(filename: string, content: string) {
@@ -15,8 +16,19 @@ function download(filename: string, content: string) {
 
 export default function VerAnalisis({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [registro, setRegistro] = useState<AnalisisGuardado | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Solo el autor puede crear una versión nueva (el servidor lo vuelve a comprobar); acá solo se decide si se
+  // muestra el botón.
+  const [usuarioActual, setUsuarioActual] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/usage")
+      .then((res) => res.json())
+      .then((data) => setUsuarioActual(data.username ?? null))
+      .catch(() => setUsuarioActual(null));
+  }, []);
 
   useEffect(() => {
     fetch(`/api/analisis/${id}`)
@@ -44,6 +56,16 @@ export default function VerAnalisis({ params }: { params: Promise<{ id: string }
             {registro.reporte}
           </div>
           <div className="actions">
+            {registro.texto && registro.usuario === usuarioActual && (
+              <button onClick={() => router.push(`/nuevo?version=${registro.id}`)}>
+                Editar y volver a analizar
+              </button>
+            )}
+            {registro.versionAnteriorId && (
+              <button onClick={() => router.push(`/analisis/${registro.id}/version`)}>
+                Ver qué cambió respecto a la versión anterior
+              </button>
+            )}
             <button
               onClick={() =>
                 download(

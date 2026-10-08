@@ -392,6 +392,7 @@ export default function Biblioteca() {
                       )}
                     </div>
                     <span className="badge">{item.totalProblemas}P/{item.problemasConExplicacion}E</span>
+                    {item.versionNumero && <span className="badge">v{item.versionNumero}</span>}
                     {item.hayAlgoMejorable && puedeMejorar(item) && (
                       <Link
                         href={`/analisis/${item.id}/mejora`}
@@ -404,6 +405,11 @@ export default function Biblioteca() {
                     <Link href={`/analisis/${item.id}`}>
                       <button>Ver reporte</button>
                     </Link>
+                    {item.versionNumero && (
+                      <Link href={`/analisis/${item.id}/version`}>
+                        <button>Ver cambios</button>
+                      </Link>
+                    )}
                     {item.tieneTextoV2 && (
                       <Link href={`/analisis/${item.id}/texto-v2`}>
                         <button>Ver TextoV2</button>

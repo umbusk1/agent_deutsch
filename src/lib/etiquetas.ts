@@ -1,4 +1,4 @@
-import type { Veredicto, PasajePersuasivo } from "./types";
+import type { Veredicto, PasajePersuasivo, TipoCambioVersion, EtiquetaTransicion } from "./types";
 
 /**
  * Vocabulario de PRESENTACIÓN: cómo se muestran en pantalla los valores internos de veredicto/mecanismo.
@@ -21,4 +21,22 @@ export const ETIQUETAS_MECANISMO: Record<PasajePersuasivo["mecanismo"], string> 
   Racional: "Abre el argumento",
   AntiRacional: "Cierra el argumento",
   Mixto: "Parcialmente abre el argumento",
+};
+
+/** Vocabulario de PRESENTACIÓN de la comparación entre versiones (los valores internos no cambian). */
+export const ETIQUETAS_CAMBIO_VERSION: Record<TipoCambioVersion, string> = {
+  cosmetico: "Solo redacción",
+  problema: "Cambia el problema",
+  explicacion_anadida: "Explicación añadida",
+  explicacion_quitada: "Explicación quitada",
+  contenido_sin_explicacion: "Contenido que no explica",
+  afirmacion_modificada: "Afirmación modificada",
+};
+
+export const ETIQUETAS_TRANSICION: Record<EtiquetaTransicion, string> = {
+  avance: "Avance: de Frágil a Firme",
+  sin_cambio: "Sin cambio",
+  cambio: "Cambió",
+  no_comparable: "No comparable: cambió el problema",
+  sin_pareja: "Sin pareja en la versión anterior",
 };

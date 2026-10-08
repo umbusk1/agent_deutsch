@@ -238,3 +238,66 @@ export type MejoraSesionPasaje = {
 };
 
 export type MejoraSesion = MejoraSesionExplicacion | MejoraSesionPasaje;
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Mejora con versiones (2026-10): cada modificación del texto es una VERSIÓN que pasa de nuevo por todo el
+// pipeline, y un paso aparte la compara con la versión anterior. Nada de esto toca los tipos de arriba.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Los seis tipos de cambio entre dos versiones. Los cuatro primeros vienen de la Prueba 2; los dos últimos
+ * son nuevos y todavía no se han probado (ver el documento de diseño). "varios" ya no existe: cada cambio va
+ * como un elemento aparte de la lista. */
+export type TipoCambioVersion =
+  | "cosmetico"
+  | "problema"
+  | "explicacion_anadida"
+  | "explicacion_quitada"
+  | "contenido_sin_explicacion"
+  | "afirmacion_modificada";
+
+export type CitaVerificadaVersion = {
+  texto: string;
+  vacia: boolean;
+  /** null cuando la cita está vacía (ni válida ni inválida). */
+  valida: boolean | null;
+  partes: number;
+};
+
+export type CambioVersion = {
+  tipo: TipoCambioVersion;
+  /** Fragmento literal de la versión anterior (vacío si el cambio solo agrega texto). */
+  citaAnterior: CitaVerificadaVersion;
+  /** Fragmento literal de la versión nueva (vacío si el cambio solo quita texto). */
+  citaNueva: CitaVerificadaVersion;
+  comentario: string;
+};
+
+export type EtiquetaTransicion = "sin_pareja" | "sin_cambio" | "avance" | "cambio" | "no_comparable";
+
+/** Qué pasó con UNA explicación de la versión nueva respecto a la anterior. "avance" solo existe cuando una
+ * explicación pasó de Frágil a Firme y el problema NO cambió entre versiones. Nunca se llama "mejora" ni
+ * "retroceso": la app señala, no juzga. */
+export type TransicionExplicacion = {
+  explicacionNuevaId: string;
+  /** null = sin pareja en la versión anterior (explicación nueva, o el modelo no pudo emparejarla). */
+  explicacionAnteriorId: string | null;
+  veredictoAnterior: Veredicto["veredicto"] | null;
+  veredictoNuevo: Veredicto["veredicto"] | null;
+  etiqueta: EtiquetaTransicion;
+  razonPareja: string;
+};
+
+export type ComparacionVersiones = {
+  /** Es también el id de este registro: hay una comparación por versión nueva. */
+  analisisNuevoId: string;
+  analisisAnteriorId: string;
+  creadoPor: string;
+  creadoEn: string;
+  cambios: CambioVersion[];
+  /** true si algún cambio de la lista es de tipo "problema" — decide en código si las transiciones se pueden
+   * comparar explicación por explicación o no. */
+  cambioElProblema: boolean;
+  transiciones: TransicionExplicacion[];
+  /** Explicaciones de la versión anterior que no quedaron emparejadas con ninguna de la nueva. */
+  explicacionesAnterioresSinPareja: string[];
+};
