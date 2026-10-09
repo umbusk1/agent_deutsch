@@ -415,6 +415,13 @@ export default function Biblioteca() {
                         <button>Ver TextoV2</button>
                       </Link>
                     )}
+                    {item.tieneTexto && puedeMejorar(item) && (
+                      <Link href={`/nuevo?version=${item.id}`}>
+                        <button title="Crear una versión nueva de este texto y analizarla de nuevo">
+                          Editar y volver a analizar
+                        </button>
+                      </Link>
+                    )}
                     {puedeEditar(item) && <button onClick={() => comenzarEdicion(item)}>Editar</button>}
                     {identidad?.isAdmin &&
                       (deletingAnalisisId === item.id ? (

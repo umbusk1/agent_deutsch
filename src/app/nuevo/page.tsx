@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSetAppChrome } from "@/lib/appChrome";
 import { Loader } from "@/components/Loader";
@@ -101,6 +101,18 @@ export default function Home() {
   // un límite de Suspense en toda la página.
   const [versionDeId, setVersionDeId] = useState<string | null>(null);
   const [versionTextoBase, setVersionTextoBase] = useState("");
+  // Lo que el análisis de la versión anterior encontró, para mostrarlo junto al editor: sin esto el usuario
+  // edita a ciegas, sin saber qué explicaciones salieron frágiles ni qué frases cierran el argumento.
+  const [versionHallazgos, setVersionHallazgos] = useState<{
+    problemas: Problema[];
+    explicaciones: Explicacion[];
+    veredictos: Veredicto[];
+    pasajes: PasajePersuasivo[];
+  } | null>(null);
+  // Texto con las Mejoras por fragmento ya aplicadas (TextoV2), si existe: se ofrece como punto de partida.
+  const [versionTextoV2, setVersionTextoV2] = useState<string | null>(null);
+  const [ubicarAviso, setUbicarAviso] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [guardadoId, setGuardadoId] = useState<string | null>(null);
   const [guardadoVersionNumero, setGuardadoVersionNumero] = useState<number | null>(null);
 
@@ -129,9 +141,43 @@ export default function Home() {
         setMetaAutor(data.metaAutor ?? "");
         setMetaMedio(data.metaMedio ?? "");
         setMetaTitulo(data.metaTitulo ?? "");
+        setVersionHallazgos({
+          problemas: data.problemas ?? [],
+          explicaciones: data.explicaciones ?? [],
+          veredictos: data.veredictos ?? [],
+          pasajes: data.pasajesPersuasivos ?? [],
+        });
+        // Si el usuario ya aplicó Mejoras por fragmento, TextoV2 existe: se ofrece como punto de partida.
+        fetch(`/api/analisis/${idVersion}/texto-v2`)
+          .then((res) => res.json())
+          .then((v2) => {
+            if (typeof v2.texto === "string" && v2.texto.trim() && v2.texto !== data.texto) {
+              setVersionTextoV2(v2.texto);
+            }
+          })
+          .catch(() => {
+            // Sin TextoV2 simplemente no se ofrece el atajo.
+          });
       })
       .catch(() => setError("No se pudo cargar el análisis que quieres editar."));
   }, []);
+
+  // Selecciona la frase en la caja de texto y la lleva a la vista. Un textarea no puede pintar resaltados, así
+  // que "ubicar" usa la selección nativa; si la frase ya cambió, se dice en vez de fallar en silencio.
+  function ubicarEnTexto(cita: string) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const idx = texto.indexOf(cita);
+    if (idx === -1) {
+      setUbicarAviso("Esa frase ya no está tal cual en el texto: la cambiaste, o el texto de partida es otro.");
+      return;
+    }
+    setUbicarAviso(null);
+    el.focus();
+    el.setSelectionRange(idx, idx + cita.length);
+    el.scrollTop = Math.max(0, (idx / Math.max(texto.length, 1)) * el.scrollHeight - el.clientHeight / 2);
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
 
   useEffect(() => {
     fetch("/api/usage")
@@ -695,12 +741,108 @@ export default function Home() {
               versión anterior.
             </p>
           )}
-          <textarea
-            className="big"
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            placeholder="Pega aquí el artículo o ensayo..."
-          />
+          <div
+            style={
+              versionDeId && versionHallazgos
+                ? { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1rem", alignItems: "start" }
+                : undefined
+            }
+          >
+            <div>
+              {versionDeId && versionTextoV2 && (
+                <p style={{ marginBottom: "0.5rem" }}>
+                  <button
+                    onClick={() => {
+                      setTexto(versionTextoV2);
+                      setUbicarAviso(null);
+                    }}
+                  >
+                    Partir del texto con mis Mejoras ya aplicadas
+                  </button>
+                </p>
+              )}
+              <textarea
+                ref={textareaRef}
+                className="big"
+                style={versionDeId ? { minHeight: "460px" } : undefined}
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                placeholder="Pega aquí el artículo o ensayo..."
+              />
+              {ubicarAviso && <p className="warning-note">{ubicarAviso}</p>}
+            </div>
+
+            {versionDeId && versionHallazgos && (
+              <div
+                className="card"
+                style={{ margin: 0, maxHeight: "75vh", overflowY: "auto", position: "sticky", top: "1rem" }}
+              >
+                <h3>Qué encontró el análisis en la versión anterior</h3>
+                <p className="loading" style={{ marginBottom: "0.75rem" }}>
+                  Es una guía para decidir qué cambiar, no una orden. «Firme» no quiere decir que la explicación sea
+                  verdadera: solo que todavía no se ha podido cambiar sin que deje de explicar.
+                </p>
+
+                <div className="item-label">
+                  <span>Problema que plantea el texto</span>
+                </div>
+                {versionHallazgos.problemas.map((p) => (
+                  <p className="quote" key={p.id}>
+                    {p.enunciado}
+                  </p>
+                ))}
+                <p className="loading" style={{ marginBottom: "1rem" }}>
+                  Si cambias cómo se plantea el problema, el análisis de todo lo demás cambia con él.
+                </p>
+
+                <div className="item-label">
+                  <span>Explicaciones (las más frágiles primero)</span>
+                </div>
+                {[...versionHallazgos.explicaciones]
+                  .sort((a, b) => {
+                    const orden = { FacilDeVariar: 0, Mixta: 1, SinSustitutoGenuino: 2, DificilDeVariar: 3 } as const;
+                    const va = versionHallazgos.veredictos.find((v) => v.explicacionId === a.id)?.veredicto;
+                    const vb = versionHallazgos.veredictos.find((v) => v.explicacionId === b.id)?.veredicto;
+                    return (va ? orden[va] : 4) - (vb ? orden[vb] : 4);
+                  })
+                  .map((e) => {
+                    const v = versionHallazgos.veredictos.find((x) => x.explicacionId === e.id);
+                    return (
+                      <div className="item" key={e.id}>
+                        <div className="item-label">
+                          <span className="badge">{e.id}</span>
+                          <span className="badge">{v ? ETIQUETAS_VEREDICTO[v.veredicto] : "Sin resultado"}</span>
+                        </div>
+                        <p className="quote">{e.resumen}</p>
+                        {v?.justificacion && <p className="loading">{v.justificacion}</p>}
+                        <button onClick={() => ubicarEnTexto(e.cita)}>Ubicar en el texto</button>
+                      </div>
+                    );
+                  })}
+
+                {versionHallazgos.pasajes.some((p) => p.mecanismo !== "Racional") && (
+                  <>
+                    <div className="item-label" style={{ marginTop: "1rem" }}>
+                      <span>Pasajes que cierran el argumento en vez de abrirlo</span>
+                    </div>
+                    {versionHallazgos.pasajes
+                      .filter((p) => p.mecanismo !== "Racional")
+                      .map((p) => (
+                        <div className="item" key={p.id}>
+                          <div className="item-label">
+                            <span className="badge">{p.id}</span>
+                            <span className="badge">{ETIQUETAS_MECANISMO[p.mecanismo]}</span>
+                          </div>
+                          <p className="quote">{p.cita}</p>
+                          {p.justificacion && <p className="loading">{p.justificacion}</p>}
+                          <button onClick={() => ubicarEnTexto(p.cita)}>Ubicar en el texto</button>
+                        </div>
+                      ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <div
             style={{
               display: "grid",

@@ -109,6 +109,8 @@ export type AnalisisResumen = {
   editadoEn?: string;
   /** Solo para versiones 2 en adelante (ver AnalisisGuardado.versionNumero). */
   versionNumero?: number;
+  /** Si el análisis guardó el texto original (los más viejos no): sin él no se puede crear una versión nueva. */
+  tieneTexto: boolean;
 };
 
 export function iniciales(nombreCompleto: string | undefined, fallback: string): string {
@@ -252,6 +254,7 @@ export async function listarAnalisis(): Promise<AnalisisResumen[]> {
         editadoPor: r.editadoPor,
         editadoEn: r.editadoEn,
         ...(r.versionNumero !== undefined ? { versionNumero: r.versionNumero } : {}),
+        tieneTexto: Boolean(r.texto && r.explicaciones && r.veredictos),
       };
     })
   );
